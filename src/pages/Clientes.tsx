@@ -255,9 +255,14 @@ export default function Clientes() {
               ))}
             </div>
 
-            <div className="flex justify-end gap-3 pt-2">
-              <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
-              <Button onClick={saveClient}>Salvar</Button>
+            <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setShowForm(false)} className="w-full sm:w-auto">Cancelar</Button>
+              {!editCpf && (
+                <Button variant="outline" onClick={() => saveClient(true)} className="w-full sm:w-auto">
+                  <Wrench className="w-4 h-4 mr-2" /> Salvar + Serviço
+                </Button>
+              )}
+              <Button onClick={() => saveClient()} className="w-full sm:w-auto">Salvar</Button>
             </div>
           </div>
         </DialogContent>
