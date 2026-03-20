@@ -1,0 +1,1 @@
+ALTER TABLE maquininhas ADD COLUMN taxa_pix_maquina numeric NOT NULL DEFAULT 0;

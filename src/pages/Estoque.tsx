@@ -5,6 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Plus, Search } from 'lucide-react';
 import { formatCurrency } from '@/lib/format';
 import { toast } from 'sonner';
@@ -114,8 +115,8 @@ export default function Estoque() {
             </div>
             <div><Label>Quantidade</Label><Input type="number" value={form.quantidade} onChange={e => setForm({ ...form, quantidade: e.target.value })} className="bg-card border-border" /></div>
             <div className="grid grid-cols-2 gap-3">
-              <div><Label>Valor Médio Compra (R$)</Label><Input type="number" step="0.01" value={form.valor_medio_compra} onChange={e => setForm({ ...form, valor_medio_compra: e.target.value })} className="bg-card border-border" /></div>
-              <div><Label>Valor Venda (R$)</Label><Input type="number" step="0.01" value={form.valor_venda} onChange={e => setForm({ ...form, valor_venda: e.target.value })} className="bg-card border-border" /></div>
+              <div><Label>Valor Médio Compra (R$)</Label><CurrencyInput value={form.valor_medio_compra} onChange={v => setForm({ ...form, valor_medio_compra: v })} className="bg-card border-border" /></div>
+              <div><Label>Valor Venda (R$)</Label><CurrencyInput value={form.valor_venda} onChange={v => setForm({ ...form, valor_venda: v })} className="bg-card border-border" /></div>
             </div>
             <div className="flex justify-end gap-3"><Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button><Button onClick={save}>Salvar</Button></div>
           </div>
