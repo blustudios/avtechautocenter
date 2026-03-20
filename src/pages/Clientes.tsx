@@ -304,6 +304,14 @@ export default function Clientes() {
           )}
         </DialogContent>
       </Dialog>
+
+      {serviceForCpf && (
+        <ServiceDialog
+          open={!!serviceForCpf}
+          defaultClienteCpf={serviceForCpf}
+          onClose={() => { setServiceForCpf(null); }}
+        />
+      )}
     </div>
   );
 }
