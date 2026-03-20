@@ -77,7 +77,7 @@ export default function Clientes() {
     fetchClientes();
   };
 
-  const saveClient = async () => {
+  const saveClient = async (openService = false) => {
     const cpf = form.cpf.replace(/\D/g, '');
     if (cpf.length !== 11) { toast.error('CPF inválido'); return; }
     if (!form.nome.trim()) { toast.error('Nome obrigatório'); return; }
@@ -86,14 +86,12 @@ export default function Clientes() {
 
     if (editCpf) {
       await supabase.from('clientes').update(data).eq('cpf', editCpf);
-      // Delete old cars and re-insert
       await supabase.from('carros').delete().eq('cliente_cpf', editCpf);
     } else {
       const { error } = await supabase.from('clientes').insert(data);
       if (error?.code === '23505') { toast.error('CPF já cadastrado'); return; }
     }
 
-    // Insert cars
     const validCars = carForms.filter(c => c.placa.trim());
     if (validCars.length) {
       const { error } = await supabase.from('carros').insert(
@@ -113,6 +111,10 @@ export default function Clientes() {
     setShowForm(false);
     setEditCpf(null);
     fetchClientes();
+
+    if (openService) {
+      setServiceForCpf(formatted);
+    }
   };
 
   const filtered = clientes.filter(c => {
