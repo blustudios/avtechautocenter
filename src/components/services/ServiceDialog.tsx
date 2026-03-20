@@ -226,6 +226,22 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, onClose }: P
     setLoading(false);
   };
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleDelete = async () => {
+    if (!serviceId) return;
+    try {
+      await supabase.from('servicos_itens').delete().eq('servico_id', serviceId);
+      await supabase.from('servicos_pagamentos').delete().eq('servico_id', serviceId);
+      await supabase.from('servicos_custos').delete().eq('servico_id', serviceId);
+      await supabase.from('servicos').delete().eq('id', serviceId);
+      toast.success('Serviço excluído!');
+      onClose();
+    } catch {
+      toast.error('Erro ao excluir serviço');
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-popover border-border">
