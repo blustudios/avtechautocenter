@@ -33,13 +33,11 @@ export function formatPlaca(value: string): string {
 export const statusLabels: Record<string, string> = {
   a_iniciar: 'À Iniciar',
   em_progresso: 'Em Progresso',
-  aguardando_peca: 'Aguardando Peça',
   entregue: 'Entregue',
 };
 
 export const paymentStatusLabels: Record<string, string> = {
-  pendente: 'Pendente',
-  parcial: 'Parcial',
+  pendente: 'Aguardando Pagamento',
   pago: 'Pago',
 };
 
@@ -50,4 +48,14 @@ export const tiposPagamento = [
   'Crédito à vista',
   'Crédito Parcelado',
   'Dinheiro',
+];
+
+export const CAR_COLORS = [
+  { label: 'Branco', hex: '#FFFFFF' },
+  { label: 'Cinza', hex: '#9CA3AF' },
+  { label: 'Preto', hex: '#000000' },
+  { label: 'Azul', hex: '#3B82F6' },
+  { label: 'Vermelho', hex: '#EF4444' },
+  { label: 'Amarelo', hex: '#EAB308' },
+  { label: 'Verde', hex: '#22C55E' },
 ];

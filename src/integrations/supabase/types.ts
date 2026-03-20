@@ -141,6 +141,7 @@ export type Database = {
           endereco: string | null
           id: string
           identificacao_extrato: string | null
+          itens_fornecidos: string | null
           nome: string
           telefone: string | null
         }
@@ -149,6 +150,7 @@ export type Database = {
           endereco?: string | null
           id?: string
           identificacao_extrato?: string | null
+          itens_fornecidos?: string | null
           nome: string
           telefone?: string | null
         }
@@ -157,6 +159,7 @@ export type Database = {
           endereco?: string | null
           id?: string
           identificacao_extrato?: string | null
+          itens_fornecidos?: string | null
           nome?: string
           telefone?: string | null
         }

@@ -75,7 +75,6 @@ export function ServiceDialog({ open, serviceId, onClose }: Props) {
             valor_total: String(sv.valor_total),
             observacoes: sv.observacoes || '',
           });
-          // Load carros for selected client
           if (sv.cliente_cpf) {
             const { data: carrosData } = await supabase.from('carros').select('*').eq('cliente_cpf', sv.cliente_cpf);
             setCarros(carrosData || []);
@@ -271,7 +270,6 @@ export function ServiceDialog({ open, serviceId, onClose }: Props) {
                 <SelectContent>
                   <SelectItem value="a_iniciar">À Iniciar</SelectItem>
                   <SelectItem value="em_progresso">Em Progresso</SelectItem>
-                  <SelectItem value="aguardando_peca">Aguardando Peça</SelectItem>
                   <SelectItem value="entregue">Entregue</SelectItem>
                 </SelectContent>
               </Select>
@@ -299,6 +297,48 @@ export function ServiceDialog({ open, serviceId, onClose }: Props) {
             <Button variant="ghost" size="sm" onClick={() => setItens([...itens, { descricao: '' }])}>
               <Plus className="w-4 h-4 mr-1" /> Adicionar
             </Button>
+          </div>
+
+          {/* Totals */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label>Valor Total do Serviço (R$)</Label>
+              <Input type="number" step="0.01" value={form.valor_total} onChange={e => setForm({ ...form, valor_total: e.target.value })} className="bg-card border-border" />
+            </div>
+            <div>
+              <Label>Valor Líquido</Label>
+              <Input value={formatCurrency(valorLiquido)} readOnly className="bg-card border-border" />
+            </div>
+          </div>
+
+          {/* Costs - moved before payments */}
+          <div>
+            <Label className="mb-2 block">Custos</Label>
+            {custos.map((c, i) => (
+              <div key={i} className="flex gap-2 mb-2 flex-wrap">
+                <Input value={c.item} onChange={e => { const n = [...custos]; n[i].item = e.target.value; setCustos(n); }}
+                  placeholder="Item" className="bg-card border-border flex-1 min-w-[120px]" />
+                <Input type="number" value={c.quantidade} onChange={e => { const n = [...custos]; n[i].quantidade = e.target.value; setCustos(n); }}
+                  placeholder="Qtd" className="bg-card border-border w-20" />
+                <Select value={c.fornecedor_id} onValueChange={v => { const n = [...custos]; n[i].fornecedor_id = v; setCustos(n); }}>
+                  <SelectTrigger className="bg-card border-border w-40"><SelectValue placeholder="Fornecedor" /></SelectTrigger>
+                  <SelectContent>
+                    {fornecedores.map(f => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <Input type="number" step="0.01" value={c.valor} onChange={e => { const n = [...custos]; n[i].valor = e.target.value; setCustos(n); }}
+                  placeholder="Valor" className="bg-card border-border w-28" />
+                {custos.length > 1 && (
+                  <Button variant="ghost" size="icon" onClick={() => setCustos(custos.filter((_, j) => j !== i))}>
+                    <X className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            ))}
+            <Button variant="ghost" size="sm" onClick={() => setCustos([...custos, { item: '', quantidade: '1', fornecedor_id: '', valor: '' }])}>
+              <Plus className="w-4 h-4 mr-1" /> Adicionar Custo
+            </Button>
+            <p className="text-sm text-muted-foreground mt-1">Total de Custos: {formatCurrency(custoTotal)}</p>
           </div>
 
           {/* Payments */}
@@ -366,48 +406,6 @@ export function ServiceDialog({ open, serviceId, onClose }: Props) {
             </Button>
           </div>
 
-          {/* Totals */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label>Valor Total do Serviço (R$)</Label>
-              <Input type="number" step="0.01" value={form.valor_total} onChange={e => setForm({ ...form, valor_total: e.target.value })} className="bg-card border-border" />
-            </div>
-            <div>
-              <Label>Valor Líquido</Label>
-              <Input value={formatCurrency(valorLiquido)} readOnly className="bg-card border-border" />
-            </div>
-          </div>
-
-          {/* Costs */}
-          <div>
-            <Label className="mb-2 block">Custos</Label>
-            {custos.map((c, i) => (
-              <div key={i} className="flex gap-2 mb-2 flex-wrap">
-                <Input value={c.item} onChange={e => { const n = [...custos]; n[i].item = e.target.value; setCustos(n); }}
-                  placeholder="Item" className="bg-card border-border flex-1 min-w-[120px]" />
-                <Input type="number" value={c.quantidade} onChange={e => { const n = [...custos]; n[i].quantidade = e.target.value; setCustos(n); }}
-                  placeholder="Qtd" className="bg-card border-border w-20" />
-                <Select value={c.fornecedor_id} onValueChange={v => { const n = [...custos]; n[i].fornecedor_id = v; setCustos(n); }}>
-                  <SelectTrigger className="bg-card border-border w-40"><SelectValue placeholder="Fornecedor" /></SelectTrigger>
-                  <SelectContent>
-                    {fornecedores.map(f => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Input type="number" step="0.01" value={c.valor} onChange={e => { const n = [...custos]; n[i].valor = e.target.value; setCustos(n); }}
-                  placeholder="Valor" className="bg-card border-border w-28" />
-                {custos.length > 1 && (
-                  <Button variant="ghost" size="icon" onClick={() => setCustos(custos.filter((_, j) => j !== i))}>
-                    <X className="w-4 h-4" />
-                  </Button>
-                )}
-              </div>
-            ))}
-            <Button variant="ghost" size="sm" onClick={() => setCustos([...custos, { item: '', quantidade: '1', fornecedor_id: '', valor: '' }])}>
-              <Plus className="w-4 h-4 mr-1" /> Adicionar Custo
-            </Button>
-            <p className="text-sm text-muted-foreground mt-1">Total de Custos: {formatCurrency(custoTotal)}</p>
-          </div>
-
           {/* Payment status & profit */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -415,8 +413,7 @@ export function ServiceDialog({ open, serviceId, onClose }: Props) {
               <Select value={form.status_pagamento} onValueChange={v => setForm({ ...form, status_pagamento: v })}>
                 <SelectTrigger className="bg-card border-border"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pendente">Pendente</SelectItem>
-                  <SelectItem value="parcial">Parcial</SelectItem>
+                  <SelectItem value="pendente">Aguardando Pagamento</SelectItem>
                   <SelectItem value="pago">Pago</SelectItem>
                 </SelectContent>
               </Select>
