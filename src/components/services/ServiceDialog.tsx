@@ -248,7 +248,11 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
     <Dialog open={open} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-popover border-border">
         <DialogHeader>
-          <DialogTitle>{isEdit ? 'Editar Serviço' : 'Novo Serviço'}</DialogTitle>
+          <DialogTitle>
+            {isEdit 
+              ? (isEdit && !form.cliente_cpf && !showClientFields ? 'Editar Serviço Rápido' : 'Editar Serviço')
+              : (quickMode ? 'Serviço Rápido' : 'Novo Serviço')}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -260,28 +264,36 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                 <Input value={form.id} readOnly className="bg-card border-border" />
               </div>
             )}
-            <div>
-              <Label>Cliente</Label>
-              <Select value={form.cliente_cpf} onValueChange={v => setForm({ ...form, cliente_cpf: v, carro_placa: '' })}>
-                <SelectTrigger className="bg-card border-border"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                <SelectContent>
-                  {clientes.map(c => (
-                    <SelectItem key={c.cpf} value={c.cpf}>{c.nome} · {c.cpf}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Carro</Label>
-              <Select value={form.carro_placa} onValueChange={v => setForm({ ...form, carro_placa: v })}>
-                <SelectTrigger className="bg-card border-border"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                <SelectContent>
-                  {carros.map(c => (
-                    <SelectItem key={c.placa} value={c.placa}>{c.marca} {c.modelo} · {c.placa}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Show client/car fields unless quickMode on create, or quick service in edit without showClientFields */}
+            {((!quickMode && !isEdit) || (isEdit && (form.cliente_cpf || showClientFields)) || (!isEdit && !quickMode) || showClientFields) && (() => {
+              const shouldShow = quickMode && !isEdit ? false : !(isEdit && !form.cliente_cpf && !showClientFields);
+              return shouldShow;
+            })() && (
+              <>
+                <div>
+                  <Label>Cliente</Label>
+                  <Select value={form.cliente_cpf} onValueChange={v => setForm({ ...form, cliente_cpf: v, carro_placa: '' })}>
+                    <SelectTrigger className="bg-card border-border"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      {clientes.map(c => (
+                        <SelectItem key={c.cpf} value={c.cpf}>{c.nome} · {c.cpf}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Carro</Label>
+                  <Select value={form.carro_placa} onValueChange={v => setForm({ ...form, carro_placa: v })}>
+                    <SelectTrigger className="bg-card border-border"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      {carros.map(c => (
+                        <SelectItem key={c.placa} value={c.placa}>{c.marca} {c.modelo} · {c.placa}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
             <div>
               <Label>Data de Entrada</Label>
               <Input type="date" value={form.data_entrada} onChange={e => setForm({ ...form, data_entrada: e.target.value })} className="bg-card border-border" />
