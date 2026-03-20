@@ -41,6 +41,7 @@ export default function Servicos() {
   const [showCreate, setShowCreate] = useState(false);
   const [viewService, setViewService] = useState<string | null>(null);
   const [editService, setEditService] = useState<string | null>(null);
+  const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchServicos = async () => {
