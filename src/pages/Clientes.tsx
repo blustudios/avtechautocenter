@@ -164,6 +164,9 @@ export default function Clientes() {
                 <DropdownMenuItem onClick={e => { e.stopPropagation(); openEditClient(c.cpf); }}>
                   <Pencil className="w-4 h-4 mr-2" /> Editar
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={e => { e.stopPropagation(); setServiceForCpf(c.cpf); }}>
+                  <Wrench className="w-4 h-4 mr-2" /> Adicionar Serviço
+                </DropdownMenuItem>
                 <DropdownMenuItem onClick={e => { e.stopPropagation(); deleteClient(c.cpf); }} className="text-destructive">
                   <Trash2 className="w-4 h-4 mr-2" /> Excluir
                 </DropdownMenuItem>
