@@ -34,6 +34,8 @@ export default function Clientes() {
 
   const [form, setForm] = useState({ cpf: '', nome: '', email: '', whatsapp: '' });
   const [carForms, setCarForms] = useState<CarForm[]>([]);
+  const [pendingCarConflict, setPendingCarConflict] = useState<{ placa: string; index: number } | null>(null);
+  const [pendingSaveOpenService, setPendingSaveOpenService] = useState(false);
 
   const fetchClientes = async () => {
     const { data } = await supabase.from('clientes').select('*, carros(placa, marca, modelo)').order('nome');
