@@ -129,38 +129,43 @@ export default function Servicos() {
       </div>
 
       {/* Date filter */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <span className="text-sm text-muted-foreground">Período:</span>
-        {(['all', '3days', '7days', 'custom'] as DatePreset[]).map(preset => (
-          <Button
-            key={preset}
-            variant={datePreset === preset ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => { setDatePreset(preset); if (preset !== 'custom') { setDateFrom(undefined); setDateTo(undefined); } }}
-          >
-            {preset === 'all' ? 'Todos' : preset === '3days' ? 'Últimos 3 dias' : preset === '7days' ? 'Últimos 7 dias' : 'Personalizado'}
-          </Button>
-        ))}
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-2 items-center">
+          <span className="text-sm text-muted-foreground shrink-0">Período:</span>
+          <div className="flex gap-1.5 overflow-x-auto pb-1">
+            {(['all', '3days', '7days', 'custom'] as DatePreset[]).map(preset => (
+              <Button
+                key={preset}
+                variant={datePreset === preset ? 'default' : 'outline'}
+                size="sm"
+                className="shrink-0 text-xs sm:text-sm"
+                onClick={() => { setDatePreset(preset); if (preset !== 'custom') { setDateFrom(undefined); setDateTo(undefined); } }}
+              >
+                {preset === 'all' ? 'Todos' : preset === '3days' ? '3 dias' : preset === '7days' ? '7 dias' : 'Personalizado'}
+              </Button>
+            ))}
+          </div>
+        </div>
 
         {datePreset === 'custom' && (
-          <div className="flex gap-2 items-center">
+          <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className={cn('gap-1.5', !dateFrom && 'text-muted-foreground')}>
+                <Button variant="outline" size="sm" className={cn('gap-1.5 w-full sm:w-auto', !dateFrom && 'text-muted-foreground')}>
                   <CalendarIcon className="w-3.5 h-3.5" />
-                  {dateFrom ? format(dateFrom, 'dd/MM/yyyy') : 'Início'}
+                  {dateFrom ? format(dateFrom, 'dd/MM/yyyy') : 'Data início'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus className="p-3 pointer-events-auto" locale={ptBR} />
               </PopoverContent>
             </Popover>
-            <span className="text-muted-foreground text-sm">até</span>
+            <span className="text-muted-foreground text-sm hidden sm:inline">até</span>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className={cn('gap-1.5', !dateTo && 'text-muted-foreground')}>
+                <Button variant="outline" size="sm" className={cn('gap-1.5 w-full sm:w-auto', !dateTo && 'text-muted-foreground')}>
                   <CalendarIcon className="w-3.5 h-3.5" />
-                  {dateTo ? format(dateTo, 'dd/MM/yyyy') : 'Fim'}
+                  {dateTo ? format(dateTo, 'dd/MM/yyyy') : 'Data fim'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">

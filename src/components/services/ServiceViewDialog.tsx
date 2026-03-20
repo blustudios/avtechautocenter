@@ -55,7 +55,7 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
   return (
     <>
       <Dialog open={open} onOpenChange={() => onClose()}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-popover border-border">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-popover border-border w-[95vw] sm:w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3 flex-wrap">
               <span className="font-mono text-primary">{service.id}</span>
@@ -70,7 +70,7 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
                 <User className="w-3.5 h-3.5" /> Informações
               </h4>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Cliente</span>
                   <p className="text-foreground font-medium">{client?.nome || '—'}</p>
@@ -143,7 +143,7 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
 
             <Separator />
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="bg-card rounded-lg p-3">
                 <span className="text-xs text-muted-foreground">Total</span>
                 <p className="text-lg font-semibold">{formatCurrency(Number(service.valor_total))}</p>
@@ -178,11 +178,11 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
 
             <Separator />
 
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={generateReceipt}>
+            <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
+              <Button variant="outline" onClick={generateReceipt} className="w-full sm:w-auto">
                 <FileImage className="w-4 h-4 mr-2" /> Gerar Recibo
               </Button>
-              <Button onClick={() => onEdit(serviceId)}>
+              <Button onClick={() => onEdit(serviceId)} className="w-full sm:w-auto">
                 <Pencil className="w-4 h-4 mr-2" /> Editar
               </Button>
             </div>
