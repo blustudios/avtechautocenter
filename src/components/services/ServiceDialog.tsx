@@ -475,11 +475,18 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
           </div>
 
           <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3 pt-4 border-t border-border">
-            {isEdit ? (
-              <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)} className="w-full sm:w-auto">
-                <Trash2 className="w-4 h-4 mr-2" /> Excluir
-              </Button>
-            ) : <div />}
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              {isEdit && (
+                <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)} className="w-full sm:w-auto">
+                  <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                </Button>
+              )}
+              {isEdit && !form.cliente_cpf && !showClientFields && (
+                <Button variant="outline" onClick={() => setShowClientFields(true)} className="w-full sm:w-auto border-primary/50 text-primary hover:bg-primary/10">
+                  <UserPlus className="w-4 h-4 mr-2" /> Atribuir Cliente
+                </Button>
+              )}
+            </div>
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
               <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">Cancelar</Button>
               <Button onClick={handleSave} disabled={loading} className="w-full sm:w-auto">
