@@ -22,6 +22,7 @@ interface Props {
 export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, onClose }: Props) {
   const isEdit = !!serviceId;
   const [showClientFields, setShowClientFields] = useState(false);
+  const [quickCar, setQuickCar] = useState({ marca: '', modelo: '', placa: '' });
   const [loading, setLoading] = useState(false);
   const [clientes, setClientes] = useState<any[]>([]);
   const [carros, setCarros] = useState<any[]>([]);
