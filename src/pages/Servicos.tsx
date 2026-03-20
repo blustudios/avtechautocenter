@@ -249,6 +249,33 @@ export default function Servicos() {
           onClose={() => { setEditService(null); fetchServicos(); }}
         />
       )}
+
+      <AlertDialog open={!!deleteServiceId} onOpenChange={() => setDeleteServiceId(null)}>
+        <AlertDialogContent className="bg-popover border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Serviço</AlertDialogTitle>
+            <AlertDialogDescription>Deseja excluir essa entrada permanentemente?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                const id = deleteServiceId!;
+                await supabase.from('servicos_itens').delete().eq('servico_id', id);
+                await supabase.from('servicos_pagamentos').delete().eq('servico_id', id);
+                await supabase.from('servicos_custos').delete().eq('servico_id', id);
+                await supabase.from('servicos').delete().eq('id', id);
+                toast.success('Serviço excluído!');
+                setDeleteServiceId(null);
+                fetchServicos();
+              }}
+            >
+              Sim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
