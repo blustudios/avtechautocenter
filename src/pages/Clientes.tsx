@@ -370,6 +370,21 @@ export default function Clientes() {
           onClose={() => { setServiceForCpf(null); }}
         />
       )}
+
+      <AlertDialog open={!!pendingCarConflict} onOpenChange={() => setPendingCarConflict(null)}>
+        <AlertDialogContent className="bg-popover border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Carro já cadastrado</AlertDialogTitle>
+            <AlertDialogDescription>
+              O carro com placa <strong>{pendingCarConflict?.placa}</strong> já está cadastrado no sistema sem um cliente vinculado. Deseja adicioná-lo a este cliente?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCarConflictCancel}>Não</AlertDialogCancel>
+            <AlertDialogAction onClick={handleCarConflictConfirm}>Sim</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
