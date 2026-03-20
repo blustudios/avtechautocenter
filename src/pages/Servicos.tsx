@@ -205,8 +205,23 @@ export default function Servicos() {
                   {' · '}{new Date(s.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR')}
                 </p>
               </div>
-              <div className="text-right">
+              <div className="flex items-center gap-2">
                 <p className="text-lg font-semibold text-foreground">{formatCurrency(Number(s.valor_total))}</p>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" className="shrink-0">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={e => { e.stopPropagation(); setEditService(s.id); }}>
+                      <Pencil className="w-4 h-4 mr-2" /> Editar
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={e => { e.stopPropagation(); setDeleteServiceId(s.id); }} className="text-destructive">
+                      <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           ))}
