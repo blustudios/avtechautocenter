@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
 import { formatCurrency } from '@/lib/format';
-import { Plus, Search, CalendarIcon, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Search, CalendarIcon, MoreHorizontal, Pencil, Trash2, Zap } from 'lucide-react';
 import { ServiceDialog } from '@/components/services/ServiceDialog';
 import { ServiceViewDialog } from '@/components/services/ServiceViewDialog';
 import { format, subDays, isAfter, isBefore, startOfDay } from 'date-fns';
