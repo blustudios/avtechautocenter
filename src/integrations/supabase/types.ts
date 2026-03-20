@@ -170,16 +170,19 @@ export type Database = {
           created_at: string
           id: string
           nome: string
+          taxa_pix_maquina: number
         }
         Insert: {
           created_at?: string
           id?: string
           nome: string
+          taxa_pix_maquina?: number
         }
         Update: {
           created_at?: string
           id?: string
           nome?: string
+          taxa_pix_maquina?: number
         }
         Relationships: []
       }
