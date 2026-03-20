@@ -15,6 +15,7 @@ interface Props {
   open: boolean;
   serviceId?: string;
   defaultClienteCpf?: string;
+  quickMode?: boolean;
   onClose: () => void;
 }
 
