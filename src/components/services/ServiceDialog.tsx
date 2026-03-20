@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, X, Trash2 } from 'lucide-react';
+import { Plus, X, Trash2, UserPlus } from 'lucide-react';
 import { formatCurrency, tiposPagamento } from '@/lib/format';
 import { toast } from 'sonner';
 
@@ -15,11 +15,13 @@ interface Props {
   open: boolean;
   serviceId?: string;
   defaultClienteCpf?: string;
+  quickMode?: boolean;
   onClose: () => void;
 }
 
-export function ServiceDialog({ open, serviceId, defaultClienteCpf, onClose }: Props) {
+export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, onClose }: Props) {
   const isEdit = !!serviceId;
+  const [showClientFields, setShowClientFields] = useState(false);
   const [loading, setLoading] = useState(false);
   const [clientes, setClientes] = useState<any[]>([]);
   const [carros, setCarros] = useState<any[]>([]);
@@ -246,7 +248,11 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, onClose }: P
     <Dialog open={open} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-popover border-border">
         <DialogHeader>
-          <DialogTitle>{isEdit ? 'Editar Serviço' : 'Novo Serviço'}</DialogTitle>
+          <DialogTitle>
+            {isEdit 
+              ? (isEdit && !form.cliente_cpf && !showClientFields ? 'Editar Serviço Rápido' : 'Editar Serviço')
+              : (quickMode ? 'Serviço Rápido' : 'Novo Serviço')}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -258,28 +264,37 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, onClose }: P
                 <Input value={form.id} readOnly className="bg-card border-border" />
               </div>
             )}
-            <div>
-              <Label>Cliente</Label>
-              <Select value={form.cliente_cpf} onValueChange={v => setForm({ ...form, cliente_cpf: v, carro_placa: '' })}>
-                <SelectTrigger className="bg-card border-border"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                <SelectContent>
-                  {clientes.map(c => (
-                    <SelectItem key={c.cpf} value={c.cpf}>{c.nome} · {c.cpf}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Carro</Label>
-              <Select value={form.carro_placa} onValueChange={v => setForm({ ...form, carro_placa: v })}>
-                <SelectTrigger className="bg-card border-border"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                <SelectContent>
-                  {carros.map(c => (
-                    <SelectItem key={c.placa} value={c.placa}>{c.marca} {c.modelo} · {c.placa}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {/* Show client/car fields: hidden for quickMode create, or quick service edit without showClientFields */}
+            {(() => {
+              const isQuickCreate = quickMode && !isEdit;
+              const isQuickEdit = isEdit && !form.cliente_cpf && !showClientFields;
+              return !isQuickCreate && !isQuickEdit;
+            })() && (
+              <>
+                <div>
+                  <Label>Cliente</Label>
+                  <Select value={form.cliente_cpf} onValueChange={v => setForm({ ...form, cliente_cpf: v, carro_placa: '' })}>
+                    <SelectTrigger className="bg-card border-border"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      {clientes.map(c => (
+                        <SelectItem key={c.cpf} value={c.cpf}>{c.nome} · {c.cpf}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Carro</Label>
+                  <Select value={form.carro_placa} onValueChange={v => setForm({ ...form, carro_placa: v })}>
+                    <SelectTrigger className="bg-card border-border"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      {carros.map(c => (
+                        <SelectItem key={c.placa} value={c.placa}>{c.marca} {c.modelo} · {c.placa}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
             <div>
               <Label>Data de Entrada</Label>
               <Input type="date" value={form.data_entrada} onChange={e => setForm({ ...form, data_entrada: e.target.value })} className="bg-card border-border" />
@@ -461,11 +476,18 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, onClose }: P
           </div>
 
           <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3 pt-4 border-t border-border">
-            {isEdit ? (
-              <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)} className="w-full sm:w-auto">
-                <Trash2 className="w-4 h-4 mr-2" /> Excluir
-              </Button>
-            ) : <div />}
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              {isEdit && (
+                <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)} className="w-full sm:w-auto">
+                  <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                </Button>
+              )}
+              {isEdit && !form.cliente_cpf && !showClientFields && (
+                <Button variant="outline" onClick={() => setShowClientFields(true)} className="w-full sm:w-auto border-primary/50 text-primary hover:bg-primary/10">
+                  <UserPlus className="w-4 h-4 mr-2" /> Atribuir Cliente
+                </Button>
+              )}
+            </div>
             <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
               <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">Cancelar</Button>
               <Button onClick={handleSave} disabled={loading} className="w-full sm:w-auto">

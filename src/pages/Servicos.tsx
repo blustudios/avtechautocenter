@@ -9,7 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
 import { formatCurrency } from '@/lib/format';
-import { Plus, Search, CalendarIcon, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Search, CalendarIcon, MoreHorizontal, Pencil, Trash2, Zap } from 'lucide-react';
 import { ServiceDialog } from '@/components/services/ServiceDialog';
 import { ServiceViewDialog } from '@/components/services/ServiceViewDialog';
 import { format, subDays, isAfter, isBefore, startOfDay } from 'date-fns';
@@ -40,6 +40,7 @@ export default function Servicos() {
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [showCreate, setShowCreate] = useState(false);
+  const [showQuickCreate, setShowQuickCreate] = useState(false);
   const [viewService, setViewService] = useState<string | null>(null);
   const [editService, setEditService] = useState<string | null>(null);
   const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
@@ -93,10 +94,16 @@ export default function Servicos() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold text-foreground">Entradas de Serviço</h1>
-        <Button onClick={() => setShowCreate(true)} className="shrink-0">
-          <Plus className="w-4 h-4 mr-2" />
-          Novo Serviço
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button variant="outline" onClick={() => setShowQuickCreate(true)} className="shrink-0 border-primary/50 text-primary hover:bg-primary/10">
+            <Zap className="w-4 h-4 mr-2" />
+            Serviço Rápido
+          </Button>
+          <Button onClick={() => setShowCreate(true)} className="shrink-0">
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Serviço
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
@@ -200,7 +207,7 @@ export default function Servicos() {
                   <StatusBadge status={s.status} />
                   <PaymentBadge status={s.status_pagamento} />
                 </div>
-                <p className="text-foreground font-medium truncate">{s.cliente?.nome || '—'}</p>
+                <p className="text-foreground font-medium truncate">{s.cliente?.nome || <span className="italic text-muted-foreground">Serviço Rápido</span>}</p>
                 <p className="text-sm text-muted-foreground">
                   {s.carro ? `${s.carro.marca} ${s.carro.modelo} · ${s.carro.placa}` : '—'}
                   {' · '}{new Date(s.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR')}
@@ -233,6 +240,13 @@ export default function Servicos() {
         <ServiceDialog
           open={showCreate}
           onClose={() => { setShowCreate(false); fetchServicos(); }}
+        />
+      )}
+      {showQuickCreate && (
+        <ServiceDialog
+          open={showQuickCreate}
+          quickMode
+          onClose={() => { setShowQuickCreate(false); fetchServicos(); }}
         />
       )}
       {viewService && (
