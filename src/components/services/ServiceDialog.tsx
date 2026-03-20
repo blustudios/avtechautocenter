@@ -99,6 +99,13 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, onClose }: P
     load();
   }, [serviceId]);
 
+  // Pre-fill client when defaultClienteCpf is provided (new service only)
+  useEffect(() => {
+    if (defaultClienteCpf && !isEdit && clientes.length > 0) {
+      setForm(f => ({ ...f, cliente_cpf: defaultClienteCpf, carro_placa: '' }));
+    }
+  }, [defaultClienteCpf, isEdit, clientes]);
+
   useEffect(() => {
     if (form.cliente_cpf) {
       supabase.from('carros').select('*').eq('cliente_cpf', form.cliente_cpf)
