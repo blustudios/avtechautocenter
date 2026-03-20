@@ -178,8 +178,8 @@ export default function Configuracoes() {
                   <div className="flex items-center gap-2">
                     <Input value={b.nome} onChange={e => updateBandeiraField(bi, bb => { bb.nome = e.target.value; return bb; })}
                       placeholder="Nome da bandeira (ex: Visa)" className="bg-background border-border" />
-                    {bandeirasForm.length > 1 && (
-                      <Button variant="ghost" size="icon" onClick={() => setBandeirasForm(bandeirasForm.filter((_, j) => j !== bi))}><X className="w-4 h-4" /></Button>
+                    {bandeirasForm.length > 0 && (
+                      <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-400 hover:bg-red-500/10" onClick={() => setBandeirasForm(bandeirasForm.filter((_, j) => j !== bi))}><Trash2 className="w-4 h-4" /></Button>
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
