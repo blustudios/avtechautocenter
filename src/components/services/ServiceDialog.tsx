@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { CurrencyInput } from '@/components/ui/currency-input';
 import { Plus, X, Trash2, UserPlus, Car } from 'lucide-react';
 import { formatCurrency, formatPlaca, tiposPagamento } from '@/lib/format';
 import { toast } from 'sonner';
@@ -49,14 +50,14 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
   }[]>([{ tipo: '', maquininha_id: '', bandeira_id: '', parcelas: '', valor: '' }]);
   const [custos, setCustos] = useState<{
     item: string; quantidade: string; fornecedor_id: string; valor: string;
-  }[]>([{ item: '', quantidade: '1', fornecedor_id: '', valor: '' }]);
+  }[]>([]);
 
   useEffect(() => {
     const load = async () => {
       const [c, f, m, b, t] = await Promise.all([
         supabase.from('clientes').select('cpf, nome'),
         supabase.from('fornecedores').select('id, nome'),
-        supabase.from('maquininhas').select('id, nome'),
+        supabase.from('maquininhas').select('id, nome, taxa_pix_maquina'),
         supabase.from('bandeiras').select('id, maquininha_id, nome'),
         supabase.from('taxas').select('*'),
       ]);
@@ -84,7 +85,6 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
             const { data: carrosData } = await supabase.from('carros').select('*').eq('cliente_cpf', sv.cliente_cpf);
             setCarros(carrosData || []);
           }
-          // Load quick car data if service has a car but no client
           if (sv.carro_placa && !sv.cliente_cpf) {
             const { data: carData } = await supabase.from('carros').select('*').eq('placa', sv.carro_placa).single();
             if (carData) {
@@ -109,7 +109,6 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
     load();
   }, [serviceId]);
 
-  // Pre-fill client when defaultClienteCpf is provided (new service only)
   useEffect(() => {
     if (defaultClienteCpf && !isEdit && clientes.length > 0) {
       setForm(f => ({ ...f, cliente_cpf: defaultClienteCpf, carro_placa: '' }));
@@ -126,11 +125,19 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
   }, [form.cliente_cpf]);
 
   const needsMaquininha = (tipo: string) => !['Pix CNPJ', 'Dinheiro'].includes(tipo);
+  const needsBandeira = (tipo: string) => !['Pix CNPJ', 'Dinheiro', 'Pix Máquina'].includes(tipo);
 
-  const getTaxRate = (tipo: string, bandeira_id: string, parcelas: number) => {
-    if (!needsMaquininha(tipo)) return 0;
+  const getTaxRate = (tipo: string, maquininha_id: string, bandeira_id: string, parcelas: number) => {
+    if (tipo === 'Pix CNPJ' || tipo === 'Dinheiro') return 0;
+    
+    // Pix Máquina uses machine-level tax
+    if (tipo === 'Pix Máquina') {
+      const maq = maquininhas.find(m => m.id === maquininha_id);
+      return maq ? Number(maq.taxa_pix_maquina) || 0 : 0;
+    }
+
     let tipoDb = '';
-    if (tipo === 'Débito' || tipo === 'Pix Máquina') tipoDb = 'debito';
+    if (tipo === 'Débito') tipoDb = 'debito';
     else if (tipo === 'Crédito à vista') tipoDb = 'credito_avista';
     else if (tipo === 'Crédito Parcelado') tipoDb = 'credito_parcelado';
 
@@ -146,7 +153,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
   const calcValorLiquido = () => {
     return pagamentos.reduce((sum, p) => {
       const val = parseFloat(p.valor) || 0;
-      const rate = getTaxRate(p.tipo, p.bandeira_id, parseInt(p.parcelas) || 0);
+      const rate = getTaxRate(p.tipo, p.maquininha_id, p.bandeira_id, parseInt(p.parcelas) || 0);
       return sum + val * (1 - rate / 100);
     }, 0);
   };
@@ -166,13 +173,11 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
         id = data as string;
       }
 
-      // Handle quick car upsert (car without client)
       const isQuickFlow = (quickMode && !isEdit) || (isEdit && !form.cliente_cpf && !showClientFields);
       let carroPlaca = form.carro_placa || null;
 
       if (quickCar.placa.trim()) {
         const formattedPlaca = quickCar.placa.toUpperCase();
-        // If assigning client, update the car's cliente_cpf
         if (showClientFields && form.cliente_cpf) {
           await supabase.from('carros').upsert({
             placa: formattedPlaca,
@@ -182,7 +187,6 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
           }, { onConflict: 'placa' });
           carroPlaca = formattedPlaca;
         } else if (isQuickFlow) {
-          // Save car without client
           await supabase.from('carros').upsert({
             placa: formattedPlaca,
             marca: quickCar.marca,
@@ -193,7 +197,6 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
         }
       }
 
-      // If assigning client via showClientFields, use form.carro_placa if set
       if (showClientFields && form.carro_placa) {
         carroPlaca = form.carro_placa;
       }
@@ -242,7 +245,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
             bandeira_id: p.bandeira_id || null,
             parcelas: p.parcelas ? parseInt(p.parcelas) : null,
             valor: parseFloat(p.valor) || 0,
-            taxa_aplicada: getTaxRate(p.tipo, p.bandeira_id, parseInt(p.parcelas) || 0),
+            taxa_aplicada: getTaxRate(p.tipo, p.maquininha_id, p.bandeira_id, parseInt(p.parcelas) || 0),
           }))
         );
       }
@@ -304,7 +307,6 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                 <Input value={form.id} readOnly className="bg-card border-border" />
               </div>
             )}
-            {/* Show client/car fields: hidden for quickMode create, or quick service edit without showClientFields */}
             {(() => {
               const isQuickCreate = quickMode && !isEdit;
               const isQuickEdit = isEdit && !form.cliente_cpf && !showClientFields;
@@ -335,7 +337,6 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                 </div>
               </>
             )}
-            {/* Quick car fields for quick mode (no client) */}
             {(() => {
               const isQuickCreate = quickMode && !isEdit;
               const isQuickEdit = isEdit && !form.cliente_cpf && !showClientFields;
@@ -413,46 +414,52 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label>Valor Total do Serviço (R$)</Label>
-              <Input type="number" step="0.01" value={form.valor_total} onChange={e => setForm({ ...form, valor_total: e.target.value })} className="bg-card border-border" />
+              <CurrencyInput value={form.valor_total} onChange={v => setForm({ ...form, valor_total: v })} className="bg-card border-border" />
             </div>
             <div>
               <Label>Valor Líquido</Label>
-              <Input value={formatCurrency(valorLiquido)} readOnly className="bg-card border-border" />
+              <CurrencyInput value={String(valorLiquido.toFixed(2))} onChange={() => {}} readOnly className="bg-card border-border" />
             </div>
           </div>
 
-          {/* Costs - moved before payments */}
+          {/* Costs - hidden by default */}
           <div>
             <Label className="mb-2 block">Custos</Label>
-            {custos.map((c, i) => (
-              <div key={i} className="bg-card border border-border rounded-lg p-3 mb-2 space-y-2">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <Input value={c.item} onChange={e => { const n = [...custos]; n[i].item = e.target.value; setCustos(n); }}
-                    placeholder="Item" className="bg-background border-border" />
-                  <Select value={c.fornecedor_id} onValueChange={v => { const n = [...custos]; n[i].fornecedor_id = v; setCustos(n); }}>
-                    <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Fornecedor" /></SelectTrigger>
-                    <SelectContent>
-                      {fornecedores.map(f => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <Input type="number" value={c.quantidade} onChange={e => { const n = [...custos]; n[i].quantidade = e.target.value; setCustos(n); }}
-                    placeholder="Qtd" className="bg-background border-border" />
-                  <Input type="number" step="0.01" value={c.valor} onChange={e => { const n = [...custos]; n[i].valor = e.target.value; setCustos(n); }}
-                    placeholder="Valor (R$)" className="bg-background border-border" />
-                </div>
-                {custos.length > 1 && (
-                  <Button variant="ghost" size="sm" onClick={() => setCustos(custos.filter((_, j) => j !== i))}>
-                    <X className="w-4 h-4 mr-1" /> Remover
-                  </Button>
-                )}
-              </div>
-            ))}
-            <Button variant="ghost" size="sm" onClick={() => setCustos([...custos, { item: '', quantidade: '1', fornecedor_id: '', valor: '' }])}>
-              <Plus className="w-4 h-4 mr-1" /> Adicionar Custo
-            </Button>
-            <p className="text-sm text-muted-foreground mt-1">Total de Custos: {formatCurrency(custoTotal)}</p>
+            {custos.length === 0 ? (
+              <Button variant="ghost" size="sm" onClick={() => setCustos([{ item: '', quantidade: '1', fornecedor_id: '', valor: '' }])}>
+                <Plus className="w-4 h-4 mr-1" /> Adicionar Custo
+              </Button>
+            ) : (
+              <>
+                {custos.map((c, i) => (
+                  <div key={i} className="bg-card border border-border rounded-lg p-3 mb-2 space-y-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <Input value={c.item} onChange={e => { const n = [...custos]; n[i].item = e.target.value; setCustos(n); }}
+                        placeholder="Item" className="bg-background border-border" />
+                      <Select value={c.fornecedor_id} onValueChange={v => { const n = [...custos]; n[i].fornecedor_id = v; setCustos(n); }}>
+                        <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Fornecedor" /></SelectTrigger>
+                        <SelectContent>
+                          {fornecedores.map(f => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input type="number" value={c.quantidade} onChange={e => { const n = [...custos]; n[i].quantidade = e.target.value; setCustos(n); }}
+                        placeholder="Qtd" className="bg-background border-border" />
+                      <CurrencyInput value={c.valor} onChange={v => { const n = [...custos]; n[i].valor = v; setCustos(n); }}
+                        className="bg-background border-border" />
+                    </div>
+                    <Button variant="ghost" size="sm" onClick={() => setCustos(custos.filter((_, j) => j !== i))}>
+                      <X className="w-4 h-4 mr-1" /> Remover
+                    </Button>
+                  </div>
+                ))}
+                <Button variant="ghost" size="sm" onClick={() => setCustos([...custos, { item: '', quantidade: '1', fornecedor_id: '', valor: '' }])}>
+                  <Plus className="w-4 h-4 mr-1" /> Adicionar Custo
+                </Button>
+                <p className="text-sm text-muted-foreground mt-1">Total de Custos: {formatCurrency(custoTotal)}</p>
+              </>
+            )}
           </div>
 
           {/* Payments */}
@@ -481,7 +488,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                     </Select>
                   )}
 
-                  {needsMaquininha(p.tipo) && p.maquininha_id && (
+                  {needsBandeira(p.tipo) && p.maquininha_id && (
                     <Select value={p.bandeira_id} onValueChange={v => {
                       const n = [...pagamentos]; n[i].bandeira_id = v; setPagamentos(n);
                     }}>
@@ -502,9 +509,9 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                     />
                   )}
 
-                  <Input
-                    type="number" step="0.01" placeholder="Valor (R$)" value={p.valor}
-                    onChange={e => { const n = [...pagamentos]; n[i].valor = e.target.value; setPagamentos(n); }}
+                  <CurrencyInput
+                    value={p.valor}
+                    onChange={v => { const n = [...pagamentos]; n[i].valor = v; setPagamentos(n); }}
                     className="bg-background border-border"
                   />
                 </div>

@@ -13,16 +13,21 @@ interface Bandeira {
   taxas: {
     debito: string;
     credito_avista: string;
-    parcelado_ranges: { de: string; ate: string; taxa: string }[];
+    parcelado: Record<number, string>; // { 2: '3.5', 3: '4.0', ... 12: '...' }
   };
 }
+
+const PARCELAS = [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
 
 export default function Configuracoes() {
   const [maquininhas, setMaquininhas] = useState<any[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [nome, setNome] = useState('');
+  const [taxaPixMaquina, setTaxaPixMaquina] = useState('');
   const [bandeirasForm, setBandeirasForm] = useState<Bandeira[]>([]);
+
+  const emptyParcelado = () => PARCELAS.reduce((acc, p) => ({ ...acc, [p]: '' }), {} as Record<number, string>);
 
   const fetch = async () => {
     const { data } = await supabase.from('maquininhas').select('*, bandeiras(id, nome)').order('nome');
@@ -37,6 +42,7 @@ export default function Configuracoes() {
     const { data: allTaxas } = await supabase.from('taxas').select('*').in('bandeira_id', (bands || []).map(b => b.id));
 
     setNome(m?.nome || '');
+    setTaxaPixMaquina(m?.taxa_pix_maquina != null ? String(m.taxa_pix_maquina) : '');
     setEditId(id);
 
     const bForm: Bandeira[] = (bands || []).map(b => {
@@ -45,17 +51,29 @@ export default function Configuracoes() {
       const cav = bTaxas.find(t => t.tipo_pagamento === 'credito_avista');
       const parc = bTaxas.filter(t => t.tipo_pagamento === 'credito_parcelado');
 
+      const parcelado = emptyParcelado();
+      parc.forEach(p => {
+        if (p.parcelas_de && p.parcelas_de === p.parcelas_ate) {
+          parcelado[p.parcelas_de] = String(p.percentual);
+        } else if (p.parcelas_de && p.parcelas_ate) {
+          // Legacy range format — fill all parcels in range
+          for (let i = p.parcelas_de; i <= p.parcelas_ate; i++) {
+            if (!parcelado[i]) parcelado[i] = String(p.percentual);
+          }
+        }
+      });
+
       return {
         id: b.id,
         nome: b.nome,
         taxas: {
           debito: deb ? String(deb.percentual) : '',
           credito_avista: cav ? String(cav.percentual) : '',
-          parcelado_ranges: parc.length ? parc.map(p => ({ de: String(p.parcelas_de), ate: String(p.parcelas_ate), taxa: String(p.percentual) })) : [{ de: '2', ate: '6', taxa: '' }],
+          parcelado,
         },
       };
     });
-    setBandeirasForm(bForm.length ? bForm : [{ nome: '', taxas: { debito: '', credito_avista: '', parcelado_ranges: [{ de: '2', ate: '6', taxa: '' }] } }]);
+    setBandeirasForm(bForm.length ? bForm : [{ nome: '', taxas: { debito: '', credito_avista: '', parcelado: emptyParcelado() } }]);
     setShowForm(true);
   };
 
@@ -64,11 +82,10 @@ export default function Configuracoes() {
 
     let maqId = editId;
     if (editId) {
-      await supabase.from('maquininhas').update({ nome }).eq('id', editId);
-      // Delete old bandeiras (cascade deletes taxas)
+      await supabase.from('maquininhas').update({ nome, taxa_pix_maquina: parseFloat(taxaPixMaquina) || 0 }).eq('id', editId);
       await supabase.from('bandeiras').delete().eq('maquininha_id', editId);
     } else {
-      const { data } = await supabase.from('maquininhas').insert({ nome }).select().single();
+      const { data } = await supabase.from('maquininhas').insert({ nome, taxa_pix_maquina: parseFloat(taxaPixMaquina) || 0 }).select().single();
       maqId = data?.id;
     }
 
@@ -82,11 +99,15 @@ export default function Configuracoes() {
       const taxasToInsert: any[] = [];
       if (b.taxas.debito) taxasToInsert.push({ bandeira_id: band.id, tipo_pagamento: 'debito', percentual: parseFloat(b.taxas.debito) || 0 });
       if (b.taxas.credito_avista) taxasToInsert.push({ bandeira_id: band.id, tipo_pagamento: 'credito_avista', percentual: parseFloat(b.taxas.credito_avista) || 0 });
-      for (const r of b.taxas.parcelado_ranges) {
-        if (r.taxa) taxasToInsert.push({
-          bandeira_id: band.id, tipo_pagamento: 'credito_parcelado',
-          parcelas_de: parseInt(r.de) || 2, parcelas_ate: parseInt(r.ate) || 12, percentual: parseFloat(r.taxa) || 0,
-        });
+      
+      for (const parcela of PARCELAS) {
+        const taxa = b.taxas.parcelado[parcela];
+        if (taxa) {
+          taxasToInsert.push({
+            bandeira_id: band.id, tipo_pagamento: 'credito_parcelado',
+            parcelas_de: parcela, parcelas_ate: parcela, percentual: parseFloat(taxa) || 0,
+          });
+        }
       }
       if (taxasToInsert.length) await supabase.from('taxas').insert(taxasToInsert);
     }
@@ -97,7 +118,11 @@ export default function Configuracoes() {
     fetch();
   };
 
-  const addBandeira = () => setBandeirasForm([...bandeirasForm, { nome: '', taxas: { debito: '', credito_avista: '', parcelado_ranges: [{ de: '2', ate: '6', taxa: '' }] } }]);
+  const addBandeira = () => setBandeirasForm([...bandeirasForm, { nome: '', taxas: { debito: '', credito_avista: '', parcelado: emptyParcelado() } }]);
+
+  const updateBandeiraField = (bi: number, updater: (b: Bandeira) => Bandeira) => {
+    setBandeirasForm(prev => prev.map((b, i) => i === bi ? updater({ ...b }) : b));
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -109,7 +134,7 @@ export default function Configuracoes() {
       <div>
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-lg font-semibold text-foreground">Maquininhas</h2>
-          <Button onClick={() => { setNome(''); setEditId(null); setBandeirasForm([{ nome: '', taxas: { debito: '', credito_avista: '', parcelado_ranges: [{ de: '2', ate: '6', taxa: '' }] } }]); setShowForm(true); }}>
+          <Button onClick={() => { setNome(''); setTaxaPixMaquina(''); setEditId(null); setBandeirasForm([{ nome: '', taxas: { debito: '', credito_avista: '', parcelado: emptyParcelado() } }]); setShowForm(true); }}>
             <Plus className="w-4 h-4 mr-2" /> Nova Maquininha
           </Button>
         </div>
@@ -132,6 +157,12 @@ export default function Configuracoes() {
           <div className="space-y-4">
             <div><Label>Nome</Label><Input value={nome} onChange={e => setNome(e.target.value)} placeholder="Ex: Cielo" className="bg-card border-border" /></div>
 
+            {/* Pix Máquina tax - independent of brand */}
+            <div className="bg-card border border-border rounded-lg p-4">
+              <Label className="text-sm font-semibold">Taxa Pix Máquina (%)</Label>
+              <Input type="number" step="0.01" value={taxaPixMaquina} onChange={e => setTaxaPixMaquina(e.target.value)} placeholder="Ex: 0.99" className="bg-background border-border mt-1" />
+            </div>
+
             <div>
               <div className="flex items-center justify-between mb-2">
                 <Label>Bandeiras</Label>
@@ -141,33 +172,28 @@ export default function Configuracoes() {
               {bandeirasForm.map((b, bi) => (
                 <div key={bi} className="bg-card border border-border rounded-lg p-4 mb-3 space-y-3">
                   <div className="flex items-center gap-2">
-                    <Input value={b.nome} onChange={e => { const n = [...bandeirasForm]; n[bi].nome = e.target.value; setBandeirasForm(n); }}
+                    <Input value={b.nome} onChange={e => updateBandeiraField(bi, bb => { bb.nome = e.target.value; return bb; })}
                       placeholder="Nome da bandeira (ex: Visa)" className="bg-background border-border" />
                     {bandeirasForm.length > 1 && (
                       <Button variant="ghost" size="icon" onClick={() => setBandeirasForm(bandeirasForm.filter((_, j) => j !== bi))}><X className="w-4 h-4" /></Button>
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div><Label className="text-xs">Débito (%)</Label><Input type="number" step="0.01" value={b.taxas.debito} onChange={e => { const n = [...bandeirasForm]; n[bi].taxas.debito = e.target.value; setBandeirasForm(n); }} className="bg-background border-border" /></div>
-                    <div><Label className="text-xs">Crédito à vista (%)</Label><Input type="number" step="0.01" value={b.taxas.credito_avista} onChange={e => { const n = [...bandeirasForm]; n[bi].taxas.credito_avista = e.target.value; setBandeirasForm(n); }} className="bg-background border-border" /></div>
+                    <div><Label className="text-xs">Débito (%)</Label><Input type="number" step="0.01" value={b.taxas.debito} onChange={e => updateBandeiraField(bi, bb => { bb.taxas.debito = e.target.value; return bb; })} className="bg-background border-border" /></div>
+                    <div><Label className="text-xs">Crédito à vista (%)</Label><Input type="number" step="0.01" value={b.taxas.credito_avista} onChange={e => updateBandeiraField(bi, bb => { bb.taxas.credito_avista = e.target.value; return bb; })} className="bg-background border-border" /></div>
                   </div>
                   <div>
-                    <Label className="text-xs">Crédito Parcelado</Label>
-                    {b.taxas.parcelado_ranges.map((r, ri) => (
-                      <div key={ri} className="flex gap-2 mt-1 items-center">
-                        <Input type="number" value={r.de} onChange={e => { const n = [...bandeirasForm]; n[bi].taxas.parcelado_ranges[ri].de = e.target.value; setBandeirasForm(n); }} placeholder="De" className="bg-background border-border w-20" />
-                        <span className="text-muted-foreground">a</span>
-                        <Input type="number" value={r.ate} onChange={e => { const n = [...bandeirasForm]; n[bi].taxas.parcelado_ranges[ri].ate = e.target.value; setBandeirasForm(n); }} placeholder="Até" className="bg-background border-border w-20" />
-                        <span className="text-muted-foreground">parcelas →</span>
-                        <Input type="number" step="0.01" value={r.taxa} onChange={e => { const n = [...bandeirasForm]; n[bi].taxas.parcelado_ranges[ri].taxa = e.target.value; setBandeirasForm(n); }} placeholder="%" className="bg-background border-border w-24" />
-                        {b.taxas.parcelado_ranges.length > 1 && (
-                          <Button variant="ghost" size="icon" className="shrink-0" onClick={() => { const n = [...bandeirasForm]; n[bi].taxas.parcelado_ranges = n[bi].taxas.parcelado_ranges.filter((_, j) => j !== ri); setBandeirasForm(n); }}><X className="w-4 h-4" /></Button>
-                        )}
-                      </div>
-                    ))}
-                    <Button variant="ghost" size="sm" className="mt-1" onClick={() => { const n = [...bandeirasForm]; n[bi].taxas.parcelado_ranges.push({ de: '', ate: '', taxa: '' }); setBandeirasForm(n); }}>
-                      <Plus className="w-3 h-3 mr-1" /> Faixa
-                    </Button>
+                    <Label className="text-xs mb-1 block">Crédito Parcelado (%)</Label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                      {PARCELAS.map(p => (
+                        <div key={p} className="flex items-center gap-1">
+                          <span className="text-xs text-muted-foreground w-6 shrink-0">{p}x</span>
+                          <Input type="number" step="0.01" value={b.taxas.parcelado[p] || ''}
+                            onChange={e => updateBandeiraField(bi, bb => { bb.taxas.parcelado[p] = e.target.value; return bb; })}
+                            placeholder="%" className="bg-background border-border h-8 text-xs" />
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               ))}
