@@ -6,17 +6,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, X } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Plus, X, Trash2 } from 'lucide-react';
 import { formatCurrency, tiposPagamento } from '@/lib/format';
 import { toast } from 'sonner';
 
 interface Props {
   open: boolean;
   serviceId?: string;
+  defaultClienteCpf?: string;
   onClose: () => void;
 }
 
-export function ServiceDialog({ open, serviceId, onClose }: Props) {
+export function ServiceDialog({ open, serviceId, defaultClienteCpf, onClose }: Props) {
   const isEdit = !!serviceId;
   const [loading, setLoading] = useState(false);
   const [clientes, setClientes] = useState<any[]>([]);
@@ -96,6 +98,13 @@ export function ServiceDialog({ open, serviceId, onClose }: Props) {
     };
     load();
   }, [serviceId]);
+
+  // Pre-fill client when defaultClienteCpf is provided (new service only)
+  useEffect(() => {
+    if (defaultClienteCpf && !isEdit && clientes.length > 0) {
+      setForm(f => ({ ...f, cliente_cpf: defaultClienteCpf, carro_placa: '' }));
+    }
+  }, [defaultClienteCpf, isEdit, clientes]);
 
   useEffect(() => {
     if (form.cliente_cpf) {
@@ -215,6 +224,22 @@ export function ServiceDialog({ open, serviceId, onClose }: Props) {
       toast.error('Erro ao salvar serviço');
     }
     setLoading(false);
+  };
+
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+
+  const handleDelete = async () => {
+    if (!serviceId) return;
+    try {
+      await supabase.from('servicos_itens').delete().eq('servico_id', serviceId);
+      await supabase.from('servicos_pagamentos').delete().eq('servico_id', serviceId);
+      await supabase.from('servicos_custos').delete().eq('servico_id', serviceId);
+      await supabase.from('servicos').delete().eq('id', serviceId);
+      toast.success('Serviço excluído!');
+      onClose();
+    } catch {
+      toast.error('Erro ao excluir serviço');
+    }
   };
 
   return (
@@ -435,13 +460,33 @@ export function ServiceDialog({ open, serviceId, onClose }: Props) {
             <Textarea value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} className="bg-card border-border" />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-border">
-            <Button variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={loading}>
-              {loading ? 'Salvando...' : 'Salvar Serviço'}
-            </Button>
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3 pt-4 border-t border-border">
+            {isEdit ? (
+              <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)} className="w-full sm:w-auto">
+                <Trash2 className="w-4 h-4 mr-2" /> Excluir
+              </Button>
+            ) : <div />}
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">Cancelar</Button>
+              <Button onClick={handleSave} disabled={loading} className="w-full sm:w-auto">
+                {loading ? 'Salvando...' : 'Salvar Serviço'}
+              </Button>
+            </div>
           </div>
         </div>
+
+        <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <AlertDialogContent className="bg-popover border-border">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir Serviço</AlertDialogTitle>
+              <AlertDialogDescription>Deseja excluir essa entrada permanentemente?</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Não</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Sim</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );

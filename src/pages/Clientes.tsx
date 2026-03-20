@@ -7,9 +7,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
-import { Plus, Search, X, Car, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Search, X, Car, MoreHorizontal, Pencil, Trash2, Wrench } from 'lucide-react';
 import { formatCPF, formatPhone, formatPlaca, CAR_COLORS } from '@/lib/format';
 import { toast } from 'sonner';
+import { ServiceDialog } from '@/components/services/ServiceDialog';
 
 interface CarForm {
   placa: string;
@@ -28,6 +29,7 @@ export default function Clientes() {
   const [editCpf, setEditCpf] = useState<string | null>(null);
   const [viewClient, setViewClient] = useState<any>(null);
   const [carros, setCarros] = useState<any[]>([]);
+  const [serviceForCpf, setServiceForCpf] = useState<string | null>(null);
 
   const [form, setForm] = useState({ cpf: '', nome: '', email: '', whatsapp: '' });
   const [carForms, setCarForms] = useState<CarForm[]>([]);
@@ -75,7 +77,7 @@ export default function Clientes() {
     fetchClientes();
   };
 
-  const saveClient = async () => {
+  const saveClient = async (openService = false) => {
     const cpf = form.cpf.replace(/\D/g, '');
     if (cpf.length !== 11) { toast.error('CPF inválido'); return; }
     if (!form.nome.trim()) { toast.error('Nome obrigatório'); return; }
@@ -84,14 +86,12 @@ export default function Clientes() {
 
     if (editCpf) {
       await supabase.from('clientes').update(data).eq('cpf', editCpf);
-      // Delete old cars and re-insert
       await supabase.from('carros').delete().eq('cliente_cpf', editCpf);
     } else {
       const { error } = await supabase.from('clientes').insert(data);
       if (error?.code === '23505') { toast.error('CPF já cadastrado'); return; }
     }
 
-    // Insert cars
     const validCars = carForms.filter(c => c.placa.trim());
     if (validCars.length) {
       const { error } = await supabase.from('carros').insert(
@@ -111,6 +111,10 @@ export default function Clientes() {
     setShowForm(false);
     setEditCpf(null);
     fetchClientes();
+
+    if (openService) {
+      setServiceForCpf(formatted);
+    }
   };
 
   const filtered = clientes.filter(c => {
@@ -159,6 +163,9 @@ export default function Clientes() {
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onClick={e => { e.stopPropagation(); openEditClient(c.cpf); }}>
                   <Pencil className="w-4 h-4 mr-2" /> Editar
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={e => { e.stopPropagation(); setServiceForCpf(c.cpf); }}>
+                  <Wrench className="w-4 h-4 mr-2" /> Adicionar Serviço
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={e => { e.stopPropagation(); deleteClient(c.cpf); }} className="text-destructive">
                   <Trash2 className="w-4 h-4 mr-2" /> Excluir
@@ -248,9 +255,14 @@ export default function Clientes() {
               ))}
             </div>
 
-            <div className="flex justify-end gap-3 pt-2">
-              <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
-              <Button onClick={saveClient}>Salvar</Button>
+            <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setShowForm(false)} className="w-full sm:w-auto">Cancelar</Button>
+              {!editCpf && (
+                <Button variant="outline" onClick={() => saveClient(true)} className="w-full sm:w-auto">
+                  <Wrench className="w-4 h-4 mr-2" /> Salvar + Serviço
+                </Button>
+              )}
+              <Button onClick={() => saveClient()} className="w-full sm:w-auto">Salvar</Button>
             </div>
           </div>
         </DialogContent>
@@ -292,6 +304,14 @@ export default function Clientes() {
           )}
         </DialogContent>
       </Dialog>
+
+      {serviceForCpf && (
+        <ServiceDialog
+          open={!!serviceForCpf}
+          defaultClienteCpf={serviceForCpf}
+          onClose={() => { setServiceForCpf(null); }}
+        />
+      )}
     </div>
   );
 }

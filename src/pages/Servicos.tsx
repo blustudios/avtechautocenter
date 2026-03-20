@@ -5,12 +5,15 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
 import { formatCurrency } from '@/lib/format';
-import { Plus, Search, CalendarIcon } from 'lucide-react';
+import { Plus, Search, CalendarIcon, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
 import { ServiceDialog } from '@/components/services/ServiceDialog';
 import { ServiceViewDialog } from '@/components/services/ServiceViewDialog';
 import { format, subDays, isAfter, isBefore, startOfDay } from 'date-fns';
+import { toast } from 'sonner';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
@@ -39,6 +42,7 @@ export default function Servicos() {
   const [showCreate, setShowCreate] = useState(false);
   const [viewService, setViewService] = useState<string | null>(null);
   const [editService, setEditService] = useState<string | null>(null);
+  const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchServicos = async () => {
@@ -202,8 +206,23 @@ export default function Servicos() {
                   {' · '}{new Date(s.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR')}
                 </p>
               </div>
-              <div className="text-right">
+              <div className="flex items-center gap-2">
                 <p className="text-lg font-semibold text-foreground">{formatCurrency(Number(s.valor_total))}</p>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" className="shrink-0">
+                      <MoreHorizontal className="w-4 h-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={e => { e.stopPropagation(); setEditService(s.id); }}>
+                      <Pencil className="w-4 h-4 mr-2" /> Editar
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={e => { e.stopPropagation(); setDeleteServiceId(s.id); }} className="text-destructive">
+                      <Trash2 className="w-4 h-4 mr-2" /> Excluir
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           ))}
@@ -231,6 +250,33 @@ export default function Servicos() {
           onClose={() => { setEditService(null); fetchServicos(); }}
         />
       )}
+
+      <AlertDialog open={!!deleteServiceId} onOpenChange={() => setDeleteServiceId(null)}>
+        <AlertDialogContent className="bg-popover border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Serviço</AlertDialogTitle>
+            <AlertDialogDescription>Deseja excluir essa entrada permanentemente?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                const id = deleteServiceId!;
+                await supabase.from('servicos_itens').delete().eq('servico_id', id);
+                await supabase.from('servicos_pagamentos').delete().eq('servico_id', id);
+                await supabase.from('servicos_custos').delete().eq('servico_id', id);
+                await supabase.from('servicos').delete().eq('id', id);
+                toast.success('Serviço excluído!');
+                setDeleteServiceId(null);
+                fetchServicos();
+              }}
+            >
+              Sim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
