@@ -242,6 +242,13 @@ export default function Servicos() {
           onClose={() => { setShowCreate(false); fetchServicos(); }}
         />
       )}
+      {showQuickCreate && (
+        <ServiceDialog
+          open={showQuickCreate}
+          quickMode
+          onClose={() => { setShowQuickCreate(false); fetchServicos(); }}
+        />
+      )}
       {viewService && (
         <ServiceViewDialog
           serviceId={viewService}
