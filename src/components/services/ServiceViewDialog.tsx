@@ -143,7 +143,7 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
 
             <Separator />
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <div className="bg-card rounded-lg p-3">
                 <span className="text-xs text-muted-foreground">Total</span>
                 <p className="text-lg font-semibold">{formatCurrency(Number(service.valor_total))}</p>
