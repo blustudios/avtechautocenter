@@ -94,10 +94,16 @@ export default function Servicos() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold text-foreground">Entradas de Serviço</h1>
-        <Button onClick={() => setShowCreate(true)} className="shrink-0">
-          <Plus className="w-4 h-4 mr-2" />
-          Novo Serviço
-        </Button>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button variant="outline" onClick={() => setShowQuickCreate(true)} className="shrink-0 border-primary/50 text-primary hover:bg-primary/10">
+            <Zap className="w-4 h-4 mr-2" />
+            Serviço Rápido
+          </Button>
+          <Button onClick={() => setShowCreate(true)} className="shrink-0">
+            <Plus className="w-4 h-4 mr-2" />
+            Novo Serviço
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row gap-3">
