@@ -82,8 +82,12 @@ export default function Configuracoes() {
 
     let maqId = editId;
     if (editId) {
-      await supabase.from('maquininhas').update({ nome, taxa_pix_maquina: parseFloat(taxaPixMaquina) || 0 }).eq('id', editId);
+      // Fix: delete taxas before bandeiras to avoid FK constraint
+      const { data: existingBands } = await supabase.from('bandeiras').select('id').eq('maquininha_id', editId);
+      const bandIds = (existingBands || []).map(b => b.id);
+      if (bandIds.length) await supabase.from('taxas').delete().in('bandeira_id', bandIds);
       await supabase.from('bandeiras').delete().eq('maquininha_id', editId);
+      await supabase.from('maquininhas').update({ nome, taxa_pix_maquina: parseFloat(taxaPixMaquina) || 0 }).eq('id', editId);
     } else {
       const { data } = await supabase.from('maquininhas').insert({ nome, taxa_pix_maquina: parseFloat(taxaPixMaquina) || 0 }).select().single();
       maqId = data?.id;
