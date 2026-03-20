@@ -7,8 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, X, Trash2, UserPlus } from 'lucide-react';
-import { formatCurrency, tiposPagamento } from '@/lib/format';
+import { Plus, X, Trash2, UserPlus, Car } from 'lucide-react';
+import { formatCurrency, formatPlaca, tiposPagamento } from '@/lib/format';
 import { toast } from 'sonner';
 
 interface Props {
@@ -22,6 +22,7 @@ interface Props {
 export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, onClose }: Props) {
   const isEdit = !!serviceId;
   const [showClientFields, setShowClientFields] = useState(false);
+  const [quickCar, setQuickCar] = useState({ marca: '', modelo: '', placa: '' });
   const [loading, setLoading] = useState(false);
   const [clientes, setClientes] = useState<any[]>([]);
   const [carros, setCarros] = useState<any[]>([]);
@@ -82,6 +83,13 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
           if (sv.cliente_cpf) {
             const { data: carrosData } = await supabase.from('carros').select('*').eq('cliente_cpf', sv.cliente_cpf);
             setCarros(carrosData || []);
+          }
+          // Load quick car data if service has a car but no client
+          if (sv.carro_placa && !sv.cliente_cpf) {
+            const { data: carData } = await supabase.from('carros').select('*').eq('placa', sv.carro_placa).single();
+            if (carData) {
+              setQuickCar({ marca: carData.marca || '', modelo: carData.modelo || '', placa: carData.placa });
+            }
           }
           const { data: it } = await supabase.from('servicos_itens').select('*').eq('servico_id', serviceId).order('ordem');
           if (it?.length) setItens(it.map(i => ({ descricao: i.descricao })));
@@ -158,13 +166,45 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
         id = data as string;
       }
 
+      // Handle quick car upsert (car without client)
+      const isQuickFlow = (quickMode && !isEdit) || (isEdit && !form.cliente_cpf && !showClientFields);
+      let carroPlaca = form.carro_placa || null;
+
+      if (quickCar.placa.trim()) {
+        const formattedPlaca = quickCar.placa.toUpperCase();
+        // If assigning client, update the car's cliente_cpf
+        if (showClientFields && form.cliente_cpf) {
+          await supabase.from('carros').upsert({
+            placa: formattedPlaca,
+            marca: quickCar.marca,
+            modelo: quickCar.modelo,
+            cliente_cpf: form.cliente_cpf,
+          }, { onConflict: 'placa' });
+          carroPlaca = formattedPlaca;
+        } else if (isQuickFlow) {
+          // Save car without client
+          await supabase.from('carros').upsert({
+            placa: formattedPlaca,
+            marca: quickCar.marca,
+            modelo: quickCar.modelo,
+            cliente_cpf: null,
+          }, { onConflict: 'placa' });
+          carroPlaca = formattedPlaca;
+        }
+      }
+
+      // If assigning client via showClientFields, use form.carro_placa if set
+      if (showClientFields && form.carro_placa) {
+        carroPlaca = form.carro_placa;
+      }
+
       const dataEnc = form.status === 'entregue' && !form.data_encerramento
         ? new Date().toISOString().split('T')[0] : form.data_encerramento || null;
 
       const servicoData = {
         id,
         cliente_cpf: form.cliente_cpf || null,
-        carro_placa: form.carro_placa || null,
+        carro_placa: carroPlaca,
         data_entrada: form.data_entrada,
         data_encerramento: dataEnc,
         status: form.status,
@@ -294,6 +334,36 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                   </Select>
                 </div>
               </>
+            )}
+            {/* Quick car fields for quick mode (no client) */}
+            {(() => {
+              const isQuickCreate = quickMode && !isEdit;
+              const isQuickEdit = isEdit && !form.cliente_cpf && !showClientFields;
+              return isQuickCreate || isQuickEdit;
+            })() && (
+              <div className="col-span-1 sm:col-span-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <Car className="w-4 h-4 text-muted-foreground" />
+                  <Label className="text-sm font-semibold">Carro (opcional)</Label>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-xs">Marca</Label>
+                    <Input value={quickCar.marca} onChange={e => setQuickCar({ ...quickCar, marca: e.target.value })}
+                      placeholder="Ex: Fiat" className="bg-card border-border" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Modelo</Label>
+                    <Input value={quickCar.modelo} onChange={e => setQuickCar({ ...quickCar, modelo: e.target.value })}
+                      placeholder="Ex: Uno" className="bg-card border-border" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Placa</Label>
+                    <Input value={quickCar.placa} onChange={e => setQuickCar({ ...quickCar, placa: formatPlaca(e.target.value) })}
+                      placeholder="ABC-1234" className="bg-card border-border" />
+                  </div>
+                </div>
+              </div>
             )}
             <div>
               <Label>Data de Entrada</Label>

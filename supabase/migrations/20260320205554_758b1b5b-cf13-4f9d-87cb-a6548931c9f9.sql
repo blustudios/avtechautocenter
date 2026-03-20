@@ -1,0 +1,1 @@
+ALTER TABLE carros ALTER COLUMN cliente_cpf DROP NOT NULL;
