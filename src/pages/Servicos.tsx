@@ -40,6 +40,7 @@ export default function Servicos() {
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [showCreate, setShowCreate] = useState(false);
+  const [showQuickCreate, setShowQuickCreate] = useState(false);
   const [viewService, setViewService] = useState<string | null>(null);
   const [editService, setEditService] = useState<string | null>(null);
   const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
