@@ -204,7 +204,7 @@ export default function Clientes() {
                       <X className="w-3.5 h-3.5" />
                     </Button>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs">Placa</Label>
                       <Input value={car.placa} onChange={e => { const n = [...carForms]; n[i].placa = formatPlaca(e.target.value); setCarForms(n); }}

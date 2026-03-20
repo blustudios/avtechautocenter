@@ -350,7 +350,7 @@ export function ServiceDialog({ open, serviceId, onClose }: Props) {
             <Label className="mb-2 block">Formas de Pagamento</Label>
             {pagamentos.map((p, i) => (
               <div key={i} className="bg-card border border-border rounded-lg p-3 mb-2 space-y-2">
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                   <Select value={p.tipo} onValueChange={v => {
                     const n = [...pagamentos]; n[i].tipo = v; n[i].maquininha_id = ''; n[i].bandeira_id = ''; setPagamentos(n);
                   }}>

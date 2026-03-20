@@ -178,11 +178,11 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
 
             <Separator />
 
-            <div className="flex justify-end gap-3">
-              <Button variant="outline" onClick={generateReceipt}>
+            <div className="flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
+              <Button variant="outline" onClick={generateReceipt} className="w-full sm:w-auto">
                 <FileImage className="w-4 h-4 mr-2" /> Gerar Recibo
               </Button>
-              <Button onClick={() => onEdit(serviceId)}>
+              <Button onClick={() => onEdit(serviceId)} className="w-full sm:w-auto">
                 <Pencil className="w-4 h-4 mr-2" /> Editar
               </Button>
             </div>
