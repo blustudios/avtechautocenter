@@ -1,0 +1,193 @@
+import { useState, useEffect, useRef } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
+import { formatCurrency, statusLabels, paymentStatusLabels } from '@/lib/format';
+import { Pencil, FileImage } from 'lucide-react';
+import html2canvas from 'html2canvas';
+
+interface Props {
+  serviceId: string;
+  open: boolean;
+  onClose: () => void;
+  onEdit: (id: string) => void;
+}
+
+export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
+  const [service, setService] = useState<any>(null);
+  const [itens, setItens] = useState<any[]>([]);
+  const [pagamentos, setPagamentos] = useState<any[]>([]);
+  const [custos, setCustos] = useState<any[]>([]);
+  const receiptRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      const { data: s } = await supabase.from('servicos').select('*, clientes(nome, whatsapp), carros(marca, modelo, ano, cor, placa)').eq('id', serviceId).single();
+      setService(s);
+      const { data: it } = await supabase.from('servicos_itens').select('*').eq('servico_id', serviceId).order('ordem');
+      setItens(it || []);
+      const { data: pg } = await supabase.from('servicos_pagamentos').select('*, maquininhas(nome), bandeiras(nome)').eq('servico_id', serviceId);
+      setPagamentos(pg || []);
+      const { data: ct } = await supabase.from('servicos_custos').select('*, fornecedores(nome)').eq('servico_id', serviceId);
+      setCustos(ct || []);
+    };
+    if (serviceId) load();
+  }, [serviceId]);
+
+  const generateReceipt = async () => {
+    if (!receiptRef.current) return;
+    receiptRef.current.style.display = 'block';
+    const canvas = await html2canvas(receiptRef.current, { backgroundColor: '#1A1A1A', scale: 2 });
+    receiptRef.current.style.display = 'none';
+    const link = document.createElement('a');
+    link.download = `recibo_${serviceId}.jpg`;
+    link.href = canvas.toDataURL('image/jpeg', 0.95);
+    link.click();
+  };
+
+  if (!service) return null;
+
+  const car = service.carros;
+  const client = service.clientes;
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={() => onClose()}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-popover border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              <span className="font-mono text-primary">{service.id}</span>
+              <StatusBadge status={service.status} />
+              <PaymentBadge status={service.status_pagamento} />
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-muted-foreground">Cliente</span>
+                <p className="text-foreground font-medium">{client?.nome || '—'}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Carro</span>
+                <p className="text-foreground font-medium">{car ? `${car.marca} ${car.modelo} · ${car.placa}` : '—'}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Entrada</span>
+                <p className="text-foreground">{new Date(service.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Encerramento</span>
+                <p className="text-foreground">{service.data_encerramento ? new Date(service.data_encerramento + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</p>
+              </div>
+            </div>
+
+            {itens.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-muted-foreground mb-2">Serviços</h4>
+                <ul className="space-y-1">
+                  {itens.map((i, idx) => (
+                    <li key={idx} className="text-foreground text-sm">• {i.descricao}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {pagamentos.length > 0 && (
+              <div>
+                <h4 className="text-sm font-semibold text-muted-foreground mb-2">Pagamentos</h4>
+                {pagamentos.map((p, idx) => (
+                  <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1 last:border-0">
+                    <span>{p.tipo} {p.bandeiras?.nome ? `(${p.bandeiras.nome})` : ''} {p.parcelas ? `${p.parcelas}x` : ''}</span>
+                    <span>{formatCurrency(Number(p.valor))} <span className="text-muted-foreground text-xs">({p.taxa_aplicada}%)</span></span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="bg-card rounded-lg p-3">
+                <span className="text-xs text-muted-foreground">Total</span>
+                <p className="text-lg font-semibold">{formatCurrency(Number(service.valor_total))}</p>
+              </div>
+              <div className="bg-card rounded-lg p-3">
+                <span className="text-xs text-muted-foreground">Líquido</span>
+                <p className="text-lg font-semibold">{formatCurrency(Number(service.valor_liquido))}</p>
+              </div>
+              <div className="bg-card rounded-lg p-3">
+                <span className="text-xs text-muted-foreground">Custos</span>
+                <p className="text-lg font-semibold">{formatCurrency(Number(service.custo_total))}</p>
+              </div>
+              <div className="bg-card rounded-lg p-3">
+                <span className="text-xs text-muted-foreground">Lucro</span>
+                <p className={`text-lg font-semibold ${Number(service.lucro_liquido) >= 0 ? 'text-status-entregue' : 'text-destructive'}`}>
+                  {formatCurrency(Number(service.lucro_liquido))}
+                </p>
+              </div>
+            </div>
+
+            {service.observacoes && (
+              <div>
+                <h4 className="text-sm font-semibold text-muted-foreground mb-1">Observações</h4>
+                <p className="text-foreground text-sm">{service.observacoes}</p>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+              <Button variant="outline" onClick={generateReceipt}>
+                <FileImage className="w-4 h-4 mr-2" /> Gerar Recibo
+              </Button>
+              <Button onClick={() => onEdit(serviceId)}>
+                <Pencil className="w-4 h-4 mr-2" /> Editar
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Hidden receipt for export */}
+      <div ref={receiptRef} style={{ display: 'none', width: 540, padding: 40, fontFamily: 'Inter, sans-serif', color: '#FFFFFF', background: '#1A1A1A' }}>
+        <div style={{ textAlign: 'center', marginBottom: 24 }}>
+          <div style={{ fontSize: 28, fontWeight: 700, color: '#F97316' }}>AV Tech</div>
+          <div style={{ fontSize: 14, color: '#B0B0B0' }}>Auto Center · Itatiba-SP</div>
+        </div>
+        <hr style={{ borderColor: '#3D3D3D', margin: '16px 0' }} />
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 14, color: '#B0B0B0' }}>Cliente</div>
+          <div style={{ fontSize: 16, fontWeight: 600 }}>{client?.nome}</div>
+        </div>
+        {car && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 14, color: '#B0B0B0' }}>Veículo</div>
+            <div style={{ fontSize: 16 }}>{car.marca} {car.modelo} {car.ano} {car.cor} · {car.placa}</div>
+          </div>
+        )}
+        <hr style={{ borderColor: '#3D3D3D', margin: '16px 0' }} />
+        <div style={{ marginBottom: 12 }}>
+          <div style={{ fontSize: 14, color: '#B0B0B0', marginBottom: 4 }}>Serviços</div>
+          {itens.map((it, i) => (
+            <div key={i} style={{ fontSize: 14, marginBottom: 2 }}>• {it.descricao}</div>
+          ))}
+        </div>
+        <hr style={{ borderColor: '#3D3D3D', margin: '16px 0' }} />
+        <div style={{ textAlign: 'center', margin: '20px 0' }}>
+          <div style={{ fontSize: 14, color: '#B0B0B0' }}>Valor Total</div>
+          <div style={{ fontSize: 32, fontWeight: 700, color: '#F97316' }}>{formatCurrency(Number(service.valor_total))}</div>
+        </div>
+        {pagamentos.length > 0 && (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 14, color: '#B0B0B0', marginBottom: 4 }}>Pagamento</div>
+            {pagamentos.map((p, i) => (
+              <div key={i} style={{ fontSize: 14 }}>{p.tipo} {p.parcelas ? `${p.parcelas}x` : ''} — {formatCurrency(Number(p.valor))}</div>
+            ))}
+          </div>
+        )}
+        <hr style={{ borderColor: '#3D3D3D', margin: '16px 0' }} />
+        <div style={{ textAlign: 'center', fontSize: 13, color: '#B0B0B0' }}>
+          Obrigado pela preferência! · AV Tech
+        </div>
+      </div>
+    </>
+  );
+}
