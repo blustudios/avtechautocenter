@@ -19,8 +19,9 @@ interface Props {
   onClose: () => void;
 }
 
-export function ServiceDialog({ open, serviceId, defaultClienteCpf, onClose }: Props) {
+export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, onClose }: Props) {
   const isEdit = !!serviceId;
+  const [showClientFields, setShowClientFields] = useState(false);
   const [loading, setLoading] = useState(false);
   const [clientes, setClientes] = useState<any[]>([]);
   const [carros, setCarros] = useState<any[]>([]);
