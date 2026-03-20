@@ -6,13 +6,15 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { Plus, X } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Plus, X, Trash2 } from 'lucide-react';
 import { formatCurrency, tiposPagamento } from '@/lib/format';
 import { toast } from 'sonner';
 
 interface Props {
   open: boolean;
   serviceId?: string;
+  defaultClienteCpf?: string;
   onClose: () => void;
 }
 
