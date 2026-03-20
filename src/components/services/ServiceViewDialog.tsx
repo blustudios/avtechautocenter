@@ -70,7 +70,7 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
                 <User className="w-3.5 h-3.5" /> Informações
               </h4>
-              <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground">Cliente</span>
                   <p className="text-foreground font-medium">{client?.nome || '—'}</p>
