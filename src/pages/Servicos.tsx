@@ -3,11 +3,16 @@ import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
 import { formatCurrency } from '@/lib/format';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, CalendarIcon } from 'lucide-react';
 import { ServiceDialog } from '@/components/services/ServiceDialog';
 import { ServiceViewDialog } from '@/components/services/ServiceViewDialog';
+import { format, subDays, isAfter, isBefore, startOfDay } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 interface Servico {
   id: string;
@@ -21,11 +26,16 @@ interface Servico {
   carro?: { marca: string; modelo: string; placa: string };
 }
 
+type DatePreset = 'all' | '3days' | '7days' | 'custom';
+
 export default function Servicos() {
   const [servicos, setServicos] = useState<Servico[]>([]);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
+  const [datePreset, setDatePreset] = useState<DatePreset>('all');
+  const [dateFrom, setDateFrom] = useState<Date | undefined>();
+  const [dateTo, setDateTo] = useState<Date | undefined>();
   const [showCreate, setShowCreate] = useState(false);
   const [viewService, setViewService] = useState<string | null>(null);
   const [editService, setEditService] = useState<string | null>(null);
@@ -48,6 +58,13 @@ export default function Servicos() {
 
   useEffect(() => { fetchServicos(); }, []);
 
+  const getDateRange = (): { from: Date | null; to: Date | null } => {
+    if (datePreset === '3days') return { from: subDays(new Date(), 3), to: new Date() };
+    if (datePreset === '7days') return { from: subDays(new Date(), 7), to: new Date() };
+    if (datePreset === 'custom') return { from: dateFrom || null, to: dateTo || null };
+    return { from: null, to: null };
+  };
+
   const filtered = servicos.filter(s => {
     const searchLower = search.toLowerCase();
     const matchSearch = !search || 
@@ -56,7 +73,16 @@ export default function Servicos() {
       s.carro?.placa?.toLowerCase().includes(searchLower);
     const matchStatus = statusFilter === 'all' || s.status === statusFilter;
     const matchPayment = paymentFilter === 'all' || s.status_pagamento === paymentFilter;
-    return matchSearch && matchStatus && matchPayment;
+
+    const { from, to } = getDateRange();
+    let matchDate = true;
+    if (from || to) {
+      const entryDate = startOfDay(new Date(s.data_entrada + 'T00:00:00'));
+      if (from) matchDate = matchDate && !isBefore(entryDate, startOfDay(from));
+      if (to) matchDate = matchDate && !isAfter(entryDate, startOfDay(to));
+    }
+
+    return matchSearch && matchStatus && matchPayment && matchDate;
   });
 
   return (
@@ -87,7 +113,6 @@ export default function Servicos() {
             <SelectItem value="all">Todos Status</SelectItem>
             <SelectItem value="a_iniciar">À Iniciar</SelectItem>
             <SelectItem value="em_progresso">Em Progresso</SelectItem>
-            <SelectItem value="aguardando_peca">Aguardando Peça</SelectItem>
             <SelectItem value="entregue">Entregue</SelectItem>
           </SelectContent>
         </Select>
@@ -98,10 +123,52 @@ export default function Servicos() {
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="pago">Pago</SelectItem>
-            <SelectItem value="pendente">Pendente</SelectItem>
-            <SelectItem value="parcial">Parcial</SelectItem>
+            <SelectItem value="pendente">Aguardando Pagamento</SelectItem>
           </SelectContent>
         </Select>
+      </div>
+
+      {/* Date filter */}
+      <div className="flex flex-wrap gap-2 items-center">
+        <span className="text-sm text-muted-foreground">Período:</span>
+        {(['all', '3days', '7days', 'custom'] as DatePreset[]).map(preset => (
+          <Button
+            key={preset}
+            variant={datePreset === preset ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => { setDatePreset(preset); if (preset !== 'custom') { setDateFrom(undefined); setDateTo(undefined); } }}
+          >
+            {preset === 'all' ? 'Todos' : preset === '3days' ? 'Últimos 3 dias' : preset === '7days' ? 'Últimos 7 dias' : 'Personalizado'}
+          </Button>
+        ))}
+
+        {datePreset === 'custom' && (
+          <div className="flex gap-2 items-center">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn('gap-1.5', !dateFrom && 'text-muted-foreground')}>
+                  <CalendarIcon className="w-3.5 h-3.5" />
+                  {dateFrom ? format(dateFrom, 'dd/MM/yyyy') : 'Início'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus className="p-3 pointer-events-auto" locale={ptBR} />
+              </PopoverContent>
+            </Popover>
+            <span className="text-muted-foreground text-sm">até</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn('gap-1.5', !dateTo && 'text-muted-foreground')}>
+                  <CalendarIcon className="w-3.5 h-3.5" />
+                  {dateTo ? format(dateTo, 'dd/MM/yyyy') : 'Fim'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar mode="single" selected={dateTo} onSelect={setDateTo} initialFocus className="p-3 pointer-events-auto" locale={ptBR} />
+              </PopoverContent>
+            </Popover>
+          </div>
+        )}
       </div>
 
       {loading ? (
@@ -119,7 +186,7 @@ export default function Servicos() {
               className="bg-card border border-border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:border-primary/40 transition-colors"
             >
               <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="font-mono text-sm text-primary font-semibold">{s.id}</span>
                   <StatusBadge status={s.status} />
                   <PaymentBadge status={s.status_pagamento} />

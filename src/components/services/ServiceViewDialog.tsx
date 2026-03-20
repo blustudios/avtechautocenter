@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Separator } from '@/components/ui/separator';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
 import { formatCurrency, statusLabels, paymentStatusLabels } from '@/lib/format';
-import { Pencil, FileImage } from 'lucide-react';
+import { Pencil, FileImage, User, Car, Wrench, DollarSign, CreditCard, MessageSquare } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
 interface Props {
@@ -56,7 +57,7 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
       <Dialog open={open} onOpenChange={() => onClose()}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-popover border-border">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-3">
+            <DialogTitle className="flex items-center gap-3 flex-wrap">
               <span className="font-mono text-primary">{service.id}</span>
               <StatusBadge status={service.status} />
               <PaymentBadge status={service.status_pagamento} />
@@ -64,47 +65,83 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
           </DialogHeader>
 
           <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-muted-foreground">Cliente</span>
-                <p className="text-foreground font-medium">{client?.nome || '—'}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Carro</span>
-                <p className="text-foreground font-medium">{car ? `${car.marca} ${car.modelo} · ${car.placa}` : '—'}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Entrada</span>
-                <p className="text-foreground">{new Date(service.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
-              </div>
-              <div>
-                <span className="text-muted-foreground">Encerramento</span>
-                <p className="text-foreground">{service.data_encerramento ? new Date(service.data_encerramento + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</p>
+            {/* Client & Car info */}
+            <div>
+              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                <User className="w-3.5 h-3.5" /> Informações
+              </h4>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Cliente</span>
+                  <p className="text-foreground font-medium">{client?.nome || '—'}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Carro</span>
+                  <p className="text-foreground font-medium">{car ? `${car.marca} ${car.modelo} · ${car.placa}` : '—'}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Entrada</span>
+                  <p className="text-foreground">{new Date(service.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Encerramento</span>
+                  <p className="text-foreground">{service.data_encerramento ? new Date(service.data_encerramento + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</p>
+                </div>
               </div>
             </div>
 
             {itens.length > 0 && (
-              <div>
-                <h4 className="text-sm font-semibold text-muted-foreground mb-2">Serviços</h4>
-                <ul className="space-y-1">
-                  {itens.map((i, idx) => (
-                    <li key={idx} className="text-foreground text-sm">• {i.descricao}</li>
+              <>
+                <Separator />
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <Wrench className="w-3.5 h-3.5" /> Serviços Realizados
+                  </h4>
+                  <ul className="space-y-1">
+                    {itens.map((i, idx) => (
+                      <li key={idx} className="text-foreground text-sm">• {i.descricao}</li>
+                    ))}
+                  </ul>
+                </div>
+              </>
+            )}
+
+            {/* Costs before payments */}
+            {custos.length > 0 && (
+              <>
+                <Separator />
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <DollarSign className="w-3.5 h-3.5" /> Custos
+                  </h4>
+                  {custos.map((c, idx) => (
+                    <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
+                      <span>{c.item} {c.fornecedores?.nome ? <span className="text-muted-foreground">({c.fornecedores.nome})</span> : ''} <span className="text-muted-foreground">×{c.quantidade}</span></span>
+                      <span>{formatCurrency(Number(c.valor) * Number(c.quantidade))}</span>
+                    </div>
                   ))}
-                </ul>
-              </div>
+                </div>
+              </>
             )}
 
             {pagamentos.length > 0 && (
-              <div>
-                <h4 className="text-sm font-semibold text-muted-foreground mb-2">Pagamentos</h4>
-                {pagamentos.map((p, idx) => (
-                  <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1 last:border-0">
-                    <span>{p.tipo} {p.bandeiras?.nome ? `(${p.bandeiras.nome})` : ''} {p.parcelas ? `${p.parcelas}x` : ''}</span>
-                    <span>{formatCurrency(Number(p.valor))} <span className="text-muted-foreground text-xs">({p.taxa_aplicada}%)</span></span>
-                  </div>
-                ))}
-              </div>
+              <>
+                <Separator />
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <CreditCard className="w-3.5 h-3.5" /> Pagamentos
+                  </h4>
+                  {pagamentos.map((p, idx) => (
+                    <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
+                      <span>{p.tipo} {p.bandeiras?.nome ? `(${p.bandeiras.nome})` : ''} {p.parcelas ? `${p.parcelas}x` : ''}</span>
+                      <span>{formatCurrency(Number(p.valor))} <span className="text-muted-foreground text-xs">({p.taxa_aplicada}%)</span></span>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
+
+            <Separator />
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <div className="bg-card rounded-lg p-3">
@@ -128,13 +165,20 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
             </div>
 
             {service.observacoes && (
-              <div>
-                <h4 className="text-sm font-semibold text-muted-foreground mb-1">Observações</h4>
-                <p className="text-foreground text-sm">{service.observacoes}</p>
-              </div>
+              <>
+                <Separator />
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-2">
+                    <MessageSquare className="w-3.5 h-3.5" /> Observações
+                  </h4>
+                  <p className="text-foreground text-sm">{service.observacoes}</p>
+                </div>
+              </>
             )}
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-border">
+            <Separator />
+
+            <div className="flex justify-end gap-3">
               <Button variant="outline" onClick={generateReceipt}>
                 <FileImage className="w-4 h-4 mr-2" /> Gerar Recibo
               </Button>
