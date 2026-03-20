@@ -166,13 +166,45 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
         id = data as string;
       }
 
+      // Handle quick car upsert (car without client)
+      const isQuickFlow = (quickMode && !isEdit) || (isEdit && !form.cliente_cpf && !showClientFields);
+      let carroPlaca = form.carro_placa || null;
+
+      if (quickCar.placa.trim()) {
+        const formattedPlaca = quickCar.placa.toUpperCase();
+        // If assigning client, update the car's cliente_cpf
+        if (showClientFields && form.cliente_cpf) {
+          await supabase.from('carros').upsert({
+            placa: formattedPlaca,
+            marca: quickCar.marca,
+            modelo: quickCar.modelo,
+            cliente_cpf: form.cliente_cpf,
+          }, { onConflict: 'placa' });
+          carroPlaca = formattedPlaca;
+        } else if (isQuickFlow) {
+          // Save car without client
+          await supabase.from('carros').upsert({
+            placa: formattedPlaca,
+            marca: quickCar.marca,
+            modelo: quickCar.modelo,
+            cliente_cpf: null,
+          }, { onConflict: 'placa' });
+          carroPlaca = formattedPlaca;
+        }
+      }
+
+      // If assigning client via showClientFields, use form.carro_placa if set
+      if (showClientFields && form.carro_placa) {
+        carroPlaca = form.carro_placa;
+      }
+
       const dataEnc = form.status === 'entregue' && !form.data_encerramento
         ? new Date().toISOString().split('T')[0] : form.data_encerramento || null;
 
       const servicoData = {
         id,
         cliente_cpf: form.cliente_cpf || null,
-        carro_placa: form.carro_placa || null,
+        carro_placa: carroPlaca,
         data_entrada: form.data_entrada,
         data_encerramento: dataEnc,
         status: form.status,
