@@ -96,6 +96,38 @@ export default function Clientes() {
     }
 
     const validCars = carForms.filter(c => c.placa.trim());
+    for (const car of validCars) {
+      const placaUpper = car.placa.toUpperCase();
+      // Check if car already exists without a client (from quick service)
+      const { data: existing } = await supabase.from('carros').select('placa, cliente_cpf').eq('placa', placaUpper).single();
+      if (existing && existing.cliente_cpf === null) {
+        // Show confirmation popup
+        setPendingCarConflict({ placa: placaUpper, index: validCars.indexOf(car) });
+        setPendingSaveOpenService(openService);
+        // Save client data but pause car saving — will resume after confirmation
+        // Update remaining cars that don't conflict
+        const otherCars = validCars.filter(c => c.placa.toUpperCase() !== placaUpper);
+        if (otherCars.length) {
+          await supabase.from('carros').insert(
+            otherCars.map(c => ({
+              placa: c.placa.toUpperCase(),
+              cliente_cpf: formatted,
+              marca: c.marca,
+              modelo: c.modelo,
+              ano: c.ano ? parseInt(c.ano) : null,
+              cor: c.cor,
+            }))
+          );
+        }
+        toast.success(editCpf ? 'Cliente atualizado!' : 'Cliente criado!');
+        setShowForm(false);
+        setEditCpf(null);
+        fetchClientes();
+        return;
+      }
+    }
+
+    // No conflicts — insert all cars normally
     if (validCars.length) {
       const { error } = await supabase.from('carros').insert(
         validCars.map(c => ({
@@ -117,6 +149,29 @@ export default function Clientes() {
 
     if (openService) {
       setServiceForCpf(formatted);
+    }
+  };
+
+  const handleCarConflictConfirm = async () => {
+    if (!pendingCarConflict) return;
+    const formatted = formatCPF(form.cpf.replace(/\D/g, ''));
+    // Assign the unassigned car to this client
+    await supabase.from('carros').update({ cliente_cpf: formatted }).eq('placa', pendingCarConflict.placa);
+    toast.success('Carro atribuído ao cliente!');
+    setPendingCarConflict(null);
+    fetchClientes();
+    if (pendingSaveOpenService) {
+      setServiceForCpf(formatted);
+      setPendingSaveOpenService(false);
+    }
+  };
+
+  const handleCarConflictCancel = () => {
+    setPendingCarConflict(null);
+    if (pendingSaveOpenService) {
+      const formatted = formatCPF(form.cpf.replace(/\D/g, ''));
+      setServiceForCpf(formatted);
+      setPendingSaveOpenService(false);
     }
   };
 
