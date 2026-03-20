@@ -1,44 +1,35 @@
 
 
-## Plano: Carro no Serviço Rápido + Detecção de placa duplicada
+## Plano: Taxa Pix Máquina + Input Monetário + Custos Ocultos
 
-### O que muda
+### 4 melhorias combinadas
 
-#### 1. `ServiceDialog.tsx` — Campos de carro no Serviço Rápido
-- Quando `quickMode=true` (criação) ou editando serviço rápido sem cliente:
-  - Adicionar campos inline de **Marca**, **Modelo** e **Placa** (inputs diretos, sem dropdown)
-  - Novo estado `quickCar: { marca, modelo, placa }` para armazenar os dados
-- No `handleSave`:
-  - Se `quickCar.placa` preenchida, fazer upsert na tabela `carros` com `cliente_cpf` vazio (usar um valor especial como string vazia ou null — precisa de ajuste, ver abaixo)
-  - Salvar `carro_placa` no serviço com a placa informada
-- **Problema**: `carros.cliente_cpf` é NOT NULL. Precisa de uma migration para torná-lo nullable.
+#### 1. Taxa "Pix Máquina" na maquininha
+- **Migration**: `ALTER TABLE maquininhas ADD COLUMN taxa_pix_maquina numeric NOT NULL DEFAULT 0`
+- **`Configuracoes.tsx`**: Campo "Taxa Pix Máquina (%)" no form, antes das bandeiras
+- **`ServiceDialog.tsx`**: `getTaxRate` busca `taxa_pix_maquina` da maquininha para tipo "Pix Máquina"
 
-#### 2. Migration — `carros.cliente_cpf` nullable
-```sql
-ALTER TABLE carros ALTER COLUMN cliente_cpf DROP NOT NULL;
-```
-Isso permite carros sem dono (cadastrados via Serviço Rápido).
+#### 2. Parcelado: lista fixa 2x a 12x
+- **`Configuracoes.tsx`**: Substituir ranges dinâmicos por 11 campos fixos (2x, 3x... 12x) com input de taxa %
+- No save, gravar cada parcela com `parcelas_de = parcelas_ate = N`
 
-#### 3. `ServiceDialog.tsx` — Ao usar "Atribuir Cliente"
-- Quando o usuário atribui um cliente a um serviço rápido que tem carro, atualizar `carros.cliente_cpf` com o CPF do cliente selecionado
+#### 3. Input monetário (direita para esquerda)
+- **Novo componente** `src/components/ui/currency-input.tsx`:
+  - Valor armazenado em centavos, exibe `R$ X.XXX,XX`
+  - Digitar "1" → `R$ 0,01`, "150" → `R$ 1,50`
+  - `onChange` emite valor numérico como string
+- **Aplicar em**: `ServiceDialog.tsx` (valor_total, valores pagamento, valores custo), `Estoque.tsx` (valor_medio_compra, valor_venda)
 
-#### 4. `Clientes.tsx` — Detecção de placa duplicada ao cadastrar carro
-- No `saveClient` (e na lógica de salvar carros), antes de inserir um novo carro:
-  - Verificar se já existe um carro com aquela placa e `cliente_cpf IS NULL`
-  - Se existir, mostrar `AlertDialog`: "Carro já cadastrado no sistema, deseja adicioná-lo a este cliente?"
-  - Se "Sim": fazer `UPDATE carros SET cliente_cpf = ? WHERE placa = ?`
-  - Se "Não": não salvar aquele carro (ou permitir criar novo com a mesma placa — depende da PK, placa é PK então não pode duplicar → apenas atualizar)
-- Como `placa` é PK, não pode haver duplicata. Então o fluxo é:
-  - Tentar inserir → se erro de conflito (placa já existe) → verificar se o carro existente tem `cliente_cpf IS NULL` → popup → update
+#### 4. Custos ocultos por padrão
+- **`ServiceDialog.tsx`**: Iniciar `custos` como array vazio `[]` (não com 1 item)
+- Seção de custos mostra apenas botão "+ Adicionar Custo" quando array vazio
+- Ao clicar, adiciona primeiro item ao array e revela os campos
+- Na edição, se já existem custos salvos, carregar normalmente (array preenchido)
 
 ### Arquivos modificados
-- `src/components/services/ServiceDialog.tsx` — campos de carro no quick mode, lógica de salvar carro sem cliente
-- `src/pages/Clientes.tsx` — detecção de placa duplicada com popup de confirmação
-- Migration: `ALTER TABLE carros ALTER COLUMN cliente_cpf DROP NOT NULL`
-
-### Detalhes de implementação
-
-**ServiceDialog quick car fields**: 3 inputs (Marca, Modelo, Placa) mostrados quando `quickMode` ou serviço rápido em edição. Na edição, carregar dados do carro vinculado se existir. No save, inserir/upsert o carro com `cliente_cpf: null`.
-
-**Clientes popup**: Usar `AlertDialog` com estado `pendingCarPlaca` para controlar a placa em conflito. Ao confirmar, update o `cliente_cpf` do carro existente.
+- **Nova migration**: coluna `taxa_pix_maquina` em `maquininhas`
+- **Novo**: `src/components/ui/currency-input.tsx`
+- `src/pages/Configuracoes.tsx` — campo Pix Máquina, lista fixa 2x-12x
+- `src/components/services/ServiceDialog.tsx` — CurrencyInput, getTaxRate para Pix, custos ocultos
+- `src/pages/Estoque.tsx` — CurrencyInput nos campos de valor
 
