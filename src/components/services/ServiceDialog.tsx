@@ -335,6 +335,36 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                 </div>
               </>
             )}
+            {/* Quick car fields for quick mode (no client) */}
+            {(() => {
+              const isQuickCreate = quickMode && !isEdit;
+              const isQuickEdit = isEdit && !form.cliente_cpf && !showClientFields;
+              return isQuickCreate || isQuickEdit;
+            })() && (
+              <div className="col-span-1 sm:col-span-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <Car className="w-4 h-4 text-muted-foreground" />
+                  <Label className="text-sm font-semibold">Carro (opcional)</Label>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <div>
+                    <Label className="text-xs">Marca</Label>
+                    <Input value={quickCar.marca} onChange={e => setQuickCar({ ...quickCar, marca: e.target.value })}
+                      placeholder="Ex: Fiat" className="bg-card border-border" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Modelo</Label>
+                    <Input value={quickCar.modelo} onChange={e => setQuickCar({ ...quickCar, modelo: e.target.value })}
+                      placeholder="Ex: Uno" className="bg-card border-border" />
+                  </div>
+                  <div>
+                    <Label className="text-xs">Placa</Label>
+                    <Input value={quickCar.placa} onChange={e => setQuickCar({ ...quickCar, placa: formatPlaca(e.target.value) })}
+                      placeholder="ABC-1234" className="bg-card border-border" />
+                  </div>
+                </div>
+              </div>
+            )}
             <div>
               <Label>Data de Entrada</Label>
               <Input type="date" value={form.data_entrada} onChange={e => setForm({ ...form, data_entrada: e.target.value })} className="bg-card border-border" />
