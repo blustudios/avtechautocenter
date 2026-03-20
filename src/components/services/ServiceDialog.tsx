@@ -460,13 +460,33 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, onClose }: P
             <Textarea value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} className="bg-card border-border" />
           </div>
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-border">
-            <Button variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={loading}>
-              {loading ? 'Salvando...' : 'Salvar Serviço'}
-            </Button>
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3 pt-4 border-t border-border">
+            {isEdit ? (
+              <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)} className="w-full sm:w-auto">
+                <Trash2 className="w-4 h-4 mr-2" /> Excluir
+              </Button>
+            ) : <div />}
+            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+              <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">Cancelar</Button>
+              <Button onClick={handleSave} disabled={loading} className="w-full sm:w-auto">
+                {loading ? 'Salvando...' : 'Salvar Serviço'}
+              </Button>
+            </div>
           </div>
         </div>
+
+        <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <AlertDialogContent className="bg-popover border-border">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir Serviço</AlertDialogTitle>
+              <AlertDialogDescription>Deseja excluir essa entrada permanentemente?</AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Não</AlertDialogCancel>
+              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Sim</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
     </Dialog>
   );
