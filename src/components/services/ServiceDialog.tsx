@@ -315,22 +315,26 @@ export function ServiceDialog({ open, serviceId, onClose }: Props) {
           <div>
             <Label className="mb-2 block">Custos</Label>
             {custos.map((c, i) => (
-              <div key={i} className="flex gap-2 mb-2 flex-wrap">
-                <Input value={c.item} onChange={e => { const n = [...custos]; n[i].item = e.target.value; setCustos(n); }}
-                  placeholder="Item" className="bg-card border-border flex-1 min-w-[120px]" />
-                <Input type="number" value={c.quantidade} onChange={e => { const n = [...custos]; n[i].quantidade = e.target.value; setCustos(n); }}
-                  placeholder="Qtd" className="bg-card border-border w-20" />
-                <Select value={c.fornecedor_id} onValueChange={v => { const n = [...custos]; n[i].fornecedor_id = v; setCustos(n); }}>
-                  <SelectTrigger className="bg-card border-border w-40"><SelectValue placeholder="Fornecedor" /></SelectTrigger>
-                  <SelectContent>
-                    {fornecedores.map(f => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-                <Input type="number" step="0.01" value={c.valor} onChange={e => { const n = [...custos]; n[i].valor = e.target.value; setCustos(n); }}
-                  placeholder="Valor" className="bg-card border-border w-28" />
+              <div key={i} className="bg-card border border-border rounded-lg p-3 mb-2 space-y-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <Input value={c.item} onChange={e => { const n = [...custos]; n[i].item = e.target.value; setCustos(n); }}
+                    placeholder="Item" className="bg-background border-border" />
+                  <Select value={c.fornecedor_id} onValueChange={v => { const n = [...custos]; n[i].fornecedor_id = v; setCustos(n); }}>
+                    <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Fornecedor" /></SelectTrigger>
+                    <SelectContent>
+                      {fornecedores.map(f => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <Input type="number" value={c.quantidade} onChange={e => { const n = [...custos]; n[i].quantidade = e.target.value; setCustos(n); }}
+                    placeholder="Qtd" className="bg-background border-border" />
+                  <Input type="number" step="0.01" value={c.valor} onChange={e => { const n = [...custos]; n[i].valor = e.target.value; setCustos(n); }}
+                    placeholder="Valor (R$)" className="bg-background border-border" />
+                </div>
                 {custos.length > 1 && (
-                  <Button variant="ghost" size="icon" onClick={() => setCustos(custos.filter((_, j) => j !== i))}>
-                    <X className="w-4 h-4" />
+                  <Button variant="ghost" size="sm" onClick={() => setCustos(custos.filter((_, j) => j !== i))}>
+                    <X className="w-4 h-4 mr-1" /> Remover
                   </Button>
                 )}
               </div>
