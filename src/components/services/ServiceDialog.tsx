@@ -84,6 +84,13 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
             const { data: carrosData } = await supabase.from('carros').select('*').eq('cliente_cpf', sv.cliente_cpf);
             setCarros(carrosData || []);
           }
+          // Load quick car data if service has a car but no client
+          if (sv.carro_placa && !sv.cliente_cpf) {
+            const { data: carData } = await supabase.from('carros').select('*').eq('placa', sv.carro_placa).single();
+            if (carData) {
+              setQuickCar({ marca: carData.marca || '', modelo: carData.modelo || '', placa: carData.placa });
+            }
+          }
           const { data: it } = await supabase.from('servicos_itens').select('*').eq('servico_id', serviceId).order('ordem');
           if (it?.length) setItens(it.map(i => ({ descricao: i.descricao })));
           const { data: pg } = await supabase.from('servicos_pagamentos').select('*').eq('servico_id', serviceId);
