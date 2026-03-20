@@ -29,6 +29,7 @@ export default function Clientes() {
   const [editCpf, setEditCpf] = useState<string | null>(null);
   const [viewClient, setViewClient] = useState<any>(null);
   const [carros, setCarros] = useState<any[]>([]);
+  const [serviceForCpf, setServiceForCpf] = useState<string | null>(null);
 
   const [form, setForm] = useState({ cpf: '', nome: '', email: '', whatsapp: '' });
   const [carForms, setCarForms] = useState<CarForm[]>([]);
