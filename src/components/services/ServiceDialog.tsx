@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { Plus, X, Trash2 } from 'lucide-react';
+import { Plus, X, Trash2, UserPlus } from 'lucide-react';
 import { formatCurrency, tiposPagamento } from '@/lib/format';
 import { toast } from 'sonner';
 
