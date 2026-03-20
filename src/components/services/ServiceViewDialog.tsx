@@ -55,7 +55,7 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
   return (
     <>
       <Dialog open={open} onOpenChange={() => onClose()}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-popover border-border">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-popover border-border w-[95vw] sm:w-full">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3 flex-wrap">
               <span className="font-mono text-primary">{service.id}</span>
