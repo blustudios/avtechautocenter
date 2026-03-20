@@ -264,10 +264,11 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                 <Input value={form.id} readOnly className="bg-card border-border" />
               </div>
             )}
-            {/* Show client/car fields unless quickMode on create, or quick service in edit without showClientFields */}
-            {((!quickMode && !isEdit) || (isEdit && (form.cliente_cpf || showClientFields)) || (!isEdit && !quickMode) || showClientFields) && (() => {
-              const shouldShow = quickMode && !isEdit ? false : !(isEdit && !form.cliente_cpf && !showClientFields);
-              return shouldShow;
+            {/* Show client/car fields: hidden for quickMode create, or quick service edit without showClientFields */}
+            {(() => {
+              const isQuickCreate = quickMode && !isEdit;
+              const isQuickEdit = isEdit && !form.cliente_cpf && !showClientFields;
+              return !isQuickCreate && !isQuickEdit;
             })() && (
               <>
                 <div>

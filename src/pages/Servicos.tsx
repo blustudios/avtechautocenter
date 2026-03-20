@@ -207,7 +207,7 @@ export default function Servicos() {
                   <StatusBadge status={s.status} />
                   <PaymentBadge status={s.status_pagamento} />
                 </div>
-                <p className="text-foreground font-medium truncate">{s.cliente?.nome || '—'}</p>
+                <p className="text-foreground font-medium truncate">{s.cliente?.nome || <span className="italic text-muted-foreground">Serviço Rápido</span>}</p>
                 <p className="text-sm text-muted-foreground">
                   {s.carro ? `${s.carro.marca} ${s.carro.modelo} · ${s.carro.placa}` : '—'}
                   {' · '}{new Date(s.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR')}
