@@ -57,6 +57,21 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        surface: "hsl(var(--surface))",
+        "surface-elevated": "hsl(var(--surface-elevated))",
+        neutral: "hsl(var(--neutral))",
+        status: {
+          "a-iniciar": "hsl(var(--status-a-iniciar))",
+          "em-progresso": "hsl(var(--status-em-progresso))",
+          "em-progresso-bg": "hsl(var(--status-em-progresso-bg))",
+          aguardando: "hsl(var(--status-aguardando))",
+          "aguardando-bg": "hsl(var(--status-aguardando-bg))",
+          entregue: "hsl(var(--status-entregue))",
+          "entregue-bg": "hsl(var(--status-entregue-bg))",
+          pago: "hsl(var(--status-pago))",
+          pendente: "hsl(var(--status-pendente))",
+          parcial: "hsl(var(--status-parcial))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
@@ -65,25 +80,22 @@ export default {
       },
       keyframes: {
         "accordion-down": {
-          from: {
-            height: "0",
-          },
-          to: {
-            height: "var(--radix-accordion-content-height)",
-          },
+          from: { height: "0" },
+          to: { height: "var(--radix-accordion-content-height)" },
         },
         "accordion-up": {
-          from: {
-            height: "var(--radix-accordion-content-height)",
-          },
-          to: {
-            height: "0",
-          },
+          from: { height: "var(--radix-accordion-content-height)" },
+          to: { height: "0" },
+        },
+        "fade-in": {
+          from: { opacity: "0", transform: "translateY(8px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
+        "fade-in": "fade-in 0.3s ease-out",
       },
     },
   },
