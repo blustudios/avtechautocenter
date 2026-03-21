@@ -290,13 +290,18 @@ export default function Clientes() {
                     </div>
                     <div>
                       <Label className="text-xs">Marca</Label>
-                      <Input value={car.marca} onChange={e => { const n = [...carForms]; n[i].marca = e.target.value; setCarForms(n); }}
-                        className="bg-background border-border h-8 text-sm" />
+                      <AutocompleteInput value={car.marca} onChange={v => { const n = [...carForms]; n[i].marca = v; setCarForms(n); }}
+                        suggestions={marcasList.map(m => m.nome)}
+                        placeholder="Ex: Fiat" className="bg-background border-border h-8 text-sm" />
                     </div>
                     <div>
                       <Label className="text-xs">Modelo</Label>
-                      <Input value={car.modelo} onChange={e => { const n = [...carForms]; n[i].modelo = e.target.value; setCarForms(n); }}
-                        className="bg-background border-border h-8 text-sm" />
+                      <AutocompleteInput value={car.modelo} onChange={v => { const n = [...carForms]; n[i].modelo = v; setCarForms(n); }}
+                        suggestions={(() => {
+                          const marca = marcasList.find(m => m.nome.toLowerCase() === car.marca.trim().toLowerCase());
+                          return marca ? modelosList.filter(md => md.marca_id === marca.id).map(md => md.nome) : modelosList.map(md => md.nome);
+                        })()}
+                        placeholder="Ex: Uno" className="bg-background border-border h-8 text-sm" />
                     </div>
                     <div>
                       <Label className="text-xs">Ano</Label>
