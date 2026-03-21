@@ -560,70 +560,77 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
           {/* Section: Pagamentos */}
           <div className="border border-border rounded-lg p-4 space-y-3">
             <SectionTitle icon={CreditCard} title="Pagamentos" />
-            {pagamentos.map((p, i) => (
-              <div key={i} className="bg-card border border-border rounded-lg p-3 space-y-2">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                  <Select value={p.tipo} onValueChange={v => {
-                    const n = [...pagamentos]; n[i].tipo = v; n[i].maquininha_id = ''; n[i].bandeira_id = ''; setPagamentos(n);
-                  }}>
-                    <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Tipo" /></SelectTrigger>
-                    <SelectContent>{tiposPagamento.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                  </Select>
-                  {needsMaquininha(p.tipo) && (
-                    <Select value={p.maquininha_id} onValueChange={v => {
-                      const n = [...pagamentos]; n[i].maquininha_id = v; n[i].bandeira_id = ''; setPagamentos(n);
-                    }}>
-                      <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Maquininha" /></SelectTrigger>
-                      <SelectContent>{maquininhas.map(m => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}</SelectContent>
-                    </Select>
-                  )}
-                  {needsBandeira(p.tipo) && p.maquininha_id && (
-                    <Select value={p.bandeira_id} onValueChange={v => {
-                      const n = [...pagamentos]; n[i].bandeira_id = v; setPagamentos(n);
-                    }}>
-                      <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Bandeira" /></SelectTrigger>
-                      <SelectContent>{bandeiras.filter(b => b.maquininha_id === p.maquininha_id).map(b => <SelectItem key={b.id} value={b.id}>{b.nome}</SelectItem>)}</SelectContent>
-                    </Select>
-                  )}
-                  {p.tipo === 'Crédito Parcelado' && (
-                    <Input type="number" placeholder="Parcelas" value={p.parcelas}
-                      onChange={e => { const n = [...pagamentos]; n[i].parcelas = e.target.value; setPagamentos(n); }}
-                      className="bg-background border-border" />
-                  )}
-                  <CurrencyInput value={p.valor} onChange={v => { const n = [...pagamentos]; n[i].valor = v; setPagamentos(n); }} className="bg-background border-border" />
-                  <div>
-                    <Label className="text-xs text-muted-foreground">Data Pagamento</Label>
-                    <Input type="date" value={p.data_pagamento}
-                      onChange={e => { const n = [...pagamentos]; n[i].data_pagamento = e.target.value; setPagamentos(n); }}
-                      className="bg-background border-border" />
+            {pagamentos.length === 0 ? (
+              <Button variant="ghost" size="sm" onClick={() => setPagamentos([{ tipo: '', maquininha_id: '', bandeira_id: '', parcelas: '', valor: '', data_pagamento: new Date().toISOString().split('T')[0], pago: false }])}>
+                <Plus className="w-4 h-4 mr-1" /> Adicionar Pagamento
+              </Button>
+            ) : (
+              <>
+                {pagamentos.map((p, i) => (
+                  <div key={i} className="bg-card border border-border rounded-lg p-3 space-y-2">
+                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                      {needsMaquininha(p.tipo) && (
+                        <Select value={p.maquininha_id} onValueChange={v => {
+                          const n = [...pagamentos]; n[i].maquininha_id = v; n[i].bandeira_id = ''; setPagamentos(n);
+                        }}>
+                          <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Maquininha" /></SelectTrigger>
+                          <SelectContent>{maquininhas.map(m => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}</SelectContent>
+                        </Select>
+                      )}
+                      <Select value={p.tipo} onValueChange={v => {
+                        const n = [...pagamentos]; n[i].tipo = v; n[i].maquininha_id = ''; n[i].bandeira_id = ''; setPagamentos(n);
+                      }}>
+                        <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                        <SelectContent>{tiposPagamento.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                      </Select>
+                      {needsBandeira(p.tipo) && p.maquininha_id && (
+                        <Select value={p.bandeira_id} onValueChange={v => {
+                          const n = [...pagamentos]; n[i].bandeira_id = v; setPagamentos(n);
+                        }}>
+                          <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Bandeira" /></SelectTrigger>
+                          <SelectContent>{bandeiras.filter(b => b.maquininha_id === p.maquininha_id).map(b => <SelectItem key={b.id} value={b.id}>{b.nome}</SelectItem>)}</SelectContent>
+                        </Select>
+                      )}
+                      {p.tipo === 'Crédito Parcelado' && (
+                        <Input type="number" placeholder="Parcelas" value={p.parcelas}
+                          onChange={e => { const n = [...pagamentos]; n[i].parcelas = e.target.value; setPagamentos(n); }}
+                          className="bg-background border-border" />
+                      )}
+                      <CurrencyInput value={p.valor} onChange={v => { const n = [...pagamentos]; n[i].valor = v; setPagamentos(n); }}
+                        placeholder="Valor (R$)" className="bg-background border-border" />
+                      <Input type="date" value={p.data_pagamento}
+                        onChange={e => { const n = [...pagamentos]; n[i].data_pagamento = e.target.value; setPagamentos(n); }}
+                        className="bg-background border-border" />
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id={`pago-${i}`}
+                          checked={p.pago}
+                          onCheckedChange={(checked) => { const n = [...pagamentos]; n[i].pago = !!checked; setPagamentos(n); }}
+                          className="rounded-full h-4 w-4"
+                        />
+                        <label htmlFor={`pago-${i}`} className={`text-xs font-medium cursor-pointer select-none ${p.pago ? 'text-emerald-500' : 'text-muted-foreground'}`}>
+                          {p.pago ? 'Pago' : 'Pendente'}
+                        </label>
+                      </div>
+                      <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-destructive" onClick={() => setPagamentos(pagamentos.filter((_, j) => j !== i))}>
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-                {pagamentos.length > 1 && (
-                  <Button variant="ghost" size="sm" onClick={() => setPagamentos(pagamentos.filter((_, j) => j !== i))}>
-                    <X className="w-4 h-4 mr-1" /> Remover
-                  </Button>
-                )}
-              </div>
-            ))}
-            <Button variant="ghost" size="sm" onClick={() => setPagamentos([...pagamentos, { tipo: '', maquininha_id: '', bandeira_id: '', parcelas: '', valor: '', data_pagamento: new Date().toISOString().split('T')[0] }])}>
-              <Plus className="w-4 h-4 mr-1" /> Adicionar Pagamento
-            </Button>
+                ))}
+                <Button variant="ghost" size="sm" onClick={() => setPagamentos([...pagamentos, { tipo: '', maquininha_id: '', bandeira_id: '', parcelas: '', valor: '', data_pagamento: new Date().toISOString().split('T')[0], pago: false }])}>
+                  <Plus className="w-4 h-4 mr-1" /> Adicionar Pagamento
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Section: Resumo */}
           <div className="border border-border rounded-lg p-4 space-y-4">
             <SectionTitle icon={DollarSign} title="Resumo" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <Label>Status do Pagamento</Label>
-                <Select value={form.status_pagamento} onValueChange={v => setForm({ ...form, status_pagamento: v })}>
-                  <SelectTrigger className="bg-card border-border"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="pendente">Aguardando Pagamento</SelectItem>
-                    <SelectItem value="pago">Pago</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
               <div>
                 <Label>Lucro Líquido</Label>
                 <div className={`p-2 rounded border border-border text-lg font-semibold ${lucroLiquido >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>
