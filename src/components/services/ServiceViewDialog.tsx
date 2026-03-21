@@ -89,7 +89,7 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
                   <p className="text-foreground">{new Date(service.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground"></span>
+                  <span className="text-muted-foreground">Finalizado em</span>
                   <p className="text-foreground">{service.data_encerramento ? new Date(service.data_encerramento + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</p>
                 </div>
               </div>
