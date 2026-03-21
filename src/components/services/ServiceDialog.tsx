@@ -162,8 +162,8 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
     }
   }, [form.cliente_cpf]);
 
-  const needsMaquininha = (tipo: string) => !['Pix CNPJ', 'Dinheiro'].includes(tipo);
-  const needsBandeira = (tipo: string) => !['Pix CNPJ', 'Dinheiro', 'Pix Máquina'].includes(tipo);
+  const needsMaquininha = (tipo: string) => !['Pix CNPJ', 'Dinheiro', 'A Definir'].includes(tipo);
+  const needsBandeira = (tipo: string) => !['Pix CNPJ', 'Dinheiro', 'Pix Máquina', 'A Definir'].includes(tipo);
 
   const getTaxRate = (tipo: string, maquininha_id: string, bandeira_id: string, parcelas: number) => {
     if (tipo === 'Pix CNPJ' || tipo === 'Dinheiro') return 0;
