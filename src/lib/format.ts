@@ -37,7 +37,9 @@ export const statusLabels: Record<string, string> = {
 };
 
 export const paymentStatusLabels: Record<string, string> = {
-  pendente: 'Aguardando Pagamento',
+  pendente: 'Pendente Pagamento',
+  pendente_parcial: 'Pendente Parcial',
+  em_atraso: 'Pagamento Em Atraso',
   pago: 'Pago',
 };
 

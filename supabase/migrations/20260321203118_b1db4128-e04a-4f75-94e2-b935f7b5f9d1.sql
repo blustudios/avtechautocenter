@@ -1,0 +1,1 @@
+ALTER TABLE servicos_pagamentos ADD COLUMN pago boolean NOT NULL DEFAULT false;
