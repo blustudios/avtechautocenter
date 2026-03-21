@@ -402,7 +402,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
               <Input type="date" value={form.data_entrada} onChange={e => setForm({ ...form, data_entrada: e.target.value })} className="bg-card border-border" />
             </div>
             <div>
-              <Label>Data de Encerramento</Label>
+              <Label>Finalizado em</Label>
               <Input type="date" value={form.data_encerramento} onChange={e => setForm({ ...form, data_encerramento: e.target.value })} className="bg-card border-border" />
             </div>
             <div>
