@@ -1,34 +1,19 @@
 
 
-## Plano: Fix "Sem Placa" não salvar marca/modelo + mover checkbox
+## Plano: Exibir marca/modelo no card quando sem placa
 
 ### Problema
-Quando `semPlaca=true`, a linha 192 (`if (!semPlaca && quickCar.placa.trim())`) pula toda a lógica de salvar o carro. Como `carros` usa `placa` como PK, não há como inserir um carro sem placa nessa tabela. Resultado: marca e modelo são perdidos.
+Linha 212 de `Servicos.tsx` só mostra info do carro via `s.carro` (join com tabela `carros`). Quando não há placa, `s.carro` é null e exibe "—". Os campos `carro_marca`/`carro_modelo` do serviço não são usados.
 
-### Solução
+### Correção em `src/pages/Servicos.tsx`
 
-#### 1. Migration — colunas `carro_marca` e `carro_modelo` na tabela `servicos`
-```sql
-ALTER TABLE servicos ADD COLUMN carro_marca text;
-ALTER TABLE servicos ADD COLUMN carro_modelo text;
-```
-Isso permite salvar marca/modelo diretamente no serviço, independente de ter placa ou não.
+1. **Interface `Servico`**: Adicionar `carro_marca?: string` e `carro_modelo?: string`
+2. **Query** (linha ~52): Adicionar `carro_marca, carro_modelo` ao select (já vem automaticamente com `*`, mas garantir que o tipo reflete)
+3. **Linha 212**: Trocar a lógica de exibição:
+   - Se `s.carro` existe: mostrar `marca modelo · placa` (como hoje)
+   - Senão, se `s.carro_marca` ou `s.carro_modelo`: mostrar `marca modelo · Sem Placa`
+   - Senão: mostrar "—"
 
-#### 2. `ServiceDialog.tsx` — lógica de save
-- Quando `semPlaca=true`: salvar `carro_placa: null`, `carro_marca: quickCar.marca`, `carro_modelo: quickCar.modelo` no serviço
-- Quando `semPlaca=false` e placa preenchida: continuar upsert no `carros` + salvar placa, marca e modelo no serviço
-- Na edição: carregar `carro_marca`/`carro_modelo` do serviço para preencher `quickCar` quando não há placa
-
-#### 3. UI — mover checkbox abaixo do campo Placa
-- Remover o checkbox de dentro do `<div>` do label da placa
-- Colocar abaixo do `<Input>` da placa como uma linha separada com `flex items-center gap-1.5 mt-1.5`
-- Layout limpo: Label → Input → Checkbox abaixo
-
-#### 4. Exibição — `ServiceViewDialog.tsx`
-- Mostrar marca/modelo do serviço mesmo quando não há placa (usar `carro_marca`/`carro_modelo` do serviço)
-
-### Arquivos modificados
-- Nova migration: colunas `carro_marca`, `carro_modelo` em `servicos`
-- `src/components/services/ServiceDialog.tsx` — save + load + UI
-- `src/components/services/ServiceViewDialog.tsx` — exibição
+### Arquivo modificado
+- `src/pages/Servicos.tsx`
 
