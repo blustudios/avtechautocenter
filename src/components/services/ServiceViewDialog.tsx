@@ -206,10 +206,10 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
           <div style={{ fontSize: 14, color: '#B0B0B0' }}>Cliente</div>
           <div style={{ fontSize: 16, fontWeight: 600 }}>{client?.nome}</div>
         </div>
-        {car && (
+        {(car || service.carro_marca || service.carro_modelo) && (
           <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 14, color: '#B0B0B0' }}>Veículo</div>
-            <div style={{ fontSize: 16 }}>{car.marca} {car.modelo} {car.ano} {car.cor} · {car.placa}</div>
+            <div style={{ fontSize: 16 }}>{car ? `${car.marca} ${car.modelo} ${car.ano} ${car.cor} · ${car.placa}` : `${service.carro_marca || ''} ${service.carro_modelo || ''} · Sem Placa`}</div>
           </div>
         )}
         <hr style={{ borderColor: '#3D3D3D', margin: '16px 0' }} />
