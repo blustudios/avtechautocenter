@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -13,7 +13,8 @@ import { Plus, X, Trash2, UserPlus, Car, Info, Wrench, DollarSign, CreditCard, C
 import { Checkbox } from '@/components/ui/checkbox';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { PneuSelectorDialog } from '@/components/services/PneuSelectorDialog';
-import { formatCurrency, formatPlaca, tiposPagamento } from '@/lib/format';
+import { formatCurrency, formatPlaca, tiposPagamento, paymentStatusLabels } from '@/lib/format';
+import { PaymentBadge } from '@/components/StatusBadge';
 import { toast } from 'sonner';
 
 interface Props {
@@ -559,7 +560,11 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
 
           {/* Section: Pagamentos */}
           <div className="border border-border rounded-lg p-4 space-y-3">
-            <SectionTitle icon={CreditCard} title="Pagamentos" />
+            <div className="flex items-center gap-2 mb-3">
+              <CreditCard className="w-4 h-4 text-primary" />
+              <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Pagamentos</h3>
+              <PaymentBadge status={calcPaymentStatus()} />
+            </div>
             {pagamentos.length === 0 ? (
               <Button variant="ghost" size="sm" onClick={() => setPagamentos([{ tipo: '', maquininha_id: '', bandeira_id: '', parcelas: '', valor: '', data_pagamento: new Date().toISOString().split('T')[0], pago: false }])}>
                 <Plus className="w-4 h-4 mr-1" /> Adicionar Pagamento
@@ -569,6 +574,12 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                 {pagamentos.map((p, i) => (
                   <div key={i} className="bg-card border border-border rounded-lg p-3 space-y-2">
                     <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                      <Select value={p.tipo} onValueChange={v => {
+                        const n = [...pagamentos]; n[i].tipo = v; n[i].maquininha_id = ''; n[i].bandeira_id = ''; setPagamentos(n);
+                      }}>
+                        <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                        <SelectContent>{tiposPagamento.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                      </Select>
                       {needsMaquininha(p.tipo) && (
                         <Select value={p.maquininha_id} onValueChange={v => {
                           const n = [...pagamentos]; n[i].maquininha_id = v; n[i].bandeira_id = ''; setPagamentos(n);
@@ -577,12 +588,6 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                           <SelectContent>{maquininhas.map(m => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}</SelectContent>
                         </Select>
                       )}
-                      <Select value={p.tipo} onValueChange={v => {
-                        const n = [...pagamentos]; n[i].tipo = v; n[i].maquininha_id = ''; n[i].bandeira_id = ''; setPagamentos(n);
-                      }}>
-                        <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Tipo" /></SelectTrigger>
-                        <SelectContent>{tiposPagamento.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                      </Select>
                       {needsBandeira(p.tipo) && p.maquininha_id && (
                         <Select value={p.bandeira_id} onValueChange={v => {
                           const n = [...pagamentos]; n[i].bandeira_id = v; setPagamentos(n);
