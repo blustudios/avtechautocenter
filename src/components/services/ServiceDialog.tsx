@@ -547,6 +547,13 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                     onChange={v => { const n = [...pagamentos]; n[i].valor = v; setPagamentos(n); }}
                     className="bg-background border-border"
                   />
+
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Data Pagamento</Label>
+                    <Input type="date" value={p.data_pagamento}
+                      onChange={e => { const n = [...pagamentos]; n[i].data_pagamento = e.target.value; setPagamentos(n); }}
+                      className="bg-background border-border" />
+                  </div>
                 </div>
                 {pagamentos.length > 1 && (
                   <Button variant="ghost" size="sm" onClick={() => setPagamentos(pagamentos.filter((_, j) => j !== i))}>
