@@ -51,11 +51,11 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
 
   const car = service.carros;
   const client = service.clientes;
-  const carDisplay = car 
-    ? `${car.marca} ${car.modelo} · ${car.placa}` 
-    : (service.carro_marca || service.carro_modelo) 
-      ? `${service.carro_marca || ''} ${service.carro_modelo || ''} · Sem Placa`.trim()
-      : '—';
+  const carDisplay = car ?
+  `${car.marca} ${car.modelo} · ${car.placa}` :
+  service.carro_marca || service.carro_modelo ?
+  `${service.carro_marca || ''} ${service.carro_modelo || ''} · Sem Placa`.trim() :
+  '—';
 
   return (
     <>
@@ -89,62 +89,62 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
                   <p className="text-foreground">{new Date(service.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Encerramento</span>
+                  <span className="text-muted-foreground"></span>
                   <p className="text-foreground">{service.data_encerramento ? new Date(service.data_encerramento + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</p>
                 </div>
               </div>
             </div>
 
-            {itens.length > 0 && (
-              <>
+            {itens.length > 0 &&
+            <>
                 <Separator />
                 <div>
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
                     <Wrench className="w-3.5 h-3.5" /> Serviços Realizados
                   </h4>
                   <ul className="space-y-1">
-                    {itens.map((i, idx) => (
-                      <li key={idx} className="text-foreground text-sm">• {i.descricao}</li>
-                    ))}
+                    {itens.map((i, idx) =>
+                  <li key={idx} className="text-foreground text-sm">• {i.descricao}</li>
+                  )}
                   </ul>
                 </div>
               </>
-            )}
+            }
 
             {/* Costs before payments */}
-            {custos.length > 0 && (
-              <>
+            {custos.length > 0 &&
+            <>
                 <Separator />
                 <div>
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
                     <DollarSign className="w-3.5 h-3.5" /> Custos
                   </h4>
-                  {custos.map((c, idx) => (
-                    <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
+                  {custos.map((c, idx) =>
+                <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
                       <span>{c.item} {c.fornecedores?.nome ? <span className="text-muted-foreground">({c.fornecedores.nome})</span> : ''} <span className="text-muted-foreground">×{c.quantidade}</span></span>
                       <span>{formatCurrency(Number(c.valor) * Number(c.quantidade))}</span>
                     </div>
-                  ))}
+                )}
                 </div>
               </>
-            )}
+            }
 
-            {pagamentos.length > 0 && (
-              <>
+            {pagamentos.length > 0 &&
+            <>
                 <Separator />
                 <div>
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
                     <CreditCard className="w-3.5 h-3.5" /> Pagamentos
                   </h4>
-                  {pagamentos.map((p, idx) => (
-                    <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
+                  {pagamentos.map((p, idx) =>
+                <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
                       <span>{p.tipo} {p.bandeiras?.nome ? `(${p.bandeiras.nome})` : ''} {p.parcelas ? `${p.parcelas}x` : ''}</span>
                       <span>{formatCurrency(Number(p.valor))} <span className="text-muted-foreground text-xs">({p.taxa_aplicada}%)</span></span>
                     </div>
-                  ))}
+                )}
                 </div>
               </>
-            )}
+            }
 
             <Separator />
 
@@ -169,8 +169,8 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
               </div>
             </div>
 
-            {service.observacoes && (
-              <>
+            {service.observacoes &&
+            <>
                 <Separator />
                 <div>
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-2">
@@ -179,7 +179,7 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
                   <p className="text-foreground text-sm">{service.observacoes}</p>
                 </div>
               </>
-            )}
+            }
 
             <Separator />
 
@@ -206,37 +206,37 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
           <div style={{ fontSize: 14, color: '#B0B0B0' }}>Cliente</div>
           <div style={{ fontSize: 16, fontWeight: 600 }}>{client?.nome}</div>
         </div>
-        {(car || service.carro_marca || service.carro_modelo) && (
-          <div style={{ marginBottom: 12 }}>
+        {(car || service.carro_marca || service.carro_modelo) &&
+        <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 14, color: '#B0B0B0' }}>Veículo</div>
             <div style={{ fontSize: 16 }}>{car ? `${car.marca} ${car.modelo} ${car.ano} ${car.cor} · ${car.placa}` : `${service.carro_marca || ''} ${service.carro_modelo || ''} · Sem Placa`}</div>
           </div>
-        )}
+        }
         <hr style={{ borderColor: '#3D3D3D', margin: '16px 0' }} />
         <div style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 14, color: '#B0B0B0', marginBottom: 4 }}>Serviços</div>
-          {itens.map((it, i) => (
-            <div key={i} style={{ fontSize: 14, marginBottom: 2 }}>• {it.descricao}</div>
-          ))}
+          {itens.map((it, i) =>
+          <div key={i} style={{ fontSize: 14, marginBottom: 2 }}>• {it.descricao}</div>
+          )}
         </div>
         <hr style={{ borderColor: '#3D3D3D', margin: '16px 0' }} />
         <div style={{ textAlign: 'center', margin: '20px 0' }}>
           <div style={{ fontSize: 14, color: '#B0B0B0' }}>Valor Total</div>
           <div style={{ fontSize: 32, fontWeight: 700, color: '#F97316' }}>{formatCurrency(Number(service.valor_total))}</div>
         </div>
-        {pagamentos.length > 0 && (
-          <div style={{ marginBottom: 12 }}>
+        {pagamentos.length > 0 &&
+        <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 14, color: '#B0B0B0', marginBottom: 4 }}>Pagamento</div>
-            {pagamentos.map((p, i) => (
-              <div key={i} style={{ fontSize: 14 }}>{p.tipo} {p.parcelas ? `${p.parcelas}x` : ''} — {formatCurrency(Number(p.valor))}</div>
-            ))}
+            {pagamentos.map((p, i) =>
+          <div key={i} style={{ fontSize: 14 }}>{p.tipo} {p.parcelas ? `${p.parcelas}x` : ''} — {formatCurrency(Number(p.valor))}</div>
+          )}
           </div>
-        )}
+        }
         <hr style={{ borderColor: '#3D3D3D', margin: '16px 0' }} />
         <div style={{ textAlign: 'center', fontSize: 13, color: '#B0B0B0' }}>
           Obrigado pela preferência! · AV Tech
         </div>
       </div>
-    </>
-  );
+    </>);
+
 }
