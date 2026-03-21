@@ -97,6 +97,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
           }
           if (!sv.carro_placa && !sv.cliente_cpf) {
             setSemPlaca(true);
+            setQuickCar({ marca: (sv as any).carro_marca || '', modelo: (sv as any).carro_modelo || '', placa: '' });
           }
           if (sv.carro_placa && !sv.cliente_cpf) {
             const { data: carData } = await supabase.from('carros').select('*').eq('placa', sv.carro_placa).single();
@@ -220,10 +221,12 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
       const dataEnc = form.status === 'entregue' && !form.data_encerramento
         ? new Date().toISOString().split('T')[0] : form.data_encerramento || null;
 
-      const servicoData = {
+      const servicoData: any = {
         id,
         cliente_cpf: form.cliente_cpf || null,
         carro_placa: carroPlaca,
+        carro_marca: quickCar.marca.trim() || null,
+        carro_modelo: quickCar.modelo.trim() || null,
         data_entrada: form.data_entrada,
         data_encerramento: dataEnc,
         status: form.status,
@@ -380,18 +383,16 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                       placeholder="Ex: Uno" className="bg-card border-border" />
                   </div>
                   <div>
-                    <div className="flex items-center justify-between">
-                      <Label className="text-xs">Placa</Label>
-                      <div className="flex items-center gap-1.5">
-                        <Checkbox id="semPlaca" checked={semPlaca} onCheckedChange={(checked) => {
-                          setSemPlaca(!!checked);
-                          if (checked) setQuickCar(c => ({ ...c, placa: '' }));
-                        }} className="h-3.5 w-3.5" />
-                        <label htmlFor="semPlaca" className="text-xs text-muted-foreground cursor-pointer">Sem Placa</label>
-                      </div>
-                    </div>
+                    <Label className="text-xs">Placa</Label>
                     <Input value={quickCar.placa} onChange={e => setQuickCar({ ...quickCar, placa: formatPlaca(e.target.value) })}
                       placeholder="ABC-1234" className="bg-card border-border" disabled={semPlaca} />
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <Checkbox id="semPlaca" checked={semPlaca} onCheckedChange={(checked) => {
+                        setSemPlaca(!!checked);
+                        if (checked) setQuickCar(c => ({ ...c, placa: '' }));
+                      }} className="h-3.5 w-3.5" />
+                      <label htmlFor="semPlaca" className="text-xs text-muted-foreground cursor-pointer select-none">Sem Placa</label>
+                    </div>
                   </div>
                 </div>
               </div>
