@@ -97,6 +97,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
           }
           if (!sv.carro_placa && !sv.cliente_cpf) {
             setSemPlaca(true);
+            setQuickCar({ marca: (sv as any).carro_marca || '', modelo: (sv as any).carro_modelo || '', placa: '' });
           }
           if (sv.carro_placa && !sv.cliente_cpf) {
             const { data: carData } = await supabase.from('carros').select('*').eq('placa', sv.carro_placa).single();
