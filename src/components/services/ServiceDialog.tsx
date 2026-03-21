@@ -628,7 +628,11 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                     </div>
                   </div>
                 ))}
-                <Button variant="ghost" size="sm" onClick={() => setPagamentos([...pagamentos, { tipo: '', maquininha_id: '', bandeira_id: '', parcelas: '', valor: '', data_pagamento: new Date().toISOString().split('T')[0], pago: false }])}>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  const somaExistente = pagamentos.reduce((sum, pg) => sum + (parseFloat(pg.valor) || 0), 0);
+                  const valorAberto = Math.max(0, (parseFloat(form.valor_total) || 0) - somaExistente).toFixed(2);
+                  setPagamentos([...pagamentos, { tipo: 'A Definir', maquininha_id: '', bandeira_id: '', parcelas: '', valor: valorAberto, data_pagamento: new Date().toISOString().split('T')[0], pago: false }]);
+                }}>
                   <Plus className="w-4 h-4 mr-1" /> Adicionar Pagamento
                 </Button>
               </>
