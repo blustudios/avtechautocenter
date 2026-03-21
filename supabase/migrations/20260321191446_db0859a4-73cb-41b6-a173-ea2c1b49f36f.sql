@@ -1,0 +1,1 @@
+ALTER TABLE estoque_pneus ADD COLUMN tipo text NOT NULL DEFAULT 'Remold';

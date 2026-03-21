@@ -19,10 +19,13 @@ export default function Estoque() {
   const [search, setSearch] = useState('');
   const [filterMarca, setFilterMarca] = useState('all');
   const [filterAro, setFilterAro] = useState('all');
+  const [filterTipo, setFilterTipo] = useState('all');
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [form, setForm] = useState({ marca: '', medida_01: '', medida_02: '', aro: '', quantidade: '', valor_medio_compra: '', valor_venda: '' });
+  const [form, setForm] = useState({ marca: '', medida_01: '', medida_02: '', aro: '', tipo: 'Remold', quantidade: '', valor_medio_compra: '', valor_venda: '' });
+
+  const tipos = ['Remold', 'Importado', '1ª Linha'];
 
   const fetch = async () => {
     const { data } = await supabase.from('estoque_pneus').select('*').order('marca');
@@ -33,11 +36,12 @@ export default function Estoque() {
 
   const save = async () => {
     if (!form.marca.trim()) { toast.error('Marca obrigatória'); return; }
-    const data = {
+    const data: any = {
       marca: form.marca,
       medida_01: form.medida_01,
       medida_02: form.medida_02,
       aro: form.aro,
+      tipo: form.tipo,
       quantidade: parseInt(form.quantidade) || 0,
       valor_medio_compra: parseFloat(form.valor_medio_compra) || 0,
       valor_venda: parseFloat(form.valor_venda) || 0,
@@ -50,7 +54,7 @@ export default function Estoque() {
     toast.success('Pneu salvo!');
     setShowForm(false);
     setEditId(null);
-    setForm({ marca: '', medida_01: '', medida_02: '', aro: '', quantidade: '', valor_medio_compra: '', valor_venda: '' });
+    setForm({ marca: '', medida_01: '', medida_02: '', aro: '', tipo: 'Remold', quantidade: '', valor_medio_compra: '', valor_venda: '' });
     fetch();
   };
 
@@ -63,7 +67,7 @@ export default function Estoque() {
   };
 
   const openEdit = (p: any) => {
-    setForm({ marca: p.marca, medida_01: p.medida_01, medida_02: p.medida_02, aro: p.aro, quantidade: String(p.quantidade), valor_medio_compra: String(p.valor_medio_compra), valor_venda: String(p.valor_venda) });
+    setForm({ marca: p.marca, medida_01: p.medida_01, medida_02: p.medida_02, aro: p.aro, tipo: p.tipo || 'Remold', quantidade: String(p.quantidade), valor_medio_compra: String(p.valor_medio_compra), valor_venda: String(p.valor_venda) });
     setEditId(p.id);
     setShowForm(true);
   };
@@ -76,7 +80,8 @@ export default function Estoque() {
     const matchSearch = !s || p.marca?.toLowerCase().includes(s) || `${p.medida_01}/${p.medida_02} ${p.aro}`.includes(s);
     const matchMarca = filterMarca === 'all' || p.marca === filterMarca;
     const matchAro = filterAro === 'all' || p.aro === filterAro;
-    return matchSearch && matchMarca && matchAro;
+    const matchTipo = filterTipo === 'all' || p.tipo === filterTipo;
+    return matchSearch && matchMarca && matchAro && matchTipo;
   });
 
   return (
@@ -92,8 +97,8 @@ export default function Estoque() {
         </TabsList>
 
         <TabsContent value="pneus" className="space-y-4 mt-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
+          <div className="flex flex-col sm:flex-row gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[180px]">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input placeholder="Buscar por marca ou medida..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 bg-card border-border" />
             </div>
@@ -111,7 +116,14 @@ export default function Estoque() {
                 {aros.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Button onClick={() => { setForm({ marca: '', medida_01: '', medida_02: '', aro: '', quantidade: '', valor_medio_compra: '', valor_venda: '' }); setEditId(null); setShowForm(true); }} className="shrink-0">
+            <Select value={filterTipo} onValueChange={setFilterTipo}>
+              <SelectTrigger className="w-full sm:w-36 bg-card border-border"><SelectValue placeholder="Tipo" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos Tipos</SelectItem>
+                {tipos.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Button onClick={() => { setForm({ marca: '', medida_01: '', medida_02: '', aro: '', tipo: 'Remold', quantidade: '', valor_medio_compra: '', valor_venda: '' }); setEditId(null); setShowForm(true); }} className="shrink-0">
               <Plus className="w-4 h-4 mr-2" /> Inserir Pneu
             </Button>
           </div>
@@ -126,6 +138,7 @@ export default function Estoque() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-base font-bold text-foreground">{p.medida_01}/{p.medida_02} {p.aro}</span>
                     <span className={cn("text-xs font-semibold px-2 py-0.5 rounded", p.quantidade <= 2 ? "bg-primary/20 text-primary" : "text-muted-foreground bg-muted")}>{p.quantidade} un.</span>
+                    <span className="text-xs px-2 py-0.5 rounded bg-accent text-accent-foreground">{p.tipo || 'Remold'}</span>
                   </div>
                   <p className="text-sm text-muted-foreground">{p.marca}</p>
                 </div>
@@ -167,6 +180,15 @@ export default function Estoque() {
           <DialogHeader><DialogTitle>{editId ? 'Editar Pneu' : 'Inserir Pneu'}</DialogTitle></DialogHeader>
           <div className="space-y-4">
             <div><Label>Marca</Label><Input value={form.marca} onChange={e => setForm({ ...form, marca: e.target.value })} className="bg-card border-border" /></div>
+            <div>
+              <Label>Tipo</Label>
+              <Select value={form.tipo} onValueChange={v => setForm({ ...form, tipo: v })}>
+                <SelectTrigger className="bg-card border-border"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {tipos.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
             <div className="grid grid-cols-3 gap-3">
               <div><Label>Medida 01</Label><Input value={form.medida_01} onChange={e => setForm({ ...form, medida_01: e.target.value })} placeholder="205" className="bg-card border-border" /></div>
               <div><Label>Medida 02</Label><Input value={form.medida_02} onChange={e => setForm({ ...form, medida_02: e.target.value })} placeholder="55" className="bg-card border-border" /></div>

@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 interface Props {
   open: boolean;
   onClose: () => void;
+  onSaveAndService?: () => void;
 }
 
 interface CarForm {
@@ -26,7 +27,7 @@ interface CarForm {
 
 const emptyCar = (): CarForm => ({ placa: '', marca: '', modelo: '', ano: '', cor: '' });
 
-export function ClientDialog({ open, onClose }: Props) {
+export function ClientDialog({ open, onClose, onSaveAndService }: Props) {
   const [form, setForm] = useState({ cpf: '', nome: '', email: '', whatsapp: '' });
   const [carForms, setCarForms] = useState<CarForm[]>([]);
   const [marcasList, setMarcasList] = useState<{ id: string; nome: string }[]>([]);
@@ -42,7 +43,7 @@ export function ClientDialog({ open, onClose }: Props) {
     });
   }, []);
 
-  const save = async () => {
+  const save = async (andService?: boolean) => {
     const cpf = form.cpf.replace(/\D/g, '');
     if (cpf.length !== 11) { toast.error('CPF inválido'); return; }
     if (!form.nome.trim()) { toast.error('Nome obrigatório'); return; }
@@ -67,6 +68,9 @@ export function ClientDialog({ open, onClose }: Props) {
       );
     }
     toast.success('Cliente criado!');
+    if (andService && onSaveAndService) {
+      onSaveAndService();
+    }
     onClose();
   };
 
@@ -108,9 +112,14 @@ export function ClientDialog({ open, onClose }: Props) {
               </div>
             ))}
           </div>
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="flex flex-wrap justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => onClose()}>Cancelar</Button>
-            <Button onClick={save}>Salvar</Button>
+            {onSaveAndService && (
+              <Button variant="outline" onClick={() => save(true)} className="border-primary/50 text-primary hover:bg-primary/10">
+                Salvar + Serviço
+              </Button>
+            )}
+            <Button onClick={() => save()}>Salvar</Button>
           </div>
         </div>
       </DialogContent>
