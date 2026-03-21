@@ -52,8 +52,8 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
 
   const [itens, setItens] = useState<{ descricao: string }[]>([{ descricao: '' }]);
   const [pagamentos, setPagamentos] = useState<{
-    tipo: string; maquininha_id: string; bandeira_id: string; parcelas: string; valor: string;
-  }[]>([{ tipo: '', maquininha_id: '', bandeira_id: '', parcelas: '', valor: '' }]);
+    tipo: string; maquininha_id: string; bandeira_id: string; parcelas: string; valor: string; data_pagamento: string;
+  }[]>([{ tipo: '', maquininha_id: '', bandeira_id: '', parcelas: '', valor: '', data_pagamento: new Date().toISOString().split('T')[0] }]);
   const [custos, setCustos] = useState<{
     item: string; quantidade: string; fornecedor_id: string; valor: string;
   }[]>([]);
@@ -111,6 +111,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
           if (pg?.length) setPagamentos(pg.map(p => ({
             tipo: p.tipo, maquininha_id: p.maquininha_id || '', bandeira_id: p.bandeira_id || '',
             parcelas: p.parcelas ? String(p.parcelas) : '', valor: String(p.valor),
+            data_pagamento: (p as any).data_pagamento || '',
           })));
           const { data: ct } = await supabase.from('servicos_custos').select('*').eq('servico_id', serviceId);
           if (ct?.length) setCustos(ct.map(c => ({
@@ -265,6 +266,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
             parcelas: p.parcelas ? parseInt(p.parcelas) : null,
             valor: parseFloat(p.valor) || 0,
             taxa_aplicada: getTaxRate(p.tipo, p.maquininha_id, p.bandeira_id, parseInt(p.parcelas) || 0),
+            data_pagamento: p.data_pagamento || null,
           }))
         );
       }
@@ -545,6 +547,13 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                     onChange={v => { const n = [...pagamentos]; n[i].valor = v; setPagamentos(n); }}
                     className="bg-background border-border"
                   />
+
+                  <div>
+                    <Label className="text-xs text-muted-foreground">Data Pagamento</Label>
+                    <Input type="date" value={p.data_pagamento}
+                      onChange={e => { const n = [...pagamentos]; n[i].data_pagamento = e.target.value; setPagamentos(n); }}
+                      className="bg-background border-border" />
+                  </div>
                 </div>
                 {pagamentos.length > 1 && (
                   <Button variant="ghost" size="sm" onClick={() => setPagamentos(pagamentos.filter((_, j) => j !== i))}>
@@ -553,7 +562,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                 )}
               </div>
             ))}
-            <Button variant="ghost" size="sm" onClick={() => setPagamentos([...pagamentos, { tipo: '', maquininha_id: '', bandeira_id: '', parcelas: '', valor: '' }])}>
+            <Button variant="ghost" size="sm" onClick={() => setPagamentos([...pagamentos, { tipo: '', maquininha_id: '', bandeira_id: '', parcelas: '', valor: '', data_pagamento: new Date().toISOString().split('T')[0] }])}>
               <Plus className="w-4 h-4 mr-1" /> Adicionar Pagamento
             </Button>
           </div>

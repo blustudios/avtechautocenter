@@ -370,6 +370,7 @@ export type Database = {
       servicos_pagamentos: {
         Row: {
           bandeira_id: string | null
+          data_pagamento: string | null
           id: string
           maquininha_id: string | null
           parcelas: number | null
@@ -380,6 +381,7 @@ export type Database = {
         }
         Insert: {
           bandeira_id?: string | null
+          data_pagamento?: string | null
           id?: string
           maquininha_id?: string | null
           parcelas?: number | null
@@ -390,6 +392,7 @@ export type Database = {
         }
         Update: {
           bandeira_id?: string | null
+          data_pagamento?: string | null
           id?: string
           maquininha_id?: string | null
           parcelas?: number | null
