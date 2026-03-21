@@ -21,6 +21,8 @@ interface Servico {
   id: string;
   cliente_cpf: string;
   carro_placa: string;
+  carro_marca?: string;
+  carro_modelo?: string;
   data_entrada: string;
   status: string;
   status_pagamento: string;
