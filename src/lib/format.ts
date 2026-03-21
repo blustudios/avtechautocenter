@@ -44,6 +44,7 @@ export const paymentStatusLabels: Record<string, string> = {
 };
 
 export const tiposPagamento = [
+  'A Definir',
   'Pix CNPJ',
   'Pix Máquina',
   'Débito',

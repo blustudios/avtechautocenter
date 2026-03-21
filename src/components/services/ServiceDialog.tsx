@@ -162,11 +162,11 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
     }
   }, [form.cliente_cpf]);
 
-  const needsMaquininha = (tipo: string) => !['Pix CNPJ', 'Dinheiro'].includes(tipo);
-  const needsBandeira = (tipo: string) => !['Pix CNPJ', 'Dinheiro', 'Pix Máquina'].includes(tipo);
+  const needsMaquininha = (tipo: string) => !['Pix CNPJ', 'Dinheiro', 'A Definir'].includes(tipo);
+  const needsBandeira = (tipo: string) => !['Pix CNPJ', 'Dinheiro', 'Pix Máquina', 'A Definir'].includes(tipo);
 
   const getTaxRate = (tipo: string, maquininha_id: string, bandeira_id: string, parcelas: number) => {
-    if (tipo === 'Pix CNPJ' || tipo === 'Dinheiro') return 0;
+    if (tipo === 'Pix CNPJ' || tipo === 'Dinheiro' || tipo === 'A Definir') return 0;
     if (tipo === 'Pix Máquina') {
       const maq = maquininhas.find(m => m.id === maquininha_id);
       return maq ? Number(maq.taxa_pix_maquina) || 0 : 0;
@@ -566,7 +566,10 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
               <PaymentBadge status={calcPaymentStatus()} />
             </div>
             {pagamentos.length === 0 ? (
-              <Button variant="ghost" size="sm" onClick={() => setPagamentos([{ tipo: '', maquininha_id: '', bandeira_id: '', parcelas: '', valor: '', data_pagamento: new Date().toISOString().split('T')[0], pago: false }])}>
+              <Button variant="ghost" size="sm" onClick={() => {
+                const valorAberto = Math.max(0, (parseFloat(form.valor_total) || 0)).toFixed(2);
+                setPagamentos([{ tipo: 'A Definir', maquininha_id: '', bandeira_id: '', parcelas: '', valor: valorAberto, data_pagamento: new Date().toISOString().split('T')[0], pago: false }]);
+              }}>
                 <Plus className="w-4 h-4 mr-1" /> Adicionar Pagamento
               </Button>
             ) : (
@@ -625,7 +628,11 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                     </div>
                   </div>
                 ))}
-                <Button variant="ghost" size="sm" onClick={() => setPagamentos([...pagamentos, { tipo: '', maquininha_id: '', bandeira_id: '', parcelas: '', valor: '', data_pagamento: new Date().toISOString().split('T')[0], pago: false }])}>
+                <Button variant="ghost" size="sm" onClick={() => {
+                  const somaExistente = pagamentos.reduce((sum, pg) => sum + (parseFloat(pg.valor) || 0), 0);
+                  const valorAberto = Math.max(0, (parseFloat(form.valor_total) || 0) - somaExistente).toFixed(2);
+                  setPagamentos([...pagamentos, { tipo: 'A Definir', maquininha_id: '', bandeira_id: '', parcelas: '', valor: valorAberto, data_pagamento: new Date().toISOString().split('T')[0], pago: false }]);
+                }}>
                   <Plus className="w-4 h-4 mr-1" /> Adicionar Pagamento
                 </Button>
               </>
