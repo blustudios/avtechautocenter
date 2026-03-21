@@ -82,7 +82,7 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
                 </div>
                 <div>
                   <span className="text-muted-foreground">Carro</span>
-                  <p className="text-foreground font-medium">{car ? `${car.marca} ${car.modelo} · ${car.placa}` : '—'}</p>
+                  <p className="text-foreground font-medium">{carDisplay}</p>
                 </div>
                 <div>
                   <span className="text-muted-foreground">Entrada</span>
