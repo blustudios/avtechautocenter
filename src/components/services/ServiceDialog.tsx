@@ -9,9 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { CurrencyInput } from '@/components/ui/currency-input';
-import { Plus, X, Trash2, UserPlus, Car } from 'lucide-react';
+import { Plus, X, Trash2, UserPlus, Car, Info, Wrench, DollarSign, CreditCard, ClipboardList, CircleDot } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
+import { PneuSelectorDialog } from '@/components/services/PneuSelectorDialog';
 import { formatCurrency, formatPlaca, tiposPagamento } from '@/lib/format';
 import { toast } from 'sonner';
 
@@ -21,6 +22,14 @@ interface Props {
   defaultClienteCpf?: string;
   quickMode?: boolean;
   onClose: () => void;
+}
+
+interface PneuItem {
+  pneu_id: string;
+  quantidade: number;
+  valor_unitario: number;
+  nome_display: string;
+  baixa_estoque?: boolean;
 }
 
 export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, onClose }: Props) {
@@ -37,6 +46,8 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
   const [taxas, setTaxas] = useState<any[]>([]);
   const [marcasList, setMarcasList] = useState<{ id: string; nome: string }[]>([]);
   const [modelosList, setModelosList] = useState<{ id: string; marca_id: string; nome: string }[]>([]);
+  const [pneusServico, setPneusServico] = useState<PneuItem[]>([]);
+  const [showPneuSelector, setShowPneuSelector] = useState(false);
 
   const [form, setForm] = useState({
     id: '',
@@ -118,6 +129,17 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
             item: c.item, quantidade: String(c.quantidade),
             fornecedor_id: c.fornecedor_id || '', valor: String(c.valor),
           })));
+          // Load pneus
+          const { data: pn } = await supabase.from('servicos_pneus').select('*, estoque_pneus(marca, medida_01, medida_02, aro)').eq('servico_id', serviceId);
+          if (pn?.length) {
+            setPneusServico(pn.map((p: any) => ({
+              pneu_id: p.pneu_id,
+              quantidade: p.quantidade,
+              valor_unitario: Number(p.valor_unitario),
+              nome_display: p.estoque_pneus ? `${p.estoque_pneus.marca} ${p.estoque_pneus.medida_01}/${p.estoque_pneus.medida_02} ${p.estoque_pneus.aro}` : 'Pneu',
+              baixa_estoque: p.baixa_estoque,
+            })));
+          }
         }
       }
     };
@@ -144,18 +166,14 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
 
   const getTaxRate = (tipo: string, maquininha_id: string, bandeira_id: string, parcelas: number) => {
     if (tipo === 'Pix CNPJ' || tipo === 'Dinheiro') return 0;
-    
-    // Pix Máquina uses machine-level tax
     if (tipo === 'Pix Máquina') {
       const maq = maquininhas.find(m => m.id === maquininha_id);
       return maq ? Number(maq.taxa_pix_maquina) || 0 : 0;
     }
-
     let tipoDb = '';
     if (tipo === 'Débito') tipoDb = 'debito';
     else if (tipo === 'Crédito à vista') tipoDb = 'credito_avista';
     else if (tipo === 'Crédito Parcelado') tipoDb = 'credito_parcelado';
-
     if (tipoDb === 'credito_parcelado') {
       const t = taxas.find(t => t.bandeira_id === bandeira_id && t.tipo_pagamento === tipoDb &&
         parcelas >= (t.parcelas_de || 0) && parcelas <= (t.parcelas_ate || 999));
@@ -194,30 +212,15 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
       if (!semPlaca && quickCar.placa.trim()) {
         const formattedPlaca = quickCar.placa.toUpperCase();
         if (showClientFields && form.cliente_cpf) {
-          await supabase.from('carros').upsert({
-            placa: formattedPlaca,
-            marca: quickCar.marca,
-            modelo: quickCar.modelo,
-            cliente_cpf: form.cliente_cpf,
-          }, { onConflict: 'placa' });
+          await supabase.from('carros').upsert({ placa: formattedPlaca, marca: quickCar.marca, modelo: quickCar.modelo, cliente_cpf: form.cliente_cpf }, { onConflict: 'placa' });
           carroPlaca = formattedPlaca;
         } else if (isQuickFlow) {
-          await supabase.from('carros').upsert({
-            placa: formattedPlaca,
-            marca: quickCar.marca,
-            modelo: quickCar.modelo,
-            cliente_cpf: null,
-          }, { onConflict: 'placa' });
+          await supabase.from('carros').upsert({ placa: formattedPlaca, marca: quickCar.marca, modelo: quickCar.modelo, cliente_cpf: null }, { onConflict: 'placa' });
           carroPlaca = formattedPlaca;
         }
       }
-      if (semPlaca) {
-        carroPlaca = null;
-      }
-
-      if (showClientFields && form.carro_placa) {
-        carroPlaca = form.carro_placa;
-      }
+      if (semPlaca) carroPlaca = null;
+      if (showClientFields && form.carro_placa) carroPlaca = form.carro_placa;
 
       const dataEnc = form.status === 'entregue' && !form.data_encerramento
         ? new Date().toISOString().split('T')[0] : form.data_encerramento || null;
@@ -244,44 +247,63 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
         await supabase.from('servicos_itens').delete().eq('servico_id', id);
         await supabase.from('servicos_pagamentos').delete().eq('servico_id', id);
         await supabase.from('servicos_custos').delete().eq('servico_id', id);
+        // Handle pneus: estornar estoque dos que tinham baixa antes de deletar
+        const { data: oldPneus } = await supabase.from('servicos_pneus').select('*').eq('servico_id', id);
+        if (oldPneus?.length) {
+          for (const op of oldPneus) {
+            if (op.baixa_estoque) {
+              await supabase.rpc('generate_service_id'); // dummy to keep flow
+              // Estornar
+              const { data: currentPneu } = await supabase.from('estoque_pneus').select('quantidade').eq('id', op.pneu_id).single();
+              if (currentPneu) {
+                await supabase.from('estoque_pneus').update({ quantidade: currentPneu.quantidade + op.quantidade }).eq('id', op.pneu_id);
+              }
+            }
+          }
+        }
+        await supabase.from('servicos_pneus').delete().eq('servico_id', id);
       } else {
         await supabase.from('servicos').insert(servicoData);
       }
 
       const validItens = itens.filter(i => i.descricao.trim());
       if (validItens.length) {
-        await supabase.from('servicos_itens').insert(
-          validItens.map((i, idx) => ({ servico_id: id, descricao: i.descricao, ordem: idx }))
-        );
+        await supabase.from('servicos_itens').insert(validItens.map((i, idx) => ({ servico_id: id, descricao: i.descricao, ordem: idx })));
       }
 
       const validPag = pagamentos.filter(p => p.tipo && parseFloat(p.valor));
       if (validPag.length) {
-        await supabase.from('servicos_pagamentos').insert(
-          validPag.map(p => ({
-            servico_id: id,
-            tipo: p.tipo,
-            maquininha_id: p.maquininha_id || null,
-            bandeira_id: p.bandeira_id || null,
-            parcelas: p.parcelas ? parseInt(p.parcelas) : null,
-            valor: parseFloat(p.valor) || 0,
-            taxa_aplicada: getTaxRate(p.tipo, p.maquininha_id, p.bandeira_id, parseInt(p.parcelas) || 0),
-            data_pagamento: p.data_pagamento || null,
-          }))
-        );
+        await supabase.from('servicos_pagamentos').insert(validPag.map(p => ({
+          servico_id: id, tipo: p.tipo, maquininha_id: p.maquininha_id || null,
+          bandeira_id: p.bandeira_id || null, parcelas: p.parcelas ? parseInt(p.parcelas) : null,
+          valor: parseFloat(p.valor) || 0, taxa_aplicada: getTaxRate(p.tipo, p.maquininha_id, p.bandeira_id, parseInt(p.parcelas) || 0),
+          data_pagamento: p.data_pagamento || null,
+        })));
       }
 
       const validCustos = custos.filter(c => c.item.trim());
       if (validCustos.length) {
-        await supabase.from('servicos_custos').insert(
-          validCustos.map(c => ({
-            servico_id: id,
-            item: c.item,
-            quantidade: parseFloat(c.quantidade) || 1,
-            fornecedor_id: c.fornecedor_id || null,
-            valor: parseFloat(c.valor) || 0,
-          }))
-        );
+        await supabase.from('servicos_custos').insert(validCustos.map(c => ({
+          servico_id: id, item: c.item, quantidade: parseFloat(c.quantidade) || 1,
+          fornecedor_id: c.fornecedor_id || null, valor: parseFloat(c.valor) || 0,
+        })));
+      }
+
+      // Save pneus and handle stock deduction
+      if (pneusServico.length) {
+        const shouldDeduct = form.status === 'entregue';
+        await supabase.from('servicos_pneus').insert(pneusServico.map(p => ({
+          servico_id: id, pneu_id: p.pneu_id, quantidade: p.quantidade,
+          valor_unitario: p.valor_unitario, baixa_estoque: shouldDeduct,
+        })));
+        if (shouldDeduct) {
+          for (const p of pneusServico) {
+            const { data: currentPneu } = await supabase.from('estoque_pneus').select('quantidade').eq('id', p.pneu_id).single();
+            if (currentPneu) {
+              await supabase.from('estoque_pneus').update({ quantidade: Math.max(0, currentPneu.quantidade - p.quantidade) }).eq('id', p.pneu_id);
+            }
+          }
+        }
       }
 
       toast.success(isEdit ? 'Serviço atualizado!' : 'Serviço criado!');
@@ -297,6 +319,17 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
   const handleDelete = async () => {
     if (!serviceId) return;
     try {
+      // Estornar pneus
+      const { data: pnData } = await supabase.from('servicos_pneus').select('*').eq('servico_id', serviceId);
+      if (pnData?.length) {
+        for (const p of pnData) {
+          if (p.baixa_estoque) {
+            const { data: cur } = await supabase.from('estoque_pneus').select('quantidade').eq('id', p.pneu_id).single();
+            if (cur) await supabase.from('estoque_pneus').update({ quantidade: cur.quantidade + p.quantidade }).eq('id', p.pneu_id);
+          }
+        }
+      }
+      await supabase.from('servicos_pneus').delete().eq('servico_id', serviceId);
       await supabase.from('servicos_itens').delete().eq('servico_id', serviceId);
       await supabase.from('servicos_pagamentos').delete().eq('servico_id', serviceId);
       await supabase.from('servicos_custos').delete().eq('servico_id', serviceId);
@@ -308,156 +341,175 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
     }
   };
 
+  const SectionTitle = ({ icon: Icon, title }: { icon: any; title: string }) => (
+    <div className="flex items-center gap-2 mb-3">
+      <Icon className="w-4 h-4 text-primary" />
+      <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">{title}</h3>
+    </div>
+  );
+
   return (
     <Dialog open={open} onOpenChange={() => onClose()}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-popover border-border">
         <DialogHeader>
           <DialogTitle>
-            {isEdit 
+            {isEdit
               ? (isEdit && !form.cliente_cpf && !showClientFields ? 'Editar Serviço Rápido' : 'Editar Serviço')
               : (quickMode ? 'Serviço Rápido' : 'Novo Serviço')}
           </DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6">
-          {/* Basic info */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {isEdit && (
-              <div>
-                <Label>ID do Serviço</Label>
-                <Input value={form.id} readOnly className="bg-card border-border" />
-              </div>
-            )}
-            {(() => {
-              const isQuickCreate = quickMode && !isEdit;
-              const isQuickEdit = isEdit && !form.cliente_cpf && !showClientFields;
-              return !isQuickCreate && !isQuickEdit;
-            })() && (
-              <>
+        <div className="space-y-5">
+          {/* Section: Informações Gerais */}
+          <div className="border border-border rounded-lg p-4 space-y-4">
+            <SectionTitle icon={Info} title="Informações Gerais" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {isEdit && (
                 <div>
-                  <Label>Cliente</Label>
-                  <Select value={form.cliente_cpf} onValueChange={v => setForm({ ...form, cliente_cpf: v, carro_placa: '' })}>
-                    <SelectTrigger className="bg-card border-border"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                    <SelectContent>
-                      {clientes.map(c => (
-                        <SelectItem key={c.cpf} value={c.cpf}>{c.nome} · {c.cpf}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Label>ID do Serviço</Label>
+                  <Input value={form.id} readOnly className="bg-card border-border" />
                 </div>
-                <div>
-                  <Label>Carro</Label>
-                  <Select value={form.carro_placa} onValueChange={v => setForm({ ...form, carro_placa: v })}>
-                    <SelectTrigger className="bg-card border-border"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                    <SelectContent>
-                      {carros.map(c => (
-                        <SelectItem key={c.placa} value={c.placa}>{c.marca} {c.modelo} · {c.placa}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </>
-            )}
-            {(() => {
-              const isQuickCreate = quickMode && !isEdit;
-              const isQuickEdit = isEdit && !form.cliente_cpf && !showClientFields;
-              return isQuickCreate || isQuickEdit;
-            })() && (
-              <div className="col-span-1 sm:col-span-2">
-                <div className="flex items-center gap-2 mb-2">
-                  <Car className="w-4 h-4 text-muted-foreground" />
-                  <Label className="text-sm font-semibold">Carro (opcional)</Label>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              )}
+              {(() => {
+                const isQuickCreate = quickMode && !isEdit;
+                const isQuickEdit = isEdit && !form.cliente_cpf && !showClientFields;
+                return !isQuickCreate && !isQuickEdit;
+              })() && (
+                <>
                   <div>
-                    <Label className="text-xs">Marca</Label>
-                    <AutocompleteInput value={quickCar.marca} onChange={v => setQuickCar({ ...quickCar, marca: v })}
-                      suggestions={marcasList.map(m => m.nome)}
-                      placeholder="Ex: Fiat" className="bg-card border-border" />
+                    <Label>Cliente</Label>
+                    <Select value={form.cliente_cpf} onValueChange={v => setForm({ ...form, cliente_cpf: v, carro_placa: '' })}>
+                      <SelectTrigger className="bg-card border-border"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectContent>{clientes.map(c => <SelectItem key={c.cpf} value={c.cpf}>{c.nome} · {c.cpf}</SelectItem>)}</SelectContent>
+                    </Select>
                   </div>
                   <div>
-                    <Label className="text-xs">Modelo</Label>
-                    <AutocompleteInput value={quickCar.modelo} onChange={v => setQuickCar({ ...quickCar, modelo: v })}
-                      suggestions={(() => {
-                        const marca = marcasList.find(m => m.nome.toLowerCase() === quickCar.marca.trim().toLowerCase());
-                        return marca ? modelosList.filter(md => md.marca_id === marca.id).map(md => md.nome) : modelosList.map(md => md.nome);
-                      })()}
-                      placeholder="Ex: Uno" className="bg-card border-border" />
+                    <Label>Carro</Label>
+                    <Select value={form.carro_placa} onValueChange={v => setForm({ ...form, carro_placa: v })}>
+                      <SelectTrigger className="bg-card border-border"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectContent>{carros.map(c => <SelectItem key={c.placa} value={c.placa}>{c.marca} {c.modelo} · {c.placa}</SelectItem>)}</SelectContent>
+                    </Select>
                   </div>
-                  <div>
-                    <Label className="text-xs">Placa</Label>
-                    <Input value={quickCar.placa} onChange={e => setQuickCar({ ...quickCar, placa: formatPlaca(e.target.value) })}
-                      placeholder="ABC-1234" className="bg-card border-border" disabled={semPlaca} />
-                    <div className="flex items-center gap-1.5 mt-1.5">
-                      <Checkbox id="semPlaca" checked={semPlaca} onCheckedChange={(checked) => {
-                        setSemPlaca(!!checked);
-                        if (checked) setQuickCar(c => ({ ...c, placa: '' }));
-                      }} className="h-3.5 w-3.5" />
-                      <label htmlFor="semPlaca" className="text-xs text-muted-foreground cursor-pointer select-none">Sem Placa</label>
+                </>
+              )}
+              {(() => {
+                const isQuickCreate = quickMode && !isEdit;
+                const isQuickEdit = isEdit && !form.cliente_cpf && !showClientFields;
+                return isQuickCreate || isQuickEdit;
+              })() && (
+                <div className="col-span-1 sm:col-span-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Car className="w-4 h-4 text-muted-foreground" />
+                    <Label className="text-sm font-semibold">Carro (opcional)</Label>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div>
+                      <Label className="text-xs">Marca</Label>
+                      <AutocompleteInput value={quickCar.marca} onChange={v => setQuickCar({ ...quickCar, marca: v })}
+                        suggestions={marcasList.map(m => m.nome)} placeholder="Ex: Fiat" className="bg-card border-border" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Modelo</Label>
+                      <AutocompleteInput value={quickCar.modelo} onChange={v => setQuickCar({ ...quickCar, modelo: v })}
+                        suggestions={(() => {
+                          const marca = marcasList.find(m => m.nome.toLowerCase() === quickCar.marca.trim().toLowerCase());
+                          return marca ? modelosList.filter(md => md.marca_id === marca.id).map(md => md.nome) : modelosList.map(md => md.nome);
+                        })()}
+                        placeholder="Ex: Uno" className="bg-card border-border" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Placa</Label>
+                      <Input value={quickCar.placa} onChange={e => setQuickCar({ ...quickCar, placa: formatPlaca(e.target.value) })}
+                        placeholder="ABC-1234" className="bg-card border-border" disabled={semPlaca} />
+                      <div className="flex items-center gap-1.5 mt-1.5">
+                        <Checkbox id="semPlaca" checked={semPlaca} onCheckedChange={(checked) => {
+                          setSemPlaca(!!checked);
+                          if (checked) setQuickCar(c => ({ ...c, placa: '' }));
+                        }} className="h-3.5 w-3.5" />
+                        <label htmlFor="semPlaca" className="text-xs text-muted-foreground cursor-pointer select-none">Sem Placa</label>
+                      </div>
                     </div>
                   </div>
                 </div>
+              )}
+              <div>
+                <Label>Data de Entrada</Label>
+                <Input type="date" value={form.data_entrada} onChange={e => setForm({ ...form, data_entrada: e.target.value })} className="bg-card border-border" />
               </div>
-            )}
-            <div>
-              <Label>Data de Entrada</Label>
-              <Input type="date" value={form.data_entrada} onChange={e => setForm({ ...form, data_entrada: e.target.value })} className="bg-card border-border" />
-            </div>
-            <div>
-              <Label>Finalizado em</Label>
-              <Input type="date" value={form.data_encerramento} onChange={e => setForm({ ...form, data_encerramento: e.target.value })} className="bg-card border-border" />
-            </div>
-            <div>
-              <Label>Status</Label>
-              <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
-                <SelectTrigger className="bg-card border-border"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="a_iniciar">À Iniciar</SelectItem>
-                  <SelectItem value="em_progresso">Em Progresso</SelectItem>
-                  <SelectItem value="entregue">Entregue</SelectItem>
-                </SelectContent>
-              </Select>
+              <div>
+                <Label>Finalizado em</Label>
+                <Input type="date" value={form.data_encerramento} onChange={e => setForm({ ...form, data_encerramento: e.target.value })} className="bg-card border-border" />
+              </div>
+              <div>
+                <Label>Status</Label>
+                <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
+                  <SelectTrigger className="bg-card border-border"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="a_iniciar">À Iniciar</SelectItem>
+                    <SelectItem value="em_progresso">Em Progresso</SelectItem>
+                    <SelectItem value="entregue">Entregue</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
-          {/* Service items */}
-          <div>
-            <Label className="mb-2 block">Descrição dos Serviços</Label>
+          {/* Section: Descrição dos Serviços */}
+          <div className="border border-border rounded-lg p-4 space-y-3">
+            <SectionTitle icon={Wrench} title="Descrição dos Serviços" />
             {itens.map((item, i) => (
-              <div key={i} className="flex gap-2 mb-2">
-                <Input
-                  value={item.descricao}
-                  onChange={e => { const n = [...itens]; n[i].descricao = e.target.value; setItens(n); }}
-                  placeholder="Ex: Troca de pneus 205/55R16"
-                  className="bg-card border-border flex-1"
-                />
+              <div key={i} className="flex gap-2">
+                <Input value={item.descricao} onChange={e => { const n = [...itens]; n[i].descricao = e.target.value; setItens(n); }}
+                  placeholder="Ex: Troca de pneus 205/55R16" className="bg-card border-border flex-1" />
                 {itens.length > 1 && (
-                  <Button variant="ghost" size="icon" onClick={() => setItens(itens.filter((_, j) => j !== i))}>
-                    <X className="w-4 h-4" />
-                  </Button>
+                  <Button variant="ghost" size="icon" onClick={() => setItens(itens.filter((_, j) => j !== i))}><X className="w-4 h-4" /></Button>
                 )}
               </div>
             ))}
-            <Button variant="ghost" size="sm" onClick={() => setItens([...itens, { descricao: '' }])}>
-              <Plus className="w-4 h-4 mr-1" /> Adicionar
-            </Button>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setItens([...itens, { descricao: '' }])}>
+                <Plus className="w-4 h-4 mr-1" /> Adicionar
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setShowPneuSelector(true)} className="text-primary">
+                <CircleDot className="w-4 h-4 mr-1" /> Adicionar Pneus
+              </Button>
+            </div>
+            {pneusServico.length > 0 && (
+              <div className="space-y-1.5 mt-2">
+                <Label className="text-xs text-muted-foreground">Pneus adicionados:</Label>
+                {pneusServico.map((p, i) => (
+                  <div key={i} className="flex items-center justify-between bg-card border border-border rounded-md px-3 py-2 text-sm">
+                    <span className="text-foreground">{p.quantidade}x {p.nome_display}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">{formatCurrency(p.valor_unitario * p.quantidade)}</span>
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setPneusServico(pneusServico.filter((_, j) => j !== i))}>
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
-          {/* Totals */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label>Valor Total do Serviço (R$)</Label>
-              <CurrencyInput value={form.valor_total} onChange={v => setForm({ ...form, valor_total: v })} className="bg-card border-border" />
-            </div>
-            <div>
-              <Label>Valor Líquido</Label>
-              <CurrencyInput value={String(valorLiquido.toFixed(2))} onChange={() => {}} readOnly className="bg-card border-border" />
+          {/* Section: Valores */}
+          <div className="border border-border rounded-lg p-4 space-y-4">
+            <SectionTitle icon={DollarSign} title="Valores" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label>Valor Total do Serviço (R$)</Label>
+                <CurrencyInput value={form.valor_total} onChange={v => setForm({ ...form, valor_total: v })} className="bg-card border-border" />
+              </div>
+              <div>
+                <Label>Valor Líquido</Label>
+                <CurrencyInput value={String(valorLiquido.toFixed(2))} onChange={() => {}} readOnly className="bg-card border-border" />
+              </div>
             </div>
           </div>
 
-          {/* Costs - hidden by default */}
-          <div>
-            <Label className="mb-2 block">Custos</Label>
+          {/* Section: Custos */}
+          <div className="border border-border rounded-lg p-4 space-y-3">
+            <SectionTitle icon={ClipboardList} title="Custos" />
             {custos.length === 0 ? (
               <Button variant="ghost" size="sm" onClick={() => setCustos([{ item: '', quantidade: '1', fornecedor_id: '', valor: '' }])}>
                 <Plus className="w-4 h-4 mr-1" /> Adicionar Custo
@@ -465,22 +517,19 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
             ) : (
               <>
                 {custos.map((c, i) => (
-                  <div key={i} className="bg-card border border-border rounded-lg p-3 mb-2 space-y-2">
+                  <div key={i} className="bg-card border border-border rounded-lg p-3 space-y-2">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <Input value={c.item} onChange={e => { const n = [...custos]; n[i].item = e.target.value; setCustos(n); }}
                         placeholder="Item" className="bg-background border-border" />
                       <Select value={c.fornecedor_id} onValueChange={v => { const n = [...custos]; n[i].fornecedor_id = v; setCustos(n); }}>
                         <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Fornecedor" /></SelectTrigger>
-                        <SelectContent>
-                          {fornecedores.map(f => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}
-                        </SelectContent>
+                        <SelectContent>{fornecedores.map(f => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <Input type="number" value={c.quantidade} onChange={e => { const n = [...custos]; n[i].quantidade = e.target.value; setCustos(n); }}
                         placeholder="Qtd" className="bg-background border-border" />
-                      <CurrencyInput value={c.valor} onChange={v => { const n = [...custos]; n[i].valor = v; setCustos(n); }}
-                        className="bg-background border-border" />
+                      <CurrencyInput value={c.valor} onChange={v => { const n = [...custos]; n[i].valor = v; setCustos(n); }} className="bg-background border-border" />
                     </div>
                     <Button variant="ghost" size="sm" onClick={() => setCustos(custos.filter((_, j) => j !== i))}>
                       <X className="w-4 h-4 mr-1" /> Remover
@@ -490,64 +539,45 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                 <Button variant="ghost" size="sm" onClick={() => setCustos([...custos, { item: '', quantidade: '1', fornecedor_id: '', valor: '' }])}>
                   <Plus className="w-4 h-4 mr-1" /> Adicionar Custo
                 </Button>
-                <p className="text-sm text-muted-foreground mt-1">Total de Custos: {formatCurrency(custoTotal)}</p>
+                <p className="text-sm text-muted-foreground">Total de Custos: {formatCurrency(custoTotal)}</p>
               </>
             )}
           </div>
 
-          {/* Payments */}
-          <div>
-            <Label className="mb-2 block">Formas de Pagamento</Label>
+          {/* Section: Pagamentos */}
+          <div className="border border-border rounded-lg p-4 space-y-3">
+            <SectionTitle icon={CreditCard} title="Pagamentos" />
             {pagamentos.map((p, i) => (
-              <div key={i} className="bg-card border border-border rounded-lg p-3 mb-2 space-y-2">
+              <div key={i} className="bg-card border border-border rounded-lg p-3 space-y-2">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
                   <Select value={p.tipo} onValueChange={v => {
                     const n = [...pagamentos]; n[i].tipo = v; n[i].maquininha_id = ''; n[i].bandeira_id = ''; setPagamentos(n);
                   }}>
                     <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Tipo" /></SelectTrigger>
-                    <SelectContent>
-                      {tiposPagamento.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-                    </SelectContent>
+                    <SelectContent>{tiposPagamento.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
                   </Select>
-
                   {needsMaquininha(p.tipo) && (
                     <Select value={p.maquininha_id} onValueChange={v => {
                       const n = [...pagamentos]; n[i].maquininha_id = v; n[i].bandeira_id = ''; setPagamentos(n);
                     }}>
                       <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Maquininha" /></SelectTrigger>
-                      <SelectContent>
-                        {maquininhas.map(m => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}
-                      </SelectContent>
+                      <SelectContent>{maquininhas.map(m => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}</SelectContent>
                     </Select>
                   )}
-
                   {needsBandeira(p.tipo) && p.maquininha_id && (
                     <Select value={p.bandeira_id} onValueChange={v => {
                       const n = [...pagamentos]; n[i].bandeira_id = v; setPagamentos(n);
                     }}>
                       <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Bandeira" /></SelectTrigger>
-                      <SelectContent>
-                        {bandeiras.filter(b => b.maquininha_id === p.maquininha_id).map(b => (
-                          <SelectItem key={b.id} value={b.id}>{b.nome}</SelectItem>
-                        ))}
-                      </SelectContent>
+                      <SelectContent>{bandeiras.filter(b => b.maquininha_id === p.maquininha_id).map(b => <SelectItem key={b.id} value={b.id}>{b.nome}</SelectItem>)}</SelectContent>
                     </Select>
                   )}
-
                   {p.tipo === 'Crédito Parcelado' && (
-                    <Input
-                      type="number" placeholder="Parcelas" value={p.parcelas}
+                    <Input type="number" placeholder="Parcelas" value={p.parcelas}
                       onChange={e => { const n = [...pagamentos]; n[i].parcelas = e.target.value; setPagamentos(n); }}
-                      className="bg-background border-border"
-                    />
+                      className="bg-background border-border" />
                   )}
-
-                  <CurrencyInput
-                    value={p.valor}
-                    onChange={v => { const n = [...pagamentos]; n[i].valor = v; setPagamentos(n); }}
-                    className="bg-background border-border"
-                  />
-
+                  <CurrencyInput value={p.valor} onChange={v => { const n = [...pagamentos]; n[i].valor = v; setPagamentos(n); }} className="bg-background border-border" />
                   <div>
                     <Label className="text-xs text-muted-foreground">Data Pagamento</Label>
                     <Input type="date" value={p.data_pagamento}
@@ -567,29 +597,31 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
             </Button>
           </div>
 
-          {/* Payment status & profit */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label>Status do Pagamento</Label>
-              <Select value={form.status_pagamento} onValueChange={v => setForm({ ...form, status_pagamento: v })}>
-                <SelectTrigger className="bg-card border-border"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pendente">Aguardando Pagamento</SelectItem>
-                  <SelectItem value="pago">Pago</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Lucro Líquido</Label>
-              <div className={`p-2 rounded border border-border text-lg font-semibold ${lucroLiquido >= 0 ? 'text-status-entregue' : 'text-destructive'}`}>
-                {formatCurrency(lucroLiquido)}
+          {/* Section: Resumo */}
+          <div className="border border-border rounded-lg p-4 space-y-4">
+            <SectionTitle icon={DollarSign} title="Resumo" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <Label>Status do Pagamento</Label>
+                <Select value={form.status_pagamento} onValueChange={v => setForm({ ...form, status_pagamento: v })}>
+                  <SelectTrigger className="bg-card border-border"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="pendente">Aguardando Pagamento</SelectItem>
+                    <SelectItem value="pago">Pago</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Lucro Líquido</Label>
+                <div className={`p-2 rounded border border-border text-lg font-semibold ${lucroLiquido >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>
+                  {formatCurrency(lucroLiquido)}
+                </div>
               </div>
             </div>
-          </div>
-
-          <div>
-            <Label>Observações</Label>
-            <Textarea value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} className="bg-card border-border" />
+            <div>
+              <Label>Observações</Label>
+              <Textarea value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} className="bg-card border-border" />
+            </div>
           </div>
 
           <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3 pt-4 border-t border-border">
@@ -627,6 +659,9 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
           </AlertDialogContent>
         </AlertDialog>
       </DialogContent>
+
+      <PneuSelectorDialog open={showPneuSelector} onClose={() => setShowPneuSelector(false)}
+        onSelect={(pneu) => setPneusServico([...pneusServico, pneu])} />
     </Dialog>
   );
 }
