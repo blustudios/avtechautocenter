@@ -7,11 +7,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
 import { formatCurrency } from '@/lib/format';
-import { Plus, Search, CalendarIcon, MoreHorizontal, Pencil, Trash2, Zap } from 'lucide-react';
+import { Plus, Search, CalendarIcon, MoreHorizontal, Pencil, Trash2, Zap, UserPlus, RefreshCw } from 'lucide-react';
 import { ServiceDialog } from '@/components/services/ServiceDialog';
 import { ServiceViewDialog } from '@/components/services/ServiceViewDialog';
+import { ClientDialog } from '@/components/clients/ClientDialog';
 import { format, subDays, isAfter, isBefore, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import { ptBR } from 'date-fns/locale';
@@ -27,6 +29,7 @@ interface Servico {
   status: string;
   status_pagamento: string;
   valor_total: number;
+  lucro_liquido: number;
   cliente?: { nome: string };
   carro?: { marca: string; modelo: string; placa: string };
 }
@@ -43,6 +46,7 @@ export default function Servicos() {
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [showCreate, setShowCreate] = useState(false);
   const [showQuickCreate, setShowQuickCreate] = useState(false);
+  const [showNewClient, setShowNewClient] = useState(false);
   const [viewService, setViewService] = useState<string | null>(null);
   const [editService, setEditService] = useState<string | null>(null);
   const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
@@ -64,6 +68,12 @@ export default function Servicos() {
   };
 
   useEffect(() => { fetchServicos(); }, []);
+
+  const handleRefresh = async () => {
+    setLoading(true);
+    await fetchServicos();
+    toast.success('Atualizado!');
+  };
 
   const getDateRange = (): { from: Date | null; to: Date | null } => {
     if (datePreset === '3days') return { from: subDays(new Date(), 3), to: new Date() };
@@ -96,14 +106,34 @@ export default function Servicos() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold text-foreground">Entradas de Serviço</h1>
-        <div className="flex flex-col sm:flex-row gap-2">
+        <div className="flex items-center gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" onClick={() => setShowNewClient(true)} className="shrink-0 border-border">
+                  <UserPlus className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Novo Cliente</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" onClick={handleRefresh} className="shrink-0 border-border">
+                  <RefreshCw className="w-4 h-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Atualizar</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <Button variant="outline" onClick={() => setShowQuickCreate(true)} className="shrink-0 border-primary/50 text-primary hover:bg-primary/10">
             <Zap className="w-4 h-4 mr-2" />
-            Serviço Rápido
+            <span className="hidden sm:inline">Serviço Rápido</span>
+            <span className="sm:hidden">Rápido</span>
           </Button>
           <Button onClick={() => setShowCreate(true)} className="shrink-0">
             <Plus className="w-4 h-4 mr-2" />
-            Novo Serviço
+            <span className="hidden sm:inline">Novo Serviço</span>
+            <span className="sm:hidden">Novo</span>
           </Button>
         </div>
       </div>
@@ -111,17 +141,10 @@ export default function Servicos() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por nome, placa ou ID..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-9 bg-card border-border"
-          />
+          <Input placeholder="Buscar por nome, placa ou ID..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 bg-card border-border" />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-48 bg-card border-border">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
+          <SelectTrigger className="w-full sm:w-48 bg-card border-border"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos Status</SelectItem>
             <SelectItem value="a_iniciar">À Iniciar</SelectItem>
@@ -130,9 +153,7 @@ export default function Servicos() {
           </SelectContent>
         </Select>
         <Select value={paymentFilter} onValueChange={setPaymentFilter}>
-          <SelectTrigger className="w-full sm:w-48 bg-card border-border">
-            <SelectValue placeholder="Pagamento" />
-          </SelectTrigger>
+          <SelectTrigger className="w-full sm:w-48 bg-card border-border"><SelectValue placeholder="Pagamento" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="pago">Pago</SelectItem>
@@ -147,43 +168,31 @@ export default function Servicos() {
           <span className="text-sm text-muted-foreground shrink-0">Período:</span>
           <div className="flex gap-1.5 overflow-x-auto pb-1">
             {(['all', '3days', '7days', 'custom'] as DatePreset[]).map(preset => (
-              <Button
-                key={preset}
-                variant={datePreset === preset ? 'default' : 'outline'}
-                size="sm"
-                className="shrink-0 text-xs sm:text-sm"
-                onClick={() => { setDatePreset(preset); if (preset !== 'custom') { setDateFrom(undefined); setDateTo(undefined); } }}
-              >
+              <Button key={preset} variant={datePreset === preset ? 'default' : 'outline'} size="sm" className="shrink-0 text-xs sm:text-sm"
+                onClick={() => { setDatePreset(preset); if (preset !== 'custom') { setDateFrom(undefined); setDateTo(undefined); } }}>
                 {preset === 'all' ? 'Todos' : preset === '3days' ? '3 dias' : preset === '7days' ? '7 dias' : 'Personalizado'}
               </Button>
             ))}
           </div>
         </div>
-
         {datePreset === 'custom' && (
           <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className={cn('gap-1.5 w-full sm:w-auto', !dateFrom && 'text-muted-foreground')}>
-                  <CalendarIcon className="w-3.5 h-3.5" />
-                  {dateFrom ? format(dateFrom, 'dd/MM/yyyy') : 'Data início'}
+                  <CalendarIcon className="w-3.5 h-3.5" />{dateFrom ? format(dateFrom, 'dd/MM/yyyy') : 'Data início'}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus className="p-3 pointer-events-auto" locale={ptBR} />
-              </PopoverContent>
+              <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} initialFocus className="p-3 pointer-events-auto" locale={ptBR} /></PopoverContent>
             </Popover>
             <span className="text-muted-foreground text-sm hidden sm:inline">até</span>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className={cn('gap-1.5 w-full sm:w-auto', !dateTo && 'text-muted-foreground')}>
-                  <CalendarIcon className="w-3.5 h-3.5" />
-                  {dateTo ? format(dateTo, 'dd/MM/yyyy') : 'Data fim'}
+                  <CalendarIcon className="w-3.5 h-3.5" />{dateTo ? format(dateTo, 'dd/MM/yyyy') : 'Data fim'}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar mode="single" selected={dateTo} onSelect={setDateTo} initialFocus className="p-3 pointer-events-auto" locale={ptBR} />
-              </PopoverContent>
+              <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={dateTo} onSelect={setDateTo} initialFocus className="p-3 pointer-events-auto" locale={ptBR} /></PopoverContent>
             </Popover>
           </div>
         )}
@@ -198,11 +207,8 @@ export default function Servicos() {
       ) : (
         <div className="space-y-2">
           {filtered.map(s => (
-            <div
-              key={s.id}
-              onClick={() => setViewService(s.id)}
-              className="bg-card border border-border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:border-primary/40 transition-colors"
-            >
+            <div key={s.id} onClick={() => setViewService(s.id)}
+              className="bg-card border border-border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:border-primary/40 transition-colors">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="font-mono text-sm text-primary font-semibold">{s.id}</span>
@@ -220,20 +226,19 @@ export default function Servicos() {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <p className="text-lg font-semibold text-foreground">{formatCurrency(Number(s.valor_total))}</p>
+                <div className="text-right">
+                  <p className="text-lg font-semibold text-foreground">{formatCurrency(Number(s.valor_total))}</p>
+                  <p className={cn("text-xs font-medium", Number(s.lucro_liquido) >= 0 ? "text-emerald-500" : "text-destructive")}>
+                    Lucro: {formatCurrency(Number(s.lucro_liquido))}
+                  </p>
+                </div>
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild onClick={e => e.stopPropagation()}>
-                    <Button variant="ghost" size="icon" className="shrink-0">
-                      <MoreHorizontal className="w-4 h-4" />
-                    </Button>
+                    <Button variant="ghost" size="icon" className="shrink-0"><MoreHorizontal className="w-4 h-4" /></Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={e => { e.stopPropagation(); setEditService(s.id); }}>
-                      <Pencil className="w-4 h-4 mr-2" /> Editar
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={e => { e.stopPropagation(); setDeleteServiceId(s.id); }} className="text-destructive">
-                      <Trash2 className="w-4 h-4 mr-2" /> Excluir
-                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={e => { e.stopPropagation(); setEditService(s.id); }}><Pencil className="w-4 h-4 mr-2" /> Editar</DropdownMenuItem>
+                    <DropdownMenuItem onClick={e => { e.stopPropagation(); setDeleteServiceId(s.id); }} className="text-destructive"><Trash2 className="w-4 h-4 mr-2" /> Excluir</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -242,34 +247,15 @@ export default function Servicos() {
         </div>
       )}
 
-      {showCreate && (
-        <ServiceDialog
-          open={showCreate}
-          onClose={() => { setShowCreate(false); fetchServicos(); }}
-        />
-      )}
-      {showQuickCreate && (
-        <ServiceDialog
-          open={showQuickCreate}
-          quickMode
-          onClose={() => { setShowQuickCreate(false); fetchServicos(); }}
-        />
-      )}
+      {showCreate && <ServiceDialog open={showCreate} onClose={() => { setShowCreate(false); fetchServicos(); }} />}
+      {showQuickCreate && <ServiceDialog open={showQuickCreate} quickMode onClose={() => { setShowQuickCreate(false); fetchServicos(); }} />}
+      {showNewClient && <ClientDialog open={showNewClient} onClose={() => setShowNewClient(false)} />}
       {viewService && (
-        <ServiceViewDialog
-          serviceId={viewService}
-          open={!!viewService}
+        <ServiceViewDialog serviceId={viewService} open={!!viewService}
           onClose={() => { setViewService(null); fetchServicos(); }}
-          onEdit={(id) => { setViewService(null); setEditService(id); }}
-        />
+          onEdit={(id) => { setViewService(null); setEditService(id); }} />
       )}
-      {editService && (
-        <ServiceDialog
-          open={!!editService}
-          serviceId={editService}
-          onClose={() => { setEditService(null); fetchServicos(); }}
-        />
-      )}
+      {editService && <ServiceDialog open={!!editService} serviceId={editService} onClose={() => { setEditService(null); fetchServicos(); }} />}
 
       <AlertDialog open={!!deleteServiceId} onOpenChange={() => setDeleteServiceId(null)}>
         <AlertDialogContent className="bg-popover border-border">
@@ -279,10 +265,10 @@ export default function Servicos() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Não</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={async () => {
                 const id = deleteServiceId!;
+                await supabase.from('servicos_pneus').delete().eq('servico_id', id);
                 await supabase.from('servicos_itens').delete().eq('servico_id', id);
                 await supabase.from('servicos_pagamentos').delete().eq('servico_id', id);
                 await supabase.from('servicos_custos').delete().eq('servico_id', id);
@@ -290,10 +276,7 @@ export default function Servicos() {
                 toast.success('Serviço excluído!');
                 setDeleteServiceId(null);
                 fetchServicos();
-              }}
-            >
-              Sim
-            </AlertDialogAction>
+              }}>Sim</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

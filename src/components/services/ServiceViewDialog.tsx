@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
 import { formatCurrency, statusLabels, paymentStatusLabels } from '@/lib/format';
-import { Pencil, FileImage, User, Car, Wrench, DollarSign, CreditCard, MessageSquare } from 'lucide-react';
+import { Pencil, FileImage, User, Car, Wrench, DollarSign, CreditCard, MessageSquare, CircleDot } from 'lucide-react';
 import html2canvas from 'html2canvas';
 
 interface Props {
@@ -20,6 +20,7 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
   const [itens, setItens] = useState<any[]>([]);
   const [pagamentos, setPagamentos] = useState<any[]>([]);
   const [custos, setCustos] = useState<any[]>([]);
+  const [pneus, setPneus] = useState<any[]>([]);
   const receiptRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -32,6 +33,8 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
       setPagamentos(pg || []);
       const { data: ct } = await supabase.from('servicos_custos').select('*, fornecedores(nome)').eq('servico_id', serviceId);
       setCustos(ct || []);
+      const { data: pn } = await supabase.from('servicos_pneus').select('*, estoque_pneus(marca, medida_01, medida_02, aro)').eq('servico_id', serviceId);
+      setPneus(pn || []);
     };
     if (serviceId) load();
   }, [serviceId]);
@@ -52,10 +55,10 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
   const car = service.carros;
   const client = service.clientes;
   const carDisplay = car ?
-  `${car.marca} ${car.modelo} · ${car.placa}` :
-  service.carro_marca || service.carro_modelo ?
-  `${service.carro_marca || ''} ${service.carro_modelo || ''} · Sem Placa`.trim() :
-  '—';
+    `${car.marca} ${car.modelo} · ${car.placa}` :
+    service.carro_marca || service.carro_modelo ?
+    `${service.carro_marca || ''} ${service.carro_modelo || ''} · Sem Placa`.trim() :
+    '—';
 
   return (
     <>
@@ -70,84 +73,80 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
           </DialogHeader>
 
           <div className="space-y-5">
-            {/* Client & Car info */}
             <div>
               <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
                 <User className="w-3.5 h-3.5" /> Informações
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Cliente</span>
-                  <p className="text-foreground font-medium">{client?.nome || '—'}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Carro</span>
-                  <p className="text-foreground font-medium">{carDisplay}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Entrada</span>
-                  <p className="text-foreground">{new Date(service.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Finalizado em</span>
-                  <p className="text-foreground">{service.data_encerramento ? new Date(service.data_encerramento + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</p>
-                </div>
+                <div><span className="text-muted-foreground">Cliente</span><p className="text-foreground font-medium">{client?.nome || '—'}</p></div>
+                <div><span className="text-muted-foreground">Carro</span><p className="text-foreground font-medium">{carDisplay}</p></div>
+                <div><span className="text-muted-foreground">Entrada</span><p className="text-foreground">{new Date(service.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR')}</p></div>
+                <div><span className="text-muted-foreground">Finalizado em</span><p className="text-foreground">{service.data_encerramento ? new Date(service.data_encerramento + 'T00:00:00').toLocaleDateString('pt-BR') : '—'}</p></div>
               </div>
             </div>
 
-            {itens.length > 0 &&
-            <>
-                <Separator />
-                <div>
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <Wrench className="w-3.5 h-3.5" /> Serviços Realizados
-                  </h4>
-                  <ul className="space-y-1">
-                    {itens.map((i, idx) =>
-                  <li key={idx} className="text-foreground text-sm">• {i.descricao}</li>
-                  )}
-                  </ul>
-                </div>
-              </>
-            }
+            {itens.length > 0 && <>
+              <Separator />
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <Wrench className="w-3.5 h-3.5" /> Serviços Realizados
+                </h4>
+                <ul className="space-y-1">
+                  {itens.map((i, idx) => <li key={idx} className="text-foreground text-sm">• {i.descricao}</li>)}
+                </ul>
+              </div>
+            </>}
 
-            {/* Costs before payments */}
-            {custos.length > 0 &&
-            <>
-                <Separator />
-                <div>
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <DollarSign className="w-3.5 h-3.5" /> Custos
-                  </h4>
-                  {custos.map((c, idx) =>
-                <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
-                      <span>{c.item} {c.fornecedores?.nome ? <span className="text-muted-foreground">({c.fornecedores.nome})</span> : ''} <span className="text-muted-foreground">×{c.quantidade}</span></span>
-                      <span>{formatCurrency(Number(c.valor) * Number(c.quantidade))}</span>
-                    </div>
-                )}
-                </div>
-              </>
-            }
+            {pneus.length > 0 && <>
+              <Separator />
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <CircleDot className="w-3.5 h-3.5" /> Pneus
+                </h4>
+                {pneus.map((p, idx) => (
+                  <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
+                    <span>
+                      {p.quantidade}x {p.estoque_pneus ? `${p.estoque_pneus.marca} ${p.estoque_pneus.medida_01}/${p.estoque_pneus.medida_02} ${p.estoque_pneus.aro}` : 'Pneu'}
+                      {p.baixa_estoque && <span className="text-xs text-emerald-500 ml-2">(baixa realizada)</span>}
+                    </span>
+                    <span>{formatCurrency(Number(p.valor_unitario) * Number(p.quantidade))}</span>
+                  </div>
+                ))}
+              </div>
+            </>}
 
-            {pagamentos.length > 0 &&
-            <>
-                <Separator />
-                <div>
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <CreditCard className="w-3.5 h-3.5" /> Pagamentos
-                  </h4>
-                  {pagamentos.map((p, idx) =>
-                <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
-                      <div>
-                        <span>{p.tipo} {p.bandeiras?.nome ? `(${p.bandeiras.nome})` : ''} {p.parcelas ? `${p.parcelas}x` : ''}</span>
-                        {(p as any).data_pagamento && <span className="text-muted-foreground text-xs ml-2">{new Date((p as any).data_pagamento + 'T00:00:00').toLocaleDateString('pt-BR')}</span>}
-                      </div>
-                      <span>{formatCurrency(Number(p.valor))} <span className="text-muted-foreground text-xs">({p.taxa_aplicada}%)</span></span>
+            {custos.length > 0 && <>
+              <Separator />
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <DollarSign className="w-3.5 h-3.5" /> Custos
+                </h4>
+                {custos.map((c, idx) => (
+                  <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
+                    <span>{c.item} {c.fornecedores?.nome ? <span className="text-muted-foreground">({c.fornecedores.nome})</span> : ''} <span className="text-muted-foreground">×{c.quantidade}</span></span>
+                    <span>{formatCurrency(Number(c.valor) * Number(c.quantidade))}</span>
+                  </div>
+                ))}
+              </div>
+            </>}
+
+            {pagamentos.length > 0 && <>
+              <Separator />
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
+                  <CreditCard className="w-3.5 h-3.5" /> Pagamentos
+                </h4>
+                {pagamentos.map((p, idx) => (
+                  <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
+                    <div>
+                      <span>{p.tipo} {p.bandeiras?.nome ? `(${p.bandeiras.nome})` : ''} {p.parcelas ? `${p.parcelas}x` : ''}</span>
+                      {(p as any).data_pagamento && <span className="text-muted-foreground text-xs ml-2">{new Date((p as any).data_pagamento + 'T00:00:00').toLocaleDateString('pt-BR')}</span>}
                     </div>
-                )}
-                </div>
-              </>
-            }
+                    <span>{formatCurrency(Number(p.valor))} <span className="text-muted-foreground text-xs">({p.taxa_aplicada}%)</span></span>
+                  </div>
+                ))}
+              </div>
+            </>}
 
             <Separator />
 
@@ -166,23 +165,21 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
               </div>
               <div className="bg-card rounded-lg p-3">
                 <span className="text-xs text-muted-foreground">Lucro</span>
-                <p className={`text-lg font-semibold ${Number(service.lucro_liquido) >= 0 ? 'text-status-entregue' : 'text-destructive'}`}>
+                <p className={`text-lg font-semibold ${Number(service.lucro_liquido) >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>
                   {formatCurrency(Number(service.lucro_liquido))}
                 </p>
               </div>
             </div>
 
-            {service.observacoes &&
-            <>
-                <Separator />
-                <div>
-                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-2">
-                    <MessageSquare className="w-3.5 h-3.5" /> Observações
-                  </h4>
-                  <p className="text-foreground text-sm">{service.observacoes}</p>
-                </div>
-              </>
-            }
+            {service.observacoes && <>
+              <Separator />
+              <div>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 flex items-center gap-2">
+                  <MessageSquare className="w-3.5 h-3.5" /> Observações
+                </h4>
+                <p className="text-foreground text-sm">{service.observacoes}</p>
+              </div>
+            </>}
 
             <Separator />
 
@@ -210,7 +207,7 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
           <div style={{ fontSize: 16, fontWeight: 600 }}>{client?.nome}</div>
         </div>
         {(car || service.carro_marca || service.carro_modelo) &&
-        <div style={{ marginBottom: 12 }}>
+          <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 14, color: '#B0B0B0' }}>Veículo</div>
             <div style={{ fontSize: 16 }}>{car ? `${car.marca} ${car.modelo} ${car.ano} ${car.cor} · ${car.placa}` : `${service.carro_marca || ''} ${service.carro_modelo || ''} · Sem Placa`}</div>
           </div>
@@ -218,21 +215,26 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
         <hr style={{ borderColor: '#3D3D3D', margin: '16px 0' }} />
         <div style={{ marginBottom: 12 }}>
           <div style={{ fontSize: 14, color: '#B0B0B0', marginBottom: 4 }}>Serviços</div>
-          {itens.map((it, i) =>
-          <div key={i} style={{ fontSize: 14, marginBottom: 2 }}>• {it.descricao}</div>
-          )}
+          {itens.map((it, i) => <div key={i} style={{ fontSize: 14, marginBottom: 2 }}>• {it.descricao}</div>)}
         </div>
+        {pneus.length > 0 && <>
+          <hr style={{ borderColor: '#3D3D3D', margin: '16px 0' }} />
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 14, color: '#B0B0B0', marginBottom: 4 }}>Pneus</div>
+            {pneus.map((p, i) => <div key={i} style={{ fontSize: 14 }}>
+              {p.quantidade}x {p.estoque_pneus ? `${p.estoque_pneus.marca} ${p.estoque_pneus.medida_01}/${p.estoque_pneus.medida_02} ${p.estoque_pneus.aro}` : 'Pneu'} — {formatCurrency(Number(p.valor_unitario) * Number(p.quantidade))}
+            </div>)}
+          </div>
+        </>}
         <hr style={{ borderColor: '#3D3D3D', margin: '16px 0' }} />
         <div style={{ textAlign: 'center', margin: '20px 0' }}>
           <div style={{ fontSize: 14, color: '#B0B0B0' }}>Valor Total</div>
           <div style={{ fontSize: 32, fontWeight: 700, color: '#F97316' }}>{formatCurrency(Number(service.valor_total))}</div>
         </div>
         {pagamentos.length > 0 &&
-        <div style={{ marginBottom: 12 }}>
+          <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 14, color: '#B0B0B0', marginBottom: 4 }}>Pagamento</div>
-            {pagamentos.map((p, i) =>
-          <div key={i} style={{ fontSize: 14 }}>{p.tipo} {p.parcelas ? `${p.parcelas}x` : ''} — {formatCurrency(Number(p.valor))}</div>
-          )}
+            {pagamentos.map((p, i) => <div key={i} style={{ fontSize: 14 }}>{p.tipo} {p.parcelas ? `${p.parcelas}x` : ''} — {formatCurrency(Number(p.valor))}</div>)}
           </div>
         }
         <hr style={{ borderColor: '#3D3D3D', margin: '16px 0' }} />
@@ -240,6 +242,6 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
           Obrigado pela preferência! · AV Tech
         </div>
       </div>
-    </>);
-
+    </>
+  );
 }
