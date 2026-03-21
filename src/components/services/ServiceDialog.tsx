@@ -189,7 +189,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
       const isQuickFlow = (quickMode && !isEdit) || (isEdit && !form.cliente_cpf && !showClientFields);
       let carroPlaca = form.carro_placa || null;
 
-      if (quickCar.placa.trim()) {
+      if (!semPlaca && quickCar.placa.trim()) {
         const formattedPlaca = quickCar.placa.toUpperCase();
         if (showClientFields && form.cliente_cpf) {
           await supabase.from('carros').upsert({
@@ -208,6 +208,9 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
           }, { onConflict: 'placa' });
           carroPlaca = formattedPlaca;
         }
+      }
+      if (semPlaca) {
+        carroPlaca = null;
       }
 
       if (showClientFields && form.carro_placa) {
