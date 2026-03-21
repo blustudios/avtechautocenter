@@ -13,7 +13,8 @@ import { Plus, X, Trash2, UserPlus, Car, Info, Wrench, DollarSign, CreditCard, C
 import { Checkbox } from '@/components/ui/checkbox';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { PneuSelectorDialog } from '@/components/services/PneuSelectorDialog';
-import { formatCurrency, formatPlaca, tiposPagamento } from '@/lib/format';
+import { formatCurrency, formatPlaca, tiposPagamento, paymentStatusLabels } from '@/lib/format';
+import { PaymentBadge } from '@/components/StatusBadge';
 import { toast } from 'sonner';
 
 interface Props {
