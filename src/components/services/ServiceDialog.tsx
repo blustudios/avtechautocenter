@@ -220,10 +220,12 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
       const dataEnc = form.status === 'entregue' && !form.data_encerramento
         ? new Date().toISOString().split('T')[0] : form.data_encerramento || null;
 
-      const servicoData = {
+      const servicoData: any = {
         id,
         cliente_cpf: form.cliente_cpf || null,
         carro_placa: carroPlaca,
+        carro_marca: quickCar.marca.trim() || null,
+        carro_modelo: quickCar.modelo.trim() || null,
         data_entrada: form.data_entrada,
         data_encerramento: dataEnc,
         status: form.status,
