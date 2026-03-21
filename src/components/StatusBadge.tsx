@@ -10,6 +10,8 @@ const statusStyles: Record<string, string> = {
 const paymentStyles: Record<string, string> = {
   pago: 'bg-status-entregue-bg text-status-pago',
   pendente: 'bg-status-aguardando-bg text-status-pendente',
+  pendente_parcial: 'bg-[hsl(24,95%,53%,0.15)] text-[hsl(24,95%,53%)]',
+  em_atraso: 'bg-[hsl(0,84%,60%,0.15)] text-[hsl(0,84%,60%)]',
 };
 
 export function StatusBadge({ status }: { status: string }) {
