@@ -183,6 +183,19 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
     return t ? Number(t.percentual) : 0;
   };
 
+  const calcPaymentStatus = () => {
+    if (pagamentos.length === 0) return 'pendente';
+    const allPago = pagamentos.every(p => p.pago);
+    if (allPago) return 'pago';
+    const today = new Date().toISOString().split('T')[0];
+    const hasOverdue = pagamentos.some(p => !p.pago && p.data_pagamento && p.data_pagamento < today);
+    if (hasOverdue) return 'em_atraso';
+    const hasPago = pagamentos.some(p => p.pago);
+    const hasUnpaid = pagamentos.some(p => !p.pago);
+    if (hasPago && hasUnpaid) return 'pendente_parcial';
+    return 'pendente';
+  };
+
   const calcValorLiquido = () => {
     return pagamentos.reduce((sum, p) => {
       const val = parseFloat(p.valor) || 0;
