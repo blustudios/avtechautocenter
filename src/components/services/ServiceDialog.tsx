@@ -501,7 +501,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                 <CurrencyInput value={form.valor_total} onChange={v => setForm({ ...form, valor_total: v })} className="bg-card border-border" />
               </div>
               <div>
-                <Label>Valor Líquido</Label>
+                <Label>Valor c/ Desconto das Taxas</Label>
                 <CurrencyInput value={String(valorLiquido.toFixed(2))} onChange={() => {}} readOnly className="bg-card border-border" />
               </div>
             </div>
