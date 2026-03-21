@@ -52,8 +52,8 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
 
   const [itens, setItens] = useState<{ descricao: string }[]>([{ descricao: '' }]);
   const [pagamentos, setPagamentos] = useState<{
-    tipo: string; maquininha_id: string; bandeira_id: string; parcelas: string; valor: string;
-  }[]>([{ tipo: '', maquininha_id: '', bandeira_id: '', parcelas: '', valor: '' }]);
+    tipo: string; maquininha_id: string; bandeira_id: string; parcelas: string; valor: string; data_pagamento: string;
+  }[]>([{ tipo: '', maquininha_id: '', bandeira_id: '', parcelas: '', valor: '', data_pagamento: new Date().toISOString().split('T')[0] }]);
   const [custos, setCustos] = useState<{
     item: string; quantidade: string; fornecedor_id: string; valor: string;
   }[]>([]);
