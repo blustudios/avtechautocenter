@@ -1,56 +1,71 @@
 
-Plano revisado — correção definitiva do bug + regras de bandeiras em uso
 
-1) Corrigir o bug de duplicação (src/pages/Configuracoes.tsx)
-- Refatorar o `save` para **sincronização incremental** (não apagar tudo e recriar).
-- Fluxo no editar:
-  - Atualiza `maquininhas` (nome/taxa pix).
-  - Compara bandeiras atuais do banco vs `bandeirasForm`.
-  - **Mantidas**: atualiza nome e mantém id.
-  - **Novas**: insere.
-  - **Removidas**: tenta excluir apenas as removidas (primeiro `taxas`, depois `bandeiras`) se não estiverem em uso.
-- Com isso, para de ocorrer FK error em lote + inserção duplicada.
+## Plano: Autocomplete de Marcas e Modelos de Carros
 
-2) Regra “Em uso” + bloqueio de exclusão
-- Ao carregar maquininha, buscar contagem de uso em `servicos_pagamentos` por `bandeira_id`.
-- Exibir badge visível **“Em uso”** em cada bandeira usada.
-- Desabilitar botão de lixeira dessas bandeiras (UI + bloqueio lógico no save).
-- Mensagem de feedback: “Não é possível remover bandeira usada em serviços já salvos.”
+### Resumo
+Criar um cadastro de marcas e modelos de carros em Configurações, com importação via XML, e usar autocomplete nos campos de marca/modelo em todo o sistema.
 
-3) Botão “Atualizar” por bandeira (com confirmação)
-- Adicionar botão **Atualizar** em cada card de bandeira.
-- Botão habilita somente quando algum percentual mudar (débito, crédito à vista, 2x..12x), comparando com snapshot original da bandeira.
-- Ao clicar, abrir `AlertDialog` com texto:
-  - “Estas mudanças irão modificar os valores de serviços que já utilizem essa bandeira. Deseja continuar?”
-- Confirmando:
-  - Atualiza taxas da bandeira.
-  - Recalcula `taxa_aplicada` de todos `servicos_pagamentos` que usam essa bandeira.
-  - Recalcula `valor_liquido` e `lucro_liquido` dos `servicos` afetados.
-  - Atualiza snapshot e mostra toast de sucesso.
+### 1. Banco de dados — 2 novas tabelas
 
-4) Não permitir nomes duplicados de bandeira na mesma maquininha
-- Validação em tempo real no formulário (case-insensitive + trim).
-- Se duplicado, mostrar abaixo do campo:
-  - `* Este nome já está em uso nesta maquiniha. Utilize um nome diferente.`
-- Bloquear salvar enquanto houver duplicidade.
-- Bloquear também “Atualizar” da bandeira com nome duplicado para evitar inconsistência.
+```sql
+CREATE TABLE marcas_carros (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  nome text NOT NULL UNIQUE
+);
 
-5) UX/Responsividade (mobile/tablet/desktop)
-- Linha de ações da bandeira adaptável (`flex-col sm:flex-row`) para manter lixeira, badge e botão Atualizar sem quebrar layout.
-- Inputs e mensagens de erro com espaçamento consistente para toque em mobile.
-- Estados visuais claros:
-  - lixeira desabilitada quando “Em uso”,
-  - botão Atualizar desabilitado quando sem mudanças.
+CREATE TABLE modelos_carros (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  marca_id uuid NOT NULL REFERENCES marcas_carros(id) ON DELETE CASCADE,
+  nome text NOT NULL,
+  UNIQUE(marca_id, nome)
+);
 
-Detalhes técnicos (implementação)
-- Arquivo principal: `src/pages/Configuracoes.tsx`.
-- Novos estados:
-  - `bandeirasEmUso` (Set de ids),
-  - `originalTaxasByBandeiraId`,
-  - controle de confirmação do “Atualizar”.
-- Funções auxiliares:
-  - normalização de nome (`trim().toLowerCase()`),
-  - detecção de duplicados por índice,
-  - diff de taxas por bandeira,
-  - recálculo de pagamento/serviço após atualização.
-- Sem migration obrigatória para esta entrega (regra de duplicidade aplicada no fluxo da tela).
+ALTER TABLE marcas_carros ENABLE ROW LEVEL SECURITY;
+ALTER TABLE modelos_carros ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Authenticated can manage marcas_carros" ON marcas_carros FOR ALL TO authenticated USING (true) WITH CHECK (true);
+CREATE POLICY "Authenticated can manage modelos_carros" ON modelos_carros FOR ALL TO authenticated USING (true) WITH CHECK (true);
+```
+
+### 2. Componente Autocomplete — `src/components/ui/autocomplete-input.tsx`
+- Input com dropdown de sugestões filtradas conforme digitação
+- Props: `value`, `onChange`, `suggestions: string[]`, `placeholder`
+- Filtra case-insensitive, mostra até 8 sugestões
+- Click ou Enter seleciona a sugestão e preenche o campo
+- Se o usuário digitar algo que não está na lista, o valor livre é aceito normalmente
+
+### 3. Configurações — Nova seção "Marcas e Modelos" (`Configuracoes.tsx`)
+- Nova aba/seção abaixo de Maquininhas
+- Lista de marcas com expand para ver modelos
+- CRUD inline: adicionar/remover marcas, adicionar/remover modelos dentro de cada marca
+- **Botão "Importar XML"**: abre dialog com file input
+- **Ícone "?" (tooltip/popover)** com tutorial do formato XML:
+  ```xml
+  <marcas>
+    <marca nome="Fiat">
+      <modelo>Uno</modelo>
+      <modelo>Palio</modelo>
+    </marca>
+    <marca nome="Volkswagen">
+      <modelo>Gol</modelo>
+      <modelo>Polo</modelo>
+    </marca>
+  </marcas>
+  ```
+- Ao importar: parsear XML, para cada marca verificar se já existe (by nome case-insensitive), se não → inserir. Para cada modelo, verificar se já existe na marca → só inserir novos. Toast com resumo ("X marcas e Y modelos adicionados").
+
+### 4. Uso do autocomplete nos formulários existentes
+
+- **`Clientes.tsx`** (campos de carro inline): substituir `<Input>` de marca e modelo por `<AutocompleteInput>`. Ao selecionar marca, filtrar modelos daquela marca para o campo modelo.
+- **`ServiceDialog.tsx`** (quickCar): mesma lógica — autocomplete de marca, e modelo filtrado pela marca selecionada.
+
+### 5. Fluxo de dados
+- Ao abrir qualquer formulário com carro, carregar `marcas_carros` com `modelos_carros` uma vez
+- Passa array de nomes de marcas para o autocomplete de marca
+- Quando marca muda, filtra modelos correspondentes e passa para autocomplete de modelo
+
+### Arquivos
+- **Nova migration**: tabelas `marcas_carros` e `modelos_carros`
+- **Novo**: `src/components/ui/autocomplete-input.tsx`
+- **Modificados**: `src/pages/Configuracoes.tsx` (seção de marcas/modelos + importação XML), `src/pages/Clientes.tsx` (autocomplete nos carros), `src/components/services/ServiceDialog.tsx` (autocomplete no quickCar)
+
