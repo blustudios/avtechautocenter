@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Plus, X, Settings } from 'lucide-react';
+import { Plus, Trash2, Settings } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Bandeira {
@@ -82,8 +82,12 @@ export default function Configuracoes() {
 
     let maqId = editId;
     if (editId) {
-      await supabase.from('maquininhas').update({ nome, taxa_pix_maquina: parseFloat(taxaPixMaquina) || 0 }).eq('id', editId);
+      // Fix: delete taxas before bandeiras to avoid FK constraint
+      const { data: existingBands } = await supabase.from('bandeiras').select('id').eq('maquininha_id', editId);
+      const bandIds = (existingBands || []).map(b => b.id);
+      if (bandIds.length) await supabase.from('taxas').delete().in('bandeira_id', bandIds);
       await supabase.from('bandeiras').delete().eq('maquininha_id', editId);
+      await supabase.from('maquininhas').update({ nome, taxa_pix_maquina: parseFloat(taxaPixMaquina) || 0 }).eq('id', editId);
     } else {
       const { data } = await supabase.from('maquininhas').insert({ nome, taxa_pix_maquina: parseFloat(taxaPixMaquina) || 0 }).select().single();
       maqId = data?.id;
@@ -174,8 +178,8 @@ export default function Configuracoes() {
                   <div className="flex items-center gap-2">
                     <Input value={b.nome} onChange={e => updateBandeiraField(bi, bb => { bb.nome = e.target.value; return bb; })}
                       placeholder="Nome da bandeira (ex: Visa)" className="bg-background border-border" />
-                    {bandeirasForm.length > 1 && (
-                      <Button variant="ghost" size="icon" onClick={() => setBandeirasForm(bandeirasForm.filter((_, j) => j !== bi))}><X className="w-4 h-4" /></Button>
+                    {bandeirasForm.length > 0 && (
+                      <Button variant="ghost" size="icon" className="text-red-500 hover:text-red-400 hover:bg-red-500/10" onClick={() => setBandeirasForm(bandeirasForm.filter((_, j) => j !== bi))}><Trash2 className="w-4 h-4" /></Button>
                     )}
                   </div>
                   <div className="grid grid-cols-2 gap-2">
