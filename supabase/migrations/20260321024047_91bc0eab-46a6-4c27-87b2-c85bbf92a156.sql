@@ -1,0 +1,1 @@
+ALTER TABLE servicos_pagamentos ADD COLUMN data_pagamento date;
