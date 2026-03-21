@@ -37,6 +37,18 @@ export default function Clientes() {
   const [carForms, setCarForms] = useState<CarForm[]>([]);
   const [pendingCarConflict, setPendingCarConflict] = useState<{ placa: string; index: number } | null>(null);
   const [pendingSaveOpenService, setPendingSaveOpenService] = useState(false);
+  const [marcasList, setMarcasList] = useState<{ id: string; nome: string }[]>([]);
+  const [modelosList, setModelosList] = useState<{ id: string; marca_id: string; nome: string }[]>([]);
+
+  useEffect(() => {
+    Promise.all([
+      supabase.from('marcas_carros').select('*').order('nome'),
+      supabase.from('modelos_carros').select('*').order('nome'),
+    ]).then(([m, md]) => {
+      setMarcasList(m.data || []);
+      setModelosList(md.data || []);
+    });
+  }, []);
 
   const fetchClientes = async () => {
     const { data } = await supabase.from('clientes').select('*, carros(placa, marca, modelo)').order('nome');
