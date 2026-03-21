@@ -376,6 +376,7 @@ export type Database = {
           data_pagamento: string | null
           id: string
           maquininha_id: string | null
+          pago: boolean
           parcelas: number | null
           servico_id: string
           taxa_aplicada: number
@@ -387,6 +388,7 @@ export type Database = {
           data_pagamento?: string | null
           id?: string
           maquininha_id?: string | null
+          pago?: boolean
           parcelas?: number | null
           servico_id: string
           taxa_aplicada?: number
@@ -398,6 +400,7 @@ export type Database = {
           data_pagamento?: string | null
           id?: string
           maquininha_id?: string | null
+          pago?: boolean
           parcelas?: number | null
           servico_id?: string
           taxa_aplicada?: number
