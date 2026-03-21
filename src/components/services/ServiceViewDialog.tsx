@@ -51,6 +51,11 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
 
   const car = service.carros;
   const client = service.clientes;
+  const carDisplay = car 
+    ? `${car.marca} ${car.modelo} · ${car.placa}` 
+    : (service.carro_marca || service.carro_modelo) 
+      ? `${service.carro_marca || ''} ${service.carro_modelo || ''} · Sem Placa`.trim()
+      : '—';
 
   return (
     <>
