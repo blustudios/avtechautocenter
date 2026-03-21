@@ -108,6 +108,7 @@ export type Database = {
           medida_01: string
           medida_02: string
           quantidade: number
+          tipo: string
           valor_medio_compra: number
           valor_venda: number
         }
@@ -119,6 +120,7 @@ export type Database = {
           medida_01: string
           medida_02: string
           quantidade?: number
+          tipo?: string
           valor_medio_compra?: number
           valor_venda?: number
         }
@@ -130,6 +132,7 @@ export type Database = {
           medida_01?: string
           medida_02?: string
           quantidade?: number
+          tipo?: string
           valor_medio_compra?: number
           valor_venda?: number
         }
