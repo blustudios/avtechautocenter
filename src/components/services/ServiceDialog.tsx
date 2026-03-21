@@ -266,6 +266,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
             parcelas: p.parcelas ? parseInt(p.parcelas) : null,
             valor: parseFloat(p.valor) || 0,
             taxa_aplicada: getTaxRate(p.tipo, p.maquininha_id, p.bandeira_id, parseInt(p.parcelas) || 0),
+            data_pagamento: p.data_pagamento || null,
           }))
         );
       }
