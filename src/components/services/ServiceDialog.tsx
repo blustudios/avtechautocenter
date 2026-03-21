@@ -380,9 +380,18 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                       placeholder="Ex: Uno" className="bg-card border-border" />
                   </div>
                   <div>
-                    <Label className="text-xs">Placa</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Placa</Label>
+                      <div className="flex items-center gap-1.5">
+                        <Checkbox id="semPlaca" checked={semPlaca} onCheckedChange={(checked) => {
+                          setSemPlaca(!!checked);
+                          if (checked) setQuickCar(c => ({ ...c, placa: '' }));
+                        }} className="h-3.5 w-3.5" />
+                        <label htmlFor="semPlaca" className="text-xs text-muted-foreground cursor-pointer">Sem Placa</label>
+                      </div>
+                    </div>
                     <Input value={quickCar.placa} onChange={e => setQuickCar({ ...quickCar, placa: formatPlaca(e.target.value) })}
-                      placeholder="ABC-1234" className="bg-card border-border" />
+                      placeholder="ABC-1234" className="bg-card border-border" disabled={semPlaca} />
                   </div>
                 </div>
               </div>
