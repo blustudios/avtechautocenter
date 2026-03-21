@@ -186,6 +186,47 @@ export type Database = {
         }
         Relationships: []
       }
+      marcas_carros: {
+        Row: {
+          id: string
+          nome: string
+        }
+        Insert: {
+          id?: string
+          nome: string
+        }
+        Update: {
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
+      modelos_carros: {
+        Row: {
+          id: string
+          marca_id: string
+          nome: string
+        }
+        Insert: {
+          id?: string
+          marca_id: string
+          nome: string
+        }
+        Update: {
+          id?: string
+          marca_id?: string
+          nome?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "modelos_carros_marca_id_fkey"
+            columns: ["marca_id"]
+            isOneToOne: false
+            referencedRelation: "marcas_carros"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       servicos: {
         Row: {
           carro_placa: string | null

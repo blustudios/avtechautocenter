@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Plus, X, Trash2, UserPlus, Car } from 'lucide-react';
+import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { formatCurrency, formatPlaca, tiposPagamento } from '@/lib/format';
 import { toast } from 'sonner';
 
@@ -31,6 +32,8 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
   const [maquininhas, setMaquininhas] = useState<any[]>([]);
   const [bandeiras, setBandeiras] = useState<any[]>([]);
   const [taxas, setTaxas] = useState<any[]>([]);
+  const [marcasList, setMarcasList] = useState<{ id: string; nome: string }[]>([]);
+  const [modelosList, setModelosList] = useState<{ id: string; marca_id: string; nome: string }[]>([]);
 
   const [form, setForm] = useState({
     id: '',
@@ -54,18 +57,22 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
 
   useEffect(() => {
     const load = async () => {
-      const [c, f, m, b, t] = await Promise.all([
+      const [c, f, m, b, t, mc, md] = await Promise.all([
         supabase.from('clientes').select('cpf, nome'),
         supabase.from('fornecedores').select('id, nome'),
         supabase.from('maquininhas').select('id, nome, taxa_pix_maquina'),
         supabase.from('bandeiras').select('id, maquininha_id, nome'),
         supabase.from('taxas').select('*'),
+        supabase.from('marcas_carros').select('*').order('nome'),
+        supabase.from('modelos_carros').select('*').order('nome'),
       ]);
       setClientes(c.data || []);
       setFornecedores(f.data || []);
       setMaquininhas(m.data || []);
       setBandeiras(b.data || []);
       setTaxas(t.data || []);
+      setMarcasList(mc.data || []);
+      setModelosList(md.data || []);
 
       if (isEdit) {
         const { data: sv } = await supabase.from('servicos').select('*').eq('id', serviceId).single();
@@ -350,12 +357,17 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div>
                     <Label className="text-xs">Marca</Label>
-                    <Input value={quickCar.marca} onChange={e => setQuickCar({ ...quickCar, marca: e.target.value })}
+                    <AutocompleteInput value={quickCar.marca} onChange={v => setQuickCar({ ...quickCar, marca: v })}
+                      suggestions={marcasList.map(m => m.nome)}
                       placeholder="Ex: Fiat" className="bg-card border-border" />
                   </div>
                   <div>
                     <Label className="text-xs">Modelo</Label>
-                    <Input value={quickCar.modelo} onChange={e => setQuickCar({ ...quickCar, modelo: e.target.value })}
+                    <AutocompleteInput value={quickCar.modelo} onChange={v => setQuickCar({ ...quickCar, modelo: v })}
+                      suggestions={(() => {
+                        const marca = marcasList.find(m => m.nome.toLowerCase() === quickCar.marca.trim().toLowerCase());
+                        return marca ? modelosList.filter(md => md.marca_id === marca.id).map(md => md.nome) : modelosList.map(md => md.nome);
+                      })()}
                       placeholder="Ex: Uno" className="bg-card border-border" />
                   </div>
                   <div>
