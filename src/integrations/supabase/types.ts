@@ -229,6 +229,8 @@ export type Database = {
       }
       servicos: {
         Row: {
+          carro_marca: string | null
+          carro_modelo: string | null
           carro_placa: string | null
           cliente_cpf: string | null
           created_at: string
@@ -244,6 +246,8 @@ export type Database = {
           valor_total: number
         }
         Insert: {
+          carro_marca?: string | null
+          carro_modelo?: string | null
           carro_placa?: string | null
           cliente_cpf?: string | null
           created_at?: string
@@ -259,6 +263,8 @@ export type Database = {
           valor_total?: number
         }
         Update: {
+          carro_marca?: string | null
+          carro_modelo?: string | null
           carro_placa?: string | null
           cliente_cpf?: string | null
           created_at?: string
