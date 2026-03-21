@@ -357,12 +357,17 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                   <div>
                     <Label className="text-xs">Marca</Label>
-                    <Input value={quickCar.marca} onChange={e => setQuickCar({ ...quickCar, marca: e.target.value })}
+                    <AutocompleteInput value={quickCar.marca} onChange={v => setQuickCar({ ...quickCar, marca: v })}
+                      suggestions={marcasList.map(m => m.nome)}
                       placeholder="Ex: Fiat" className="bg-card border-border" />
                   </div>
                   <div>
                     <Label className="text-xs">Modelo</Label>
-                    <Input value={quickCar.modelo} onChange={e => setQuickCar({ ...quickCar, modelo: e.target.value })}
+                    <AutocompleteInput value={quickCar.modelo} onChange={v => setQuickCar({ ...quickCar, modelo: v })}
+                      suggestions={(() => {
+                        const marca = marcasList.find(m => m.nome.toLowerCase() === quickCar.marca.trim().toLowerCase());
+                        return marca ? modelosList.filter(md => md.marca_id === marca.id).map(md => md.nome) : modelosList.map(md => md.nome);
+                      })()}
                       placeholder="Ex: Uno" className="bg-card border-border" />
                   </div>
                   <div>
