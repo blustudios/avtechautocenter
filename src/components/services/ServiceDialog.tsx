@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { CurrencyInput } from '@/components/ui/currency-input';
 import { Plus, X, Trash2, UserPlus, Car } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { formatCurrency, formatPlaca, tiposPagamento } from '@/lib/format';
 import { toast } from 'sonner';
@@ -25,6 +27,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
   const isEdit = !!serviceId;
   const [showClientFields, setShowClientFields] = useState(false);
   const [quickCar, setQuickCar] = useState({ marca: '', modelo: '', placa: '' });
+  const [semPlaca, setSemPlaca] = useState(false);
   const [loading, setLoading] = useState(false);
   const [clientes, setClientes] = useState<any[]>([]);
   const [carros, setCarros] = useState<any[]>([]);
@@ -91,6 +94,9 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
           if (sv.cliente_cpf) {
             const { data: carrosData } = await supabase.from('carros').select('*').eq('cliente_cpf', sv.cliente_cpf);
             setCarros(carrosData || []);
+          }
+          if (!sv.carro_placa && !sv.cliente_cpf) {
+            setSemPlaca(true);
           }
           if (sv.carro_placa && !sv.cliente_cpf) {
             const { data: carData } = await supabase.from('carros').select('*').eq('placa', sv.carro_placa).single();
@@ -183,7 +189,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
       const isQuickFlow = (quickMode && !isEdit) || (isEdit && !form.cliente_cpf && !showClientFields);
       let carroPlaca = form.carro_placa || null;
 
-      if (quickCar.placa.trim()) {
+      if (!semPlaca && quickCar.placa.trim()) {
         const formattedPlaca = quickCar.placa.toUpperCase();
         if (showClientFields && form.cliente_cpf) {
           await supabase.from('carros').upsert({
@@ -202,6 +208,9 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
           }, { onConflict: 'placa' });
           carroPlaca = formattedPlaca;
         }
+      }
+      if (semPlaca) {
+        carroPlaca = null;
       }
 
       if (showClientFields && form.carro_placa) {
@@ -371,9 +380,18 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                       placeholder="Ex: Uno" className="bg-card border-border" />
                   </div>
                   <div>
-                    <Label className="text-xs">Placa</Label>
+                    <div className="flex items-center justify-between">
+                      <Label className="text-xs">Placa</Label>
+                      <div className="flex items-center gap-1.5">
+                        <Checkbox id="semPlaca" checked={semPlaca} onCheckedChange={(checked) => {
+                          setSemPlaca(!!checked);
+                          if (checked) setQuickCar(c => ({ ...c, placa: '' }));
+                        }} className="h-3.5 w-3.5" />
+                        <label htmlFor="semPlaca" className="text-xs text-muted-foreground cursor-pointer">Sem Placa</label>
+                      </div>
+                    </div>
                     <Input value={quickCar.placa} onChange={e => setQuickCar({ ...quickCar, placa: formatPlaca(e.target.value) })}
-                      placeholder="ABC-1234" className="bg-card border-border" />
+                      placeholder="ABC-1234" className="bg-card border-border" disabled={semPlaca} />
                   </div>
                 </div>
               </div>
