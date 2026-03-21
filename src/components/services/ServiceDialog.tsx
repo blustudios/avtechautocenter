@@ -247,7 +247,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
         data_entrada: form.data_entrada,
         data_encerramento: dataEnc,
         status: form.status,
-        status_pagamento: form.status_pagamento,
+        status_pagamento: calcPaymentStatus(),
         valor_total: parseFloat(form.valor_total) || 0,
         valor_liquido: valorLiquido,
         custo_total: custoTotal,
