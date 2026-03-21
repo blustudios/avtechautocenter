@@ -95,6 +95,9 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
             const { data: carrosData } = await supabase.from('carros').select('*').eq('cliente_cpf', sv.cliente_cpf);
             setCarros(carrosData || []);
           }
+          if (!sv.carro_placa && !sv.cliente_cpf) {
+            setSemPlaca(true);
+          }
           if (sv.carro_placa && !sv.cliente_cpf) {
             const { data: carData } = await supabase.from('carros').select('*').eq('placa', sv.carro_placa).single();
             if (carData) {
