@@ -57,18 +57,22 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
 
   useEffect(() => {
     const load = async () => {
-      const [c, f, m, b, t] = await Promise.all([
+      const [c, f, m, b, t, mc, md] = await Promise.all([
         supabase.from('clientes').select('cpf, nome'),
         supabase.from('fornecedores').select('id, nome'),
         supabase.from('maquininhas').select('id, nome, taxa_pix_maquina'),
         supabase.from('bandeiras').select('id, maquininha_id, nome'),
         supabase.from('taxas').select('*'),
+        supabase.from('marcas_carros').select('*').order('nome'),
+        supabase.from('modelos_carros').select('*').order('nome'),
       ]);
       setClientes(c.data || []);
       setFornecedores(f.data || []);
       setMaquininhas(m.data || []);
       setBandeiras(b.data || []);
       setTaxas(t.data || []);
+      setMarcasList(mc.data || []);
+      setModelosList(md.data || []);
 
       if (isEdit) {
         const { data: sv } = await supabase.from('servicos').select('*').eq('id', serviceId).single();
