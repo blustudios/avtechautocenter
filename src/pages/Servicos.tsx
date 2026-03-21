@@ -21,6 +21,8 @@ interface Servico {
   id: string;
   cliente_cpf: string;
   carro_placa: string;
+  carro_marca?: string;
+  carro_modelo?: string;
   data_entrada: string;
   status: string;
   status_pagamento: string;
@@ -209,7 +211,11 @@ export default function Servicos() {
                 </div>
                 <p className="text-foreground font-medium truncate">{s.cliente?.nome || <span className="italic text-muted-foreground">Serviço Rápido</span>}</p>
                 <p className="text-sm text-muted-foreground">
-                  {s.carro ? `${s.carro.marca} ${s.carro.modelo} · ${s.carro.placa}` : '—'}
+                  {s.carro
+                    ? `${s.carro.marca} ${s.carro.modelo} · ${s.carro.placa}`
+                    : s.carro_marca || s.carro_modelo
+                      ? `${s.carro_marca || ''} ${s.carro_modelo || ''} · Sem Placa`.trim()
+                      : '—'}
                   {' · '}{new Date(s.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR')}
                 </p>
               </div>
