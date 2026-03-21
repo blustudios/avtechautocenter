@@ -32,6 +32,8 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
   const [maquininhas, setMaquininhas] = useState<any[]>([]);
   const [bandeiras, setBandeiras] = useState<any[]>([]);
   const [taxas, setTaxas] = useState<any[]>([]);
+  const [marcasList, setMarcasList] = useState<{ id: string; nome: string }[]>([]);
+  const [modelosList, setModelosList] = useState<{ id: string; marca_id: string; nome: string }[]>([]);
 
   const [form, setForm] = useState({
     id: '',
