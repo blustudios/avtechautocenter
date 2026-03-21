@@ -111,6 +111,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
           if (pg?.length) setPagamentos(pg.map(p => ({
             tipo: p.tipo, maquininha_id: p.maquininha_id || '', bandeira_id: p.bandeira_id || '',
             parcelas: p.parcelas ? String(p.parcelas) : '', valor: String(p.valor),
+            data_pagamento: (p as any).data_pagamento || '',
           })));
           const { data: ct } = await supabase.from('servicos_custos').select('*').eq('servico_id', serviceId);
           if (ct?.length) setCustos(ct.map(c => ({
