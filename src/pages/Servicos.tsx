@@ -104,13 +104,13 @@ export default function Servicos() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h1 className="text-2xl font-bold text-foreground">Entradas de Serviço</h1>
-        <div className="flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-bold text-foreground shrink-0">Entradas de Serviço</h1>
+        <div className="flex items-center gap-1.5">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" onClick={() => setShowNewClient(true)} className="shrink-0 border-border">
+                <Button variant="outline" size="icon" onClick={() => setShowNewClient(true)} className="shrink-0 border-border h-9 w-9">
                   <UserPlus className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
@@ -118,22 +118,20 @@ export default function Servicos() {
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" onClick={handleRefresh} className="shrink-0 border-border">
+                <Button variant="outline" size="icon" onClick={handleRefresh} className="shrink-0 border-border h-9 w-9">
                   <RefreshCw className="w-4 h-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent>Atualizar</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <Button variant="outline" onClick={() => setShowQuickCreate(true)} className="shrink-0 border-primary/50 text-primary hover:bg-primary/10">
-            <Zap className="w-4 h-4 mr-2" />
-            <span className="hidden sm:inline">Serviço Rápido</span>
-            <span className="sm:hidden">Rápido</span>
+          <Button variant="outline" size="sm" onClick={() => setShowQuickCreate(true)} className="shrink-0 border-primary/50 text-primary hover:bg-primary/10 h-9 px-2.5 sm:px-3">
+            <Zap className="w-4 h-4 sm:mr-1.5" />
+            <span className="hidden sm:inline">Rápido</span>
           </Button>
-          <Button onClick={() => setShowCreate(true)} className="shrink-0">
-            <Plus className="w-4 h-4 mr-2" />
-            <span className="hidden sm:inline">Novo Serviço</span>
-            <span className="sm:hidden">Novo</span>
+          <Button size="sm" onClick={() => setShowCreate(true)} className="shrink-0 h-9 px-2.5 sm:px-3">
+            <Plus className="w-4 h-4 sm:mr-1.5" />
+            <span className="hidden sm:inline">Novo</span>
           </Button>
         </div>
       </div>
@@ -249,7 +247,7 @@ export default function Servicos() {
 
       {showCreate && <ServiceDialog open={showCreate} onClose={() => { setShowCreate(false); fetchServicos(); }} />}
       {showQuickCreate && <ServiceDialog open={showQuickCreate} quickMode onClose={() => { setShowQuickCreate(false); fetchServicos(); }} />}
-      {showNewClient && <ClientDialog open={showNewClient} onClose={() => setShowNewClient(false)} />}
+      {showNewClient && <ClientDialog open={showNewClient} onClose={() => { setShowNewClient(false); fetchServicos(); }} onSaveAndService={() => { setShowNewClient(false); setShowCreate(true); }} />}
       {viewService && (
         <ServiceViewDialog serviceId={viewService} open={!!viewService}
           onClose={() => { setViewService(null); fetchServicos(); }}
