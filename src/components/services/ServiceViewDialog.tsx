@@ -138,7 +138,10 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
                   </h4>
                   {pagamentos.map((p, idx) =>
                 <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
-                      <span>{p.tipo} {p.bandeiras?.nome ? `(${p.bandeiras.nome})` : ''} {p.parcelas ? `${p.parcelas}x` : ''}</span>
+                      <div>
+                        <span>{p.tipo} {p.bandeiras?.nome ? `(${p.bandeiras.nome})` : ''} {p.parcelas ? `${p.parcelas}x` : ''}</span>
+                        {(p as any).data_pagamento && <span className="text-muted-foreground text-xs ml-2">{new Date((p as any).data_pagamento + 'T00:00:00').toLocaleDateString('pt-BR')}</span>}
+                      </div>
                       <span>{formatCurrency(Number(p.valor))} <span className="text-muted-foreground text-xs">({p.taxa_aplicada}%)</span></span>
                     </div>
                 )}

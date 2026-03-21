@@ -562,7 +562,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                 )}
               </div>
             ))}
-            <Button variant="ghost" size="sm" onClick={() => setPagamentos([...pagamentos, { tipo: '', maquininha_id: '', bandeira_id: '', parcelas: '', valor: '' }])}>
+            <Button variant="ghost" size="sm" onClick={() => setPagamentos([...pagamentos, { tipo: '', maquininha_id: '', bandeira_id: '', parcelas: '', valor: '', data_pagamento: new Date().toISOString().split('T')[0] }])}>
               <Plus className="w-4 h-4 mr-1" /> Adicionar Pagamento
             </Button>
           </div>
