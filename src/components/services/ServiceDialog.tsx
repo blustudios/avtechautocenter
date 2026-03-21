@@ -166,7 +166,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
   const needsBandeira = (tipo: string) => !['Pix CNPJ', 'Dinheiro', 'Pix Máquina', 'A Definir'].includes(tipo);
 
   const getTaxRate = (tipo: string, maquininha_id: string, bandeira_id: string, parcelas: number) => {
-    if (tipo === 'Pix CNPJ' || tipo === 'Dinheiro') return 0;
+    if (tipo === 'Pix CNPJ' || tipo === 'Dinheiro' || tipo === 'A Definir') return 0;
     if (tipo === 'Pix Máquina') {
       const maq = maquininhas.find(m => m.id === maquininha_id);
       return maq ? Number(maq.taxa_pix_maquina) || 0 : 0;
