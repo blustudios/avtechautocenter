@@ -566,7 +566,10 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
               <PaymentBadge status={calcPaymentStatus()} />
             </div>
             {pagamentos.length === 0 ? (
-              <Button variant="ghost" size="sm" onClick={() => setPagamentos([{ tipo: '', maquininha_id: '', bandeira_id: '', parcelas: '', valor: '', data_pagamento: new Date().toISOString().split('T')[0], pago: false }])}>
+              <Button variant="ghost" size="sm" onClick={() => {
+                const valorAberto = Math.max(0, (parseFloat(form.valor_total) || 0)).toFixed(2);
+                setPagamentos([{ tipo: 'A Definir', maquininha_id: '', bandeira_id: '', parcelas: '', valor: valorAberto, data_pagamento: new Date().toISOString().split('T')[0], pago: false }]);
+              }}>
                 <Plus className="w-4 h-4 mr-1" /> Adicionar Pagamento
               </Button>
             ) : (
