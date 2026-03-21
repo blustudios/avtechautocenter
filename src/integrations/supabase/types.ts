@@ -425,6 +425,48 @@ export type Database = {
           },
         ]
       }
+      servicos_pneus: {
+        Row: {
+          baixa_estoque: boolean
+          id: string
+          pneu_id: string
+          quantidade: number
+          servico_id: string
+          valor_unitario: number
+        }
+        Insert: {
+          baixa_estoque?: boolean
+          id?: string
+          pneu_id: string
+          quantidade?: number
+          servico_id: string
+          valor_unitario?: number
+        }
+        Update: {
+          baixa_estoque?: boolean
+          id?: string
+          pneu_id?: string
+          quantidade?: number
+          servico_id?: string
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "servicos_pneus_pneu_id_fkey"
+            columns: ["pneu_id"]
+            isOneToOne: false
+            referencedRelation: "estoque_pneus"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "servicos_pneus_servico_id_fkey"
+            columns: ["servico_id"]
+            isOneToOne: false
+            referencedRelation: "servicos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       taxas: {
         Row: {
           bandeira_id: string
