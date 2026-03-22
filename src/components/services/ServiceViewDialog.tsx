@@ -55,10 +55,10 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
   const car = service.carros;
   const client = service.clientes;
   const carDisplay = car ?
-    `${car.marca} ${car.modelo} · ${car.placa}` :
-    service.carro_marca || service.carro_modelo ?
-    `${service.carro_marca || ''} ${service.carro_modelo || ''} · Sem Placa`.trim() :
-    '—';
+  `${car.marca} ${car.modelo} · ${car.placa}` :
+  service.carro_marca || service.carro_modelo ?
+  `${service.carro_marca || ''} ${service.carro_modelo || ''} · Sem Placa`.trim() :
+  '—';
 
   return (
     <>
@@ -103,15 +103,15 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
                   <CircleDot className="w-3.5 h-3.5" /> Pneus
                 </h4>
-                {pneus.map((p, idx) => (
-                  <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
+                {pneus.map((p, idx) =>
+                <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
                     <span>
                       {p.quantidade}x {p.estoque_pneus ? `${p.estoque_pneus.marca} ${p.estoque_pneus.medida_01}/${p.estoque_pneus.medida_02} ${p.estoque_pneus.aro}` : 'Pneu'}
                       {p.baixa_estoque && <span className="text-xs text-emerald-500 ml-2">(baixa realizada)</span>}
                     </span>
                     <span>{formatCurrency(Number(p.valor_unitario) * Number(p.quantidade))}</span>
                   </div>
-                ))}
+                )}
               </div>
             </>}
 
@@ -121,12 +121,12 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
                   <DollarSign className="w-3.5 h-3.5" /> Custos
                 </h4>
-                {custos.map((c, idx) => (
-                  <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
+                {custos.map((c, idx) =>
+                <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
                     <span>{c.item} {c.fornecedores?.nome ? <span className="text-muted-foreground">({c.fornecedores.nome})</span> : ''} <span className="text-muted-foreground">×{c.quantidade}</span></span>
                     <span>{formatCurrency(Number(c.valor) * Number(c.quantidade))}</span>
                   </div>
-                ))}
+                )}
               </div>
             </>}
 
@@ -136,8 +136,8 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
                 <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3 flex items-center gap-2">
                   <CreditCard className="w-3.5 h-3.5" /> Pagamentos
                 </h4>
-                {pagamentos.map((p, idx) => (
-                  <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
+                {pagamentos.map((p, idx) =>
+                <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
                     <div className="flex items-center gap-2">
                       <span>{p.tipo} {p.bandeiras?.nome ? `(${p.bandeiras.nome})` : ''} {p.parcelas ? `${p.parcelas}x` : ''}</span>
                       {(p as any).data_pagamento && <span className="text-muted-foreground text-xs">{new Date((p as any).data_pagamento + 'T00:00:00').toLocaleDateString('pt-BR')}</span>}
@@ -147,7 +147,7 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
                     </div>
                     <span>{formatCurrency(Number(p.valor))} <span className="text-muted-foreground text-xs">({p.taxa_aplicada}%)</span></span>
                   </div>
-                ))}
+                )}
               </div>
             </>}
 
@@ -159,7 +159,7 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
                 <p className="text-lg font-semibold">{formatCurrency(Number(service.valor_total))}</p>
               </div>
               <div className="bg-card rounded-lg p-3">
-                <span className="text-xs text-muted-foreground">Líquido</span>
+                <span className="text-xs text-muted-foreground">Total - (% Taxas)</span>
                 <p className="text-lg font-semibold">{formatCurrency(Number(service.valor_liquido))}</p>
               </div>
               <div className="bg-card rounded-lg p-3">
@@ -210,7 +210,7 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
           <div style={{ fontSize: 16, fontWeight: 600 }}>{client?.nome}</div>
         </div>
         {(car || service.carro_marca || service.carro_modelo) &&
-          <div style={{ marginBottom: 12 }}>
+        <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 14, color: '#B0B0B0' }}>Veículo</div>
             <div style={{ fontSize: 16 }}>{car ? `${car.marca} ${car.modelo} ${car.ano} ${car.cor} · ${car.placa}` : `${service.carro_marca || ''} ${service.carro_modelo || ''} · Sem Placa`}</div>
           </div>
@@ -235,7 +235,7 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
           <div style={{ fontSize: 32, fontWeight: 700, color: '#F97316' }}>{formatCurrency(Number(service.valor_total))}</div>
         </div>
         {pagamentos.length > 0 &&
-          <div style={{ marginBottom: 12 }}>
+        <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 14, color: '#B0B0B0', marginBottom: 4 }}>Pagamento</div>
             {pagamentos.map((p, i) => <div key={i} style={{ fontSize: 14 }}>{p.tipo} {p.parcelas ? `${p.parcelas}x` : ''} — {formatCurrency(Number(p.valor))}</div>)}
           </div>
@@ -245,6 +245,6 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
           Obrigado pela preferência! · AV Tech
         </div>
       </div>
-    </>
-  );
+    </>);
+
 }
