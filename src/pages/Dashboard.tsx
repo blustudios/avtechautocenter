@@ -32,6 +32,7 @@ interface Servico {
   id: string;
   data_entrada: string;
   valor_total: number;
+  custo_total: number;
   status: string;
   status_pagamento: string;
 }
