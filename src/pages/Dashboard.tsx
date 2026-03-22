@@ -90,7 +90,7 @@ export default function Dashboard() {
 
     Promise.all([
       supabase.from('servicos_pagamentos').select('tipo, valor, taxa_aplicada, pago, data_pagamento, servico_id').gte('data_pagamento', s).lte('data_pagamento', e),
-      supabase.from('servicos').select('id, data_entrada, valor_total, status, status_pagamento').gte('data_entrada', s).lte('data_entrada', e),
+      supabase.from('servicos').select('id, data_entrada, valor_total, custo_total, status, status_pagamento').gte('data_entrada', s).lte('data_entrada', e),
       supabase.from('servicos_pagamentos').select('tipo, valor, taxa_aplicada, pago, data_pagamento, servico_id').gte('data_pagamento', ps).lte('data_pagamento', pe),
     ]).then(([pRes, sRes, ppRes]) => {
       setPagamentos((pRes.data || []) as Pagamento[]);
