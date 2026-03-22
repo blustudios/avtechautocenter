@@ -32,6 +32,7 @@ interface Servico {
   id: string;
   data_entrada: string;
   valor_total: number;
+  custo_total: number;
   status: string;
   status_pagamento: string;
 }
@@ -89,7 +90,7 @@ export default function Dashboard() {
 
     Promise.all([
       supabase.from('servicos_pagamentos').select('tipo, valor, taxa_aplicada, pago, data_pagamento, servico_id').gte('data_pagamento', s).lte('data_pagamento', e),
-      supabase.from('servicos').select('id, data_entrada, valor_total, status, status_pagamento').gte('data_entrada', s).lte('data_entrada', e),
+      supabase.from('servicos').select('id, data_entrada, valor_total, custo_total, status, status_pagamento').gte('data_entrada', s).lte('data_entrada', e),
       supabase.from('servicos_pagamentos').select('tipo, valor, taxa_aplicada, pago, data_pagamento, servico_id').gte('data_pagamento', ps).lte('data_pagamento', pe),
     ]).then(([pRes, sRes, ppRes]) => {
       setPagamentos((pRes.data || []) as Pagamento[]);
@@ -123,6 +124,8 @@ export default function Dashboard() {
   const lucroLiquido = validPagamentos.reduce((s, p) => s + (Number(p.valor) - Number(p.valor) * Number(p.taxa_aplicada) / 100), 0);
   const numServicos = servicos.length;
   const ticketMedio = numServicos > 0 ? servicos.reduce((s, v) => s + Number(v.valor_total), 0) / numServicos : 0;
+  const custoTotal = servicos.reduce((s, v) => s + Number(v.custo_total), 0);
+  const lucroLiquidoReal = lucroLiquido - custoTotal;
 
   const totalDays = Math.max(1, differenceInCalendarDays(endDate, startDate) + 1);
   const workDays = Math.max(1, countWorkingDays(startDate, endDate));
@@ -168,6 +171,8 @@ export default function Dashboard() {
   const metrics = [
     { label: 'Faturamento', value: formatCurrency(faturamento), icon: DollarSign },
     { label: '(Faturamento) - (% Taxas)', value: formatCurrency(lucroLiquido), icon: TrendingUp },
+    { label: 'Lucro Líquido', value: formatCurrency(lucroLiquidoReal), icon: TrendingUp },
+    { label: 'Custos dos Serviços', value: formatCurrency(custoTotal), icon: TrendingDown },
     { label: 'Serviços', value: String(numServicos), icon: Wrench },
     { label: 'Ticket Médio', value: formatCurrency(ticketMedio), icon: Calculator },
     { label: 'Média Carros/Dia', value: mediaCarrosDia.toFixed(1), icon: Car },
