@@ -124,6 +124,8 @@ export default function Dashboard() {
   const lucroLiquido = validPagamentos.reduce((s, p) => s + (Number(p.valor) - Number(p.valor) * Number(p.taxa_aplicada) / 100), 0);
   const numServicos = servicos.length;
   const ticketMedio = numServicos > 0 ? servicos.reduce((s, v) => s + Number(v.valor_total), 0) / numServicos : 0;
+  const custoTotal = servicos.reduce((s, v) => s + Number(v.custo_total), 0);
+  const lucroLiquidoReal = lucroLiquido - custoTotal;
 
   const totalDays = Math.max(1, differenceInCalendarDays(endDate, startDate) + 1);
   const workDays = Math.max(1, countWorkingDays(startDate, endDate));
