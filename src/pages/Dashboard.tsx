@@ -167,7 +167,7 @@ export default function Dashboard() {
 
   const metrics = [
     { label: 'Faturamento', value: formatCurrency(faturamento), icon: DollarSign },
-    { label: 'Lucro Líquido', value: formatCurrency(lucroLiquido), icon: TrendingUp },
+    { label: '(Faturamento) - (% Taxas)', value: formatCurrency(lucroLiquido), icon: TrendingUp },
     { label: 'Serviços', value: String(numServicos), icon: Wrench },
     { label: 'Ticket Médio', value: formatCurrency(ticketMedio), icon: Calculator },
     { label: 'Média Carros/Dia', value: mediaCarrosDia.toFixed(1), icon: Car },
