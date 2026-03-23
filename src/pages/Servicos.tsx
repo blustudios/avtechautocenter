@@ -8,9 +8,10 @@ import { Calendar } from '@/components/ui/calendar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
 import { formatCurrency } from '@/lib/format';
-import { Plus, Search, CalendarIcon, MoreHorizontal, Pencil, Trash2, Zap, UserPlus, RefreshCw } from 'lucide-react';
+import { Plus, Search, CalendarIcon, MoreHorizontal, Pencil, Trash2, Zap, UserPlus, RefreshCw, ArrowUpDown, ChevronRight } from 'lucide-react';
 import { ServiceDialog } from '@/components/services/ServiceDialog';
 import { ServiceViewDialog } from '@/components/services/ServiceViewDialog';
 import { ClientDialog } from '@/components/clients/ClientDialog';
@@ -32,9 +33,13 @@ interface Servico {
   lucro_liquido: number;
   cliente?: { nome: string };
   carro?: { marca: string; modelo: string; placa: string };
+  primeira_data_pagamento?: string;
+  pagamentos?: { data_pagamento: string | null; pago: boolean }[];
 }
 
 type DatePreset = 'all' | '3days' | '7days' | 'custom';
+type SortField = 'data_entrada' | 'data_pagamento' | 'id';
+type SortDirection = 'asc' | 'desc';
 
 export default function Servicos() {
   const [servicos, setServicos] = useState<Servico[]>([]);
@@ -52,17 +57,35 @@ export default function Servicos() {
   const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
+  // Sorting
+  const [sortField, setSortField] = useState<SortField>('data_entrada');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  // Advanced filters
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [paymentDateFrom, setPaymentDateFrom] = useState<Date | undefined>();
+  const [paymentDateTo, setPaymentDateTo] = useState<Date | undefined>();
+
   const fetchServicos = async () => {
     const { data } = await supabase
       .from('servicos')
-      .select('*, clientes(nome), carros(marca, modelo, placa)')
+      .select('*, clientes(nome), carros(marca, modelo, placa), servicos_pagamentos(data_pagamento, pago)')
       .order('created_at', { ascending: false });
     if (data) {
-      setServicos(data.map((s: any) => ({
-        ...s,
-        cliente: s.clientes,
-        carro: s.carros,
-      })));
+      setServicos(data.map((s: any) => {
+        const pagamentos = (s.servicos_pagamentos || []) as { data_pagamento: string | null; pago: boolean }[];
+        const sortedDates = pagamentos
+          .map(p => p.data_pagamento)
+          .filter(Boolean)
+          .sort();
+        return {
+          ...s,
+          cliente: s.clientes,
+          carro: s.carros,
+          pagamentos,
+          primeira_data_pagamento: sortedDates[0] || undefined,
+        };
+      }));
     }
     setLoading(false);
   };
@@ -99,7 +122,52 @@ export default function Servicos() {
       if (to) matchDate = matchDate && !isAfter(entryDate, startOfDay(to));
     }
 
-    return matchSearch && matchStatus && matchPayment && matchDate;
+    // Payment date filter
+    let matchPaymentDate = true;
+    if (paymentDateFrom) {
+      const pFrom = startOfDay(paymentDateFrom);
+      if (paymentDateTo) {
+        const pTo = startOfDay(paymentDateTo);
+        matchPaymentDate = (s.pagamentos || []).some(p => {
+          if (!p.data_pagamento) return false;
+          const pd = startOfDay(new Date(p.data_pagamento + 'T00:00:00'));
+          return !isBefore(pd, pFrom) && !isAfter(pd, pTo);
+        });
+      } else {
+        matchPaymentDate = (s.pagamentos || []).some(p => {
+          if (!p.data_pagamento) return false;
+          const pd = startOfDay(new Date(p.data_pagamento + 'T00:00:00'));
+          return pd.getTime() === pFrom.getTime();
+        });
+      }
+    }
+
+    return matchSearch && matchStatus && matchPayment && matchDate && matchPaymentDate;
+  });
+
+  // Sorting
+  const sorted = [...filtered].sort((a, b) => {
+    let valA: string | undefined;
+    let valB: string | undefined;
+
+    if (sortField === 'data_entrada') {
+      valA = a.data_entrada;
+      valB = b.data_entrada;
+    } else if (sortField === 'id') {
+      valA = a.id;
+      valB = b.id;
+    } else {
+      valA = a.primeira_data_pagamento;
+      valB = b.primeira_data_pagamento;
+    }
+
+    // Items without value go to the end
+    if (!valA && !valB) return 0;
+    if (!valA) return 1;
+    if (!valB) return -1;
+
+    const cmp = valA.localeCompare(valB);
+    return sortDirection === 'asc' ? cmp : -cmp;
   });
 
   return (
@@ -160,17 +228,34 @@ export default function Servicos() {
         </Select>
       </div>
 
-      {/* Date filter */}
+      {/* Date filter + Sort */}
       <div className="space-y-2">
-        <div className="flex flex-wrap gap-2 items-center">
-          <span className="text-sm text-muted-foreground shrink-0">Período:</span>
-          <div className="flex gap-1.5 overflow-x-auto pb-1">
-            {(['all', '3days', '7days', 'custom'] as DatePreset[]).map(preset => (
-              <Button key={preset} variant={datePreset === preset ? 'default' : 'outline'} size="sm" className="shrink-0 text-xs sm:text-sm"
-                onClick={() => { setDatePreset(preset); if (preset !== 'custom') { setDateFrom(undefined); setDateTo(undefined); } }}>
-                {preset === 'all' ? 'Todos' : preset === '3days' ? '3 dias' : preset === '7days' ? '7 dias' : 'Personalizado'}
-              </Button>
-            ))}
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-center justify-between">
+          <div className="flex flex-wrap gap-2 items-center">
+            <span className="text-sm text-muted-foreground shrink-0">Período:</span>
+            <div className="flex gap-1.5 overflow-x-auto pb-1">
+              {(['all', '3days', '7days', 'custom'] as DatePreset[]).map(preset => (
+                <Button key={preset} variant={datePreset === preset ? 'default' : 'outline'} size="sm" className="shrink-0 text-xs sm:text-sm"
+                  onClick={() => { setDatePreset(preset); if (preset !== 'custom') { setDateFrom(undefined); setDateTo(undefined); } }}>
+                  {preset === 'all' ? 'Todos' : preset === '3days' ? '3 dias' : preset === '7days' ? '7 dias' : 'Personalizado'}
+                </Button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Select value={sortField} onValueChange={(v) => setSortField(v as SortField)}>
+              <SelectTrigger className="w-[160px] bg-card border-border h-9 text-xs sm:text-sm">
+                <SelectValue placeholder="Ordenar por" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="data_entrada">Data de Entrada</SelectItem>
+                <SelectItem value="data_pagamento">Data de Pagamento</SelectItem>
+                <SelectItem value="id">ID do Serviço</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" onClick={() => setSortDirection(d => d === 'asc' ? 'desc' : 'asc')}>
+              <ArrowUpDown className={cn("w-4 h-4 transition-transform", sortDirection === 'asc' && "rotate-180")} />
+            </Button>
           </div>
         </div>
         {datePreset === 'custom' && (
@@ -196,15 +281,50 @@ export default function Servicos() {
         )}
       </div>
 
+      {/* Advanced Filters */}
+      <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen}>
+        <CollapsibleTrigger className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+          <ChevronRight className={cn("w-4 h-4 transition-transform", advancedOpen && "rotate-90")} />
+          <span className="font-medium">Filtros Avançados</span>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+            <span className="text-sm text-muted-foreground shrink-0">Data de Pagamento:</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn('gap-1.5 w-full sm:w-auto', !paymentDateFrom && 'text-muted-foreground')}>
+                  <CalendarIcon className="w-3.5 h-3.5" />{paymentDateFrom ? format(paymentDateFrom, 'dd/MM/yyyy') : 'Data início'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={paymentDateFrom} onSelect={setPaymentDateFrom} initialFocus className="p-3 pointer-events-auto" locale={ptBR} /></PopoverContent>
+            </Popover>
+            <span className="text-muted-foreground text-sm hidden sm:inline">até</span>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className={cn('gap-1.5 w-full sm:w-auto', !paymentDateTo && 'text-muted-foreground')}>
+                  <CalendarIcon className="w-3.5 h-3.5" />{paymentDateTo ? format(paymentDateTo, 'dd/MM/yyyy') : 'Data fim'}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={paymentDateTo} onSelect={setPaymentDateTo} initialFocus className="p-3 pointer-events-auto" locale={ptBR} /></PopoverContent>
+            </Popover>
+            {(paymentDateFrom || paymentDateTo) && (
+              <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={() => { setPaymentDateFrom(undefined); setPaymentDateTo(undefined); }}>
+                Limpar
+              </Button>
+            )}
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
       {loading ? (
         <div className="text-center text-muted-foreground py-12">Carregando...</div>
-      ) : filtered.length === 0 ? (
+      ) : sorted.length === 0 ? (
         <div className="text-center text-muted-foreground py-12">
           {servicos.length === 0 ? 'Nenhum serviço cadastrado. Crie o primeiro!' : 'Nenhum resultado encontrado.'}
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map(s => (
+          {sorted.map(s => (
             <div key={s.id} onClick={() => setViewService(s.id)}
               className="bg-card border border-border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:border-primary/40 transition-colors">
               <div className="flex-1 min-w-0">
