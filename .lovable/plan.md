@@ -1,93 +1,44 @@
 
 
-## Plano: Melhorias em Filtros, Cards, Resumo, Custos e Dashboard
+## Plano: Filtro de período multi-data na tela de Serviços
 
-### Resumo
-7 alterações distribuídas entre Serviços (filtros, cards, resumo), ServiceDialog (data de compra nos custos), e Dashboard (KPI de custos baseado na nova data).
+### Problema atual
+O filtro de período considera apenas `data_entrada`. Serviços com datas em meses diferentes (entrada em fev, saída/pagamento em mar) desaparecem ao filtrar por um dos meses.
 
----
+### Solução
+Alterar a lógica de `matchDate` para considerar **todas as datas** do serviço: `data_entrada`, `data_encerramento` (saída), e todas as `data_pagamento` dos pagamentos. Se **qualquer** dessas datas cair dentro do período filtrado, o serviço aparece na lista.
 
-### 1. Migration — campo `data_compra` em `servicos_custos`
+### Alterações em `src/pages/Servicos.tsx`
 
-```sql
-ALTER TABLE servicos_custos ADD COLUMN data_compra date;
--- Preencher custos existentes com a data_entrada do serviço correspondente
-UPDATE servicos_custos sc SET data_compra = s.data_entrada FROM servicos s WHERE sc.servico_id = s.id;
-ALTER TABLE servicos_custos ALTER COLUMN data_compra SET DEFAULT CURRENT_DATE;
-```
+1. **Interface `Servico`**: adicionar `data_encerramento?: string` (já existe no banco mas não está no select).
 
----
+2. **`fetchServicos`**: já busca `*` (inclui `data_encerramento`), então basta garantir que o campo está mapeado.
 
-### 2. `src/pages/Servicos.tsx` — Filtros de período
+3. **Lógica `matchDate`** (linhas 129-134): substituir a verificação atual que só olha `data_entrada` por uma que coleta todas as datas do serviço e verifica se ao menos uma está dentro do range:
 
-**Novos presets**: Substituir `'all' | '3days' | '7days' | 'custom'` por `'mes' | 'semana' | 'ontem' | 'hoje' | 'custom'`. Default: `'mes'`.
-
-**Lógica de datas**:
-- `mes`: `[startOfMonth(today), endOfMonth(today)]`
-- `semana`: `[startOfWeek(today, {weekStartsOn:1}), endOfWeek(today, {weekStartsOn:1})]`
-- `ontem`: `[yesterday, yesterday]`
-- `hoje`: `[today, today]`
-- `custom`: Se apenas `dateFrom`, filtra data exata. Se ambos, filtra range.
-
-**Filtro Avançado — tipo de forma de pagamento**: Adicionar `paymentTypeFilter` (default `'all'`). Select com opções: "Todos", + cada item de `tiposPagamento`. Filtra serviços que possuem ao menos 1 pagamento com o tipo selecionado.
-
----
-
-### 3. `src/pages/Servicos.tsx` — Cards de serviço
-
-Adicionar `custo_total` à interface `Servico` e ao select.
-
-No card, entre valor total e lucro:
-```
-R$ 500,00          (valor total - texto grande)
-Custo: R$ 120,00   (text-xs text-destructive)
-Lucro: R$ 380,00   (text-xs text-emerald-500)
-```
-
----
-
-### 4. `src/pages/Servicos.tsx` — Seção "Resumo" colapsável
-
-Após todos os filtros e antes da lista, adicionar `Collapsible` "Resumo" (fechado por padrão):
-- **Valor Total**: `sorted.reduce(sum + valor_total)`
-- **Custos**: `sorted.reduce(sum + custo_total)`
-- **Lucro**: `sorted.reduce(sum + lucro_liquido)`
-
-Exibidos em 3 cards inline horizontais com cores (neutro, vermelho, verde).
-
----
-
-### 5. `src/components/services/ServiceDialog.tsx` — Data de compra nos custos
-
-Adicionar campo `data_compra` ao estado de custos (default: `form.data_entrada`).
-
-Na UI de cada custo, adicionar `<Input type="date">` para data de compra.
-
-No `handleSave`, incluir `data_compra` no insert de `servicos_custos`.
-
-Na edição, carregar `data_compra` dos registros existentes.
-
----
-
-### 6. `src/pages/Dashboard.tsx` — KPI Custos baseado em `data_compra`
-
-Alterar a query de custos: em vez de somar `custo_total` dos serviços, buscar diretamente de `servicos_custos` filtrando por `data_compra` dentro do período.
-
-Nova query adicional:
 ```ts
-supabase.from('servicos_custos').select('valor, quantidade, data_compra')
-  .gte('data_compra', s).lte('data_compra', e)
+let matchDate = true;
+if (from || to) {
+  const allDates: Date[] = [];
+  allDates.push(startOfDay(new Date(s.data_entrada + 'T00:00:00')));
+  if (s.data_encerramento) {
+    allDates.push(startOfDay(new Date(s.data_encerramento + 'T00:00:00')));
+  }
+  (s.pagamentos || []).forEach(p => {
+    if (p.data_pagamento) {
+      allDates.push(startOfDay(new Date(p.data_pagamento + 'T00:00:00')));
+    }
+  });
+  const f = from ? startOfDay(from) : null;
+  const t = to ? startOfDay(to) : null;
+  matchDate = allDates.some(d => {
+    if (f && isBefore(d, f)) return false;
+    if (t && isAfter(d, t)) return false;
+    return true;
+  });
+}
 ```
 
-Recalcular:
-- `custoTotal = custos.reduce(sum + valor * quantidade)`
-- `lucroLiquidoReal = lucroLiquido - custoTotal`
-
----
-
-### Arquivos modificados/criados
-- **Nova migration**: `data_compra` em `servicos_custos`
-- **`src/pages/Servicos.tsx`**: filtros, cards, resumo
-- **`src/components/services/ServiceDialog.tsx`**: data de compra nos custos
-- **`src/pages/Dashboard.tsx`**: query de custos por `data_compra`
+### Arquivo modificado
+- `src/pages/Servicos.tsx` — lógica de filtro de período + interface
 
