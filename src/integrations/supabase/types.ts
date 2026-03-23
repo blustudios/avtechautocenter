@@ -301,6 +301,7 @@ export type Database = {
       }
       servicos_custos: {
         Row: {
+          data_compra: string | null
           fornecedor_id: string | null
           id: string
           item: string
@@ -309,6 +310,7 @@ export type Database = {
           valor: number
         }
         Insert: {
+          data_compra?: string | null
           fornecedor_id?: string | null
           id?: string
           item: string
@@ -317,6 +319,7 @@ export type Database = {
           valor?: number
         }
         Update: {
+          data_compra?: string | null
           fornecedor_id?: string | null
           id?: string
           item?: string
