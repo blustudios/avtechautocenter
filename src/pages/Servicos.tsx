@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -10,12 +10,12 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
-import { formatCurrency } from '@/lib/format';
+import { formatCurrency, tiposPagamento } from '@/lib/format';
 import { Plus, Search, CalendarIcon, MoreHorizontal, Pencil, Trash2, Zap, UserPlus, RefreshCw, ArrowUpDown, ChevronRight } from 'lucide-react';
 import { ServiceDialog } from '@/components/services/ServiceDialog';
 import { ServiceViewDialog } from '@/components/services/ServiceViewDialog';
 import { ClientDialog } from '@/components/clients/ClientDialog';
-import { format, subDays, isAfter, isBefore, startOfDay } from 'date-fns';
+import { format, startOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, isBefore, isAfter } from 'date-fns';
 import { toast } from 'sonner';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -30,14 +30,15 @@ interface Servico {
   status: string;
   status_pagamento: string;
   valor_total: number;
+  custo_total: number;
   lucro_liquido: number;
   cliente?: { nome: string };
   carro?: { marca: string; modelo: string; placa: string };
   primeira_data_pagamento?: string;
-  pagamentos?: { data_pagamento: string | null; pago: boolean }[];
+  pagamentos?: { data_pagamento: string | null; pago: boolean; tipo: string }[];
 }
 
-type DatePreset = 'all' | '3days' | '7days' | 'custom';
+type DatePreset = 'mes' | 'semana' | 'ontem' | 'hoje' | 'custom';
 type SortField = 'data_entrada' | 'data_pagamento' | 'id';
 type SortDirection = 'asc' | 'desc';
 
@@ -46,7 +47,7 @@ export default function Servicos() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
-  const [datePreset, setDatePreset] = useState<DatePreset>('all');
+  const [datePreset, setDatePreset] = useState<DatePreset>('mes');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
   const [showCreate, setShowCreate] = useState(false);
@@ -65,15 +66,19 @@ export default function Servicos() {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [paymentDateFrom, setPaymentDateFrom] = useState<Date | undefined>();
   const [paymentDateTo, setPaymentDateTo] = useState<Date | undefined>();
+  const [paymentTypeFilter, setPaymentTypeFilter] = useState('all');
+
+  // Summary
+  const [summaryOpen, setSummaryOpen] = useState(false);
 
   const fetchServicos = async () => {
     const { data } = await supabase
       .from('servicos')
-      .select('*, clientes(nome), carros(marca, modelo, placa), servicos_pagamentos(data_pagamento, pago)')
+      .select('*, clientes(nome), carros(marca, modelo, placa), servicos_pagamentos(data_pagamento, pago, tipo)')
       .order('created_at', { ascending: false });
     if (data) {
       setServicos(data.map((s: any) => {
-        const pagamentos = (s.servicos_pagamentos || []) as { data_pagamento: string | null; pago: boolean }[];
+        const pagamentos = (s.servicos_pagamentos || []) as { data_pagamento: string | null; pago: boolean; tipo: string }[];
         const sortedDates = pagamentos
           .map(p => p.data_pagamento)
           .filter(Boolean)
@@ -99,9 +104,15 @@ export default function Servicos() {
   };
 
   const getDateRange = (): { from: Date | null; to: Date | null } => {
-    if (datePreset === '3days') return { from: subDays(new Date(), 3), to: new Date() };
-    if (datePreset === '7days') return { from: subDays(new Date(), 7), to: new Date() };
-    if (datePreset === 'custom') return { from: dateFrom || null, to: dateTo || null };
+    const today = new Date();
+    if (datePreset === 'hoje') return { from: today, to: today };
+    if (datePreset === 'ontem') { const y = subDays(today, 1); return { from: y, to: y }; }
+    if (datePreset === 'semana') return { from: startOfWeek(today, { weekStartsOn: 1 }), to: endOfWeek(today, { weekStartsOn: 1 }) };
+    if (datePreset === 'mes') return { from: startOfMonth(today), to: endOfMonth(today) };
+    if (datePreset === 'custom') {
+      if (dateFrom && !dateTo) return { from: dateFrom, to: dateFrom };
+      return { from: dateFrom || null, to: dateTo || null };
+    }
     return { from: null, to: null };
   };
 
@@ -142,7 +153,13 @@ export default function Servicos() {
       }
     }
 
-    return matchSearch && matchStatus && matchPayment && matchDate && matchPaymentDate;
+    // Payment type filter
+    let matchPaymentType = true;
+    if (paymentTypeFilter !== 'all') {
+      matchPaymentType = (s.pagamentos || []).some(p => p.tipo === paymentTypeFilter);
+    }
+
+    return matchSearch && matchStatus && matchPayment && matchDate && matchPaymentDate && matchPaymentType;
   });
 
   // Sorting
@@ -161,7 +178,6 @@ export default function Servicos() {
       valB = b.primeira_data_pagamento;
     }
 
-    // Items without value go to the end
     if (!valA && !valB) return 0;
     if (!valA) return 1;
     if (!valB) return -1;
@@ -170,8 +186,24 @@ export default function Servicos() {
     return sortDirection === 'asc' ? cmp : -cmp;
   });
 
+  // Summary calculations
+  const summaryTotals = useMemo(() => {
+    const valorTotal = sorted.reduce((sum, s) => sum + Number(s.valor_total), 0);
+    const custos = sorted.reduce((sum, s) => sum + Number(s.custo_total), 0);
+    const lucro = sorted.reduce((sum, s) => sum + Number(s.lucro_liquido), 0);
+    return { valorTotal, custos, lucro };
+  }, [sorted]);
+
+  const datePresets: { label: string; value: DatePreset }[] = [
+    { label: 'Este Mês', value: 'mes' },
+    { label: 'Esta Semana', value: 'semana' },
+    { label: 'Ontem', value: 'ontem' },
+    { label: 'Hoje', value: 'hoje' },
+    { label: 'Personalizado', value: 'custom' },
+  ];
+
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-foreground shrink-0">Entradas de Serviço</h1>
         <div className="flex items-center gap-1.5">
@@ -234,10 +266,10 @@ export default function Servicos() {
           <div className="flex flex-wrap gap-2 items-center">
             <span className="text-sm text-muted-foreground shrink-0">Período:</span>
             <div className="flex gap-1.5 overflow-x-auto pb-1">
-              {(['all', '3days', '7days', 'custom'] as DatePreset[]).map(preset => (
-                <Button key={preset} variant={datePreset === preset ? 'default' : 'outline'} size="sm" className="shrink-0 text-xs sm:text-sm"
-                  onClick={() => { setDatePreset(preset); if (preset !== 'custom') { setDateFrom(undefined); setDateTo(undefined); } }}>
-                  {preset === 'all' ? 'Todos' : preset === '3days' ? '3 dias' : preset === '7days' ? '7 dias' : 'Personalizado'}
+              {datePresets.map(preset => (
+                <Button key={preset.value} variant={datePreset === preset.value ? 'default' : 'outline'} size="sm" className="shrink-0 text-xs sm:text-sm"
+                  onClick={() => { setDatePreset(preset.value); if (preset.value !== 'custom') { setDateFrom(undefined); setDateTo(undefined); } }}>
+                  {preset.label}
                 </Button>
               ))}
             </div>
@@ -272,7 +304,7 @@ export default function Servicos() {
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className={cn('gap-1.5 w-full sm:w-auto', !dateTo && 'text-muted-foreground')}>
-                  <CalendarIcon className="w-3.5 h-3.5" />{dateTo ? format(dateTo, 'dd/MM/yyyy') : 'Data fim'}
+                  <CalendarIcon className="w-3.5 h-3.5" />{dateTo ? format(dateTo, 'dd/MM/yyyy') : 'Data fim (opcional)'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={dateTo} onSelect={setDateTo} initialFocus className="p-3 pointer-events-auto" locale={ptBR} /></PopoverContent>
@@ -287,7 +319,7 @@ export default function Servicos() {
           <ChevronRight className={cn("w-4 h-4 transition-transform", advancedOpen && "rotate-90")} />
           <span className="font-medium">Filtros Avançados</span>
         </CollapsibleTrigger>
-        <CollapsibleContent className="pt-3">
+        <CollapsibleContent className="pt-3 space-y-3">
           <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
             <span className="text-sm text-muted-foreground shrink-0">Data de Pagamento:</span>
             <Popover>
@@ -302,7 +334,7 @@ export default function Servicos() {
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className={cn('gap-1.5 w-full sm:w-auto', !paymentDateTo && 'text-muted-foreground')}>
-                  <CalendarIcon className="w-3.5 h-3.5" />{paymentDateTo ? format(paymentDateTo, 'dd/MM/yyyy') : 'Data fim'}
+                  <CalendarIcon className="w-3.5 h-3.5" />{paymentDateTo ? format(paymentDateTo, 'dd/MM/yyyy') : 'Data fim (opcional)'}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={paymentDateTo} onSelect={setPaymentDateTo} initialFocus className="p-3 pointer-events-auto" locale={ptBR} /></PopoverContent>
@@ -312,6 +344,43 @@ export default function Servicos() {
                 Limpar
               </Button>
             )}
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
+            <span className="text-sm text-muted-foreground shrink-0">Forma de Pagamento:</span>
+            <Select value={paymentTypeFilter} onValueChange={setPaymentTypeFilter}>
+              <SelectTrigger className="w-full sm:w-[200px] bg-card border-border h-9 text-xs sm:text-sm">
+                <SelectValue placeholder="Todos" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos</SelectItem>
+                {tiposPagamento.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+
+      {/* Summary */}
+      <Collapsible open={summaryOpen} onOpenChange={setSummaryOpen}>
+        <CollapsibleTrigger className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+          <ChevronRight className={cn("w-4 h-4 transition-transform", summaryOpen && "rotate-90")} />
+          <span className="font-medium">Resumo</span>
+          <span className="text-xs text-muted-foreground">({sorted.length} serviços)</span>
+        </CollapsibleTrigger>
+        <CollapsibleContent className="pt-3">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-card border border-border rounded-lg p-3 text-center">
+              <p className="text-xs text-muted-foreground mb-1">Valor Total</p>
+              <p className="text-sm font-bold text-foreground">{formatCurrency(summaryTotals.valorTotal)}</p>
+            </div>
+            <div className="bg-card border border-border rounded-lg p-3 text-center">
+              <p className="text-xs text-muted-foreground mb-1">Custos</p>
+              <p className="text-sm font-bold text-destructive">{formatCurrency(summaryTotals.custos)}</p>
+            </div>
+            <div className="bg-card border border-border rounded-lg p-3 text-center">
+              <p className="text-xs text-muted-foreground mb-1">Lucro</p>
+              <p className={cn("text-sm font-bold", summaryTotals.lucro >= 0 ? "text-emerald-500" : "text-destructive")}>{formatCurrency(summaryTotals.lucro)}</p>
+            </div>
           </div>
         </CollapsibleContent>
       </Collapsible>
@@ -346,6 +415,9 @@ export default function Servicos() {
               <div className="flex items-center gap-2">
                 <div className="text-right">
                   <p className="text-lg font-semibold text-foreground">{formatCurrency(Number(s.valor_total))}</p>
+                  <p className="text-xs font-medium text-destructive">
+                    Custo: {formatCurrency(Number(s.custo_total))}
+                  </p>
                   <p className={cn("text-xs font-medium", Number(s.lucro_liquido) >= 0 ? "text-emerald-500" : "text-destructive")}>
                     Lucro: {formatCurrency(Number(s.lucro_liquido))}
                   </p>

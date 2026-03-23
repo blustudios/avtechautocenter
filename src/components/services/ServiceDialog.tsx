@@ -527,7 +527,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
           <div className="border border-border rounded-lg p-4 space-y-3">
             <SectionTitle icon={ClipboardList} title="Custos" />
             {custos.length === 0 ? (
-              <Button variant="ghost" size="sm" onClick={() => setCustos([{ item: '', quantidade: '1', fornecedor_id: '', valor: '' }])}>
+              <Button variant="ghost" size="sm" onClick={() => setCustos([{ item: '', quantidade: '1', fornecedor_id: '', valor: '', data_compra: form.data_entrada }])}>
                 <Plus className="w-4 h-4 mr-1" /> Adicionar Custo
               </Button>
             ) : (
@@ -542,17 +542,19 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                         <SelectContent>{fornecedores.map(f => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                       <Input type="number" value={c.quantidade} onChange={e => { const n = [...custos]; n[i].quantidade = e.target.value; setCustos(n); }}
                         placeholder="Qtd" className="bg-background border-border" />
                       <CurrencyInput value={c.valor} onChange={v => { const n = [...custos]; n[i].valor = v; setCustos(n); }} className="bg-background border-border" />
+                      <Input type="date" value={c.data_compra} onChange={e => { const n = [...custos]; n[i].data_compra = e.target.value; setCustos(n); }}
+                        className="bg-background border-border" />
                     </div>
                     <Button variant="ghost" size="sm" onClick={() => setCustos(custos.filter((_, j) => j !== i))}>
                       <X className="w-4 h-4 mr-1" /> Remover
                     </Button>
                   </div>
                 ))}
-                <Button variant="ghost" size="sm" onClick={() => setCustos([...custos, { item: '', quantidade: '1', fornecedor_id: '', valor: '' }])}>
+                <Button variant="ghost" size="sm" onClick={() => setCustos([...custos, { item: '', quantidade: '1', fornecedor_id: '', valor: '', data_compra: form.data_entrada }])}>
                   <Plus className="w-4 h-4 mr-1" /> Adicionar Custo
                 </Button>
                 <p className="text-sm text-muted-foreground">Total de Custos: {formatCurrency(custoTotal)}</p>
