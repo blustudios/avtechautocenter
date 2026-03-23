@@ -27,6 +27,7 @@ interface Servico {
   carro_marca?: string;
   carro_modelo?: string;
   data_entrada: string;
+  data_encerramento?: string;
   status: string;
   status_pagamento: string;
   valor_total: number;
