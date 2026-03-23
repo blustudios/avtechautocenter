@@ -301,6 +301,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
         await supabase.from('servicos_custos').insert(validCustos.map(c => ({
           servico_id: id, item: c.item, quantidade: parseFloat(c.quantidade) || 1,
           fornecedor_id: c.fornecedor_id || null, valor: parseFloat(c.valor) || 0,
+          data_compra: c.data_compra || form.data_entrada,
         })));
       }
 
