@@ -67,7 +67,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
     tipo: string; maquininha_id: string; bandeira_id: string; parcelas: string; valor: string; data_pagamento: string; pago: boolean;
   }[]>([]);
   const [custos, setCustos] = useState<{
-    item: string; quantidade: string; fornecedor_id: string; valor: string;
+    item: string; quantidade: string; fornecedor_id: string; valor: string; data_compra: string;
   }[]>([]);
 
   useEffect(() => {
