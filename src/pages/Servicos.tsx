@@ -129,9 +129,23 @@ export default function Servicos() {
     const { from, to } = getDateRange();
     let matchDate = true;
     if (from || to) {
-      const entryDate = startOfDay(new Date(s.data_entrada + 'T00:00:00'));
-      if (from) matchDate = matchDate && !isBefore(entryDate, startOfDay(from));
-      if (to) matchDate = matchDate && !isAfter(entryDate, startOfDay(to));
+      const allDates: Date[] = [];
+      allDates.push(startOfDay(new Date(s.data_entrada + 'T00:00:00')));
+      if (s.data_encerramento) {
+        allDates.push(startOfDay(new Date(s.data_encerramento + 'T00:00:00')));
+      }
+      (s.pagamentos || []).forEach(p => {
+        if (p.data_pagamento) {
+          allDates.push(startOfDay(new Date(p.data_pagamento + 'T00:00:00')));
+        }
+      });
+      const f = from ? startOfDay(from) : null;
+      const t = to ? startOfDay(to) : null;
+      matchDate = allDates.some(d => {
+        if (f && isBefore(d, f)) return false;
+        if (t && isAfter(d, t)) return false;
+        return true;
+      });
     }
 
     // Payment date filter
