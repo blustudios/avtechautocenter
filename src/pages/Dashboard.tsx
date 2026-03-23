@@ -37,6 +37,12 @@ interface Servico {
   status_pagamento: string;
 }
 
+interface CustoItem {
+  valor: number;
+  quantidade: number;
+  data_compra: string | null;
+}
+
 function getDateRange(type: FilterType, customStart?: Date, customEnd?: Date): [Date, Date] {
   const today = new Date();
   switch (type) {
@@ -76,6 +82,7 @@ export default function Dashboard() {
   const [pagamentos, setPagamentos] = useState<Pagamento[]>([]);
   const [servicos, setServicos] = useState<Servico[]>([]);
   const [prevPagamentos, setPrevPagamentos] = useState<Pagamento[]>([]);
+  const [custosData, setCustosData] = useState<CustoItem[]>([]);
   const [loading, setLoading] = useState(true);
 
   const [startDate, endDate] = useMemo(() => getDateRange(filterType, customStart, customEnd), [filterType, customStart, customEnd]);
@@ -92,10 +99,12 @@ export default function Dashboard() {
       supabase.from('servicos_pagamentos').select('tipo, valor, taxa_aplicada, pago, data_pagamento, servico_id').gte('data_pagamento', s).lte('data_pagamento', e),
       supabase.from('servicos').select('id, data_entrada, valor_total, custo_total, status, status_pagamento').gte('data_entrada', s).lte('data_entrada', e),
       supabase.from('servicos_pagamentos').select('tipo, valor, taxa_aplicada, pago, data_pagamento, servico_id').gte('data_pagamento', ps).lte('data_pagamento', pe),
-    ]).then(([pRes, sRes, ppRes]) => {
+      supabase.from('servicos_custos').select('valor, quantidade, data_compra').gte('data_compra', s).lte('data_compra', e),
+    ]).then(([pRes, sRes, ppRes, cRes]) => {
       setPagamentos((pRes.data || []) as Pagamento[]);
       setServicos((sRes.data || []) as Servico[]);
       setPrevPagamentos((ppRes.data || []) as Pagamento[]);
+      setCustosData((cRes.data || []) as CustoItem[]);
       setLoading(false);
     });
   }, [startDate, endDate, prevStart, prevEnd]);
@@ -124,7 +133,7 @@ export default function Dashboard() {
   const lucroLiquido = validPagamentos.reduce((s, p) => s + (Number(p.valor) - Number(p.valor) * Number(p.taxa_aplicada) / 100), 0);
   const numServicos = servicos.length;
   const ticketMedio = numServicos > 0 ? servicos.reduce((s, v) => s + Number(v.valor_total), 0) / numServicos : 0;
-  const custoTotal = servicos.reduce((s, v) => s + Number(v.custo_total), 0);
+  const custoTotal = custosData.reduce((s, c) => s + Number(c.valor) * Number(c.quantidade), 0);
   const lucroLiquidoReal = lucroLiquido - custoTotal;
 
   const totalDays = Math.max(1, differenceInCalendarDays(endDate, startDate) + 1);
