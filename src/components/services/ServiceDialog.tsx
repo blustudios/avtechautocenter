@@ -126,9 +126,10 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
             data_pagamento: (p as any).data_pagamento || '', pago: (p as any).pago ?? false,
           })));
           const { data: ct } = await supabase.from('servicos_custos').select('*').eq('servico_id', serviceId);
-          if (ct?.length) setCustos(ct.map(c => ({
+          if (ct?.length) setCustos(ct.map((c: any) => ({
             item: c.item, quantidade: String(c.quantidade),
             fornecedor_id: c.fornecedor_id || '', valor: String(c.valor),
+            data_compra: c.data_compra || sv.data_entrada,
           })));
           // Load pneus
           const { data: pn } = await supabase.from('servicos_pneus').select('*, estoque_pneus(marca, medida_01, medida_02, aro)').eq('servico_id', serviceId);
