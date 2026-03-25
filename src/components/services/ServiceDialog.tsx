@@ -241,7 +241,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
         id,
         cliente_cpf: form.cliente_cpf || null,
         carro_placa: form.carro_placa || null,
-        data_entrada: isOrcamento ? null : form.data_entrada,
+        data_entrada: form.data_entrada || new Date().toISOString().split('T')[0],
         data_encerramento: form.data_encerramento || null,
         data_orcamento: isOrcamento ? form.data_orcamento : (originalData?.data_orcamento || null),
         status: finalizeAfter ? 'finalizado' : form.status,
