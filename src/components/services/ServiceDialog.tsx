@@ -829,9 +829,20 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
           open={showAssignClient}
           serviceId={form.id}
           onClose={() => setShowAssignClient(false)}
-          onAssigned={() => {
+          onAssigned={async () => {
             setShowAssignClient(false);
-            onClose();
+            const { data } = await supabase.from('servicos').select('*').eq('id', form.id).single();
+            if (data) {
+              setForm(prev => ({
+                ...prev,
+                cliente_cpf: data.cliente_cpf,
+                carro_placa: data.carro_placa,
+                is_servico_rapido: data.is_servico_rapido,
+                carro_marca_livre: data.carro_marca_livre,
+                carro_modelo_livre: data.carro_modelo_livre,
+                carro_placa_livre: data.carro_placa_livre,
+              }));
+            }
           }}
         />
       )}
