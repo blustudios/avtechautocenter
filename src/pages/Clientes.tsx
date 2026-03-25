@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Search, X, Car, MoreHorizontal, Pencil, Trash2, Wrench } from 'lucide-react';
+import { Plus, Search, X, Car, MoreHorizontal, Pencil, Trash2, Wrench, ClipboardList } from 'lucide-react';
 import { formatCPF, formatPhone, formatPlaca, CAR_COLORS } from '@/lib/format';
 import { toast } from 'sonner';
 import { ServiceDialog } from '@/components/services/ServiceDialog';
