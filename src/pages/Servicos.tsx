@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
 import { formatCurrency, tiposPagamento } from '@/lib/format';
 import { Plus, Search, CalendarIcon, MoreHorizontal, Pencil, Trash2, UserPlus, RefreshCw, ArrowUpDown, ChevronRight, History } from 'lucide-react';
@@ -76,6 +77,7 @@ export default function Servicos() {
   const [paymentTypeFilter, setPaymentTypeFilter] = useState('all');
 
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
 
   const fetchServicos = async () => {
     const { data } = await supabase
@@ -454,7 +456,7 @@ export default function Servicos() {
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={e => { e.stopPropagation(); setEditService(s.id); }}><Pencil className="w-4 h-4 mr-2" /> Editar</DropdownMenuItem>
                     <DropdownMenuItem onClick={e => { e.stopPropagation(); setHistoryService(s.id); }}><History className="w-4 h-4 mr-2" /> Histórico</DropdownMenuItem>
-                    <DropdownMenuItem onClick={e => { e.stopPropagation(); /* delete handled in view dialog */ }} className="text-destructive"><Trash2 className="w-4 h-4 mr-2" /> Excluir</DropdownMenuItem>
+                    <DropdownMenuItem onClick={e => { e.stopPropagation(); setDeleteServiceId(s.id); }} className="text-destructive"><Trash2 className="w-4 h-4 mr-2" /> Excluir</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -516,6 +518,46 @@ export default function Servicos() {
       )}
       {editService && <ServiceDialog open={!!editService} serviceId={editService} onClose={() => { setEditService(null); fetchServicos(); }} />}
       {historyService && <HistoryDialog serviceId={historyService} open={!!historyService} onClose={() => setHistoryService(null)} />}
+
+      <AlertDialog open={!!deleteServiceId} onOpenChange={() => setDeleteServiceId(null)}>
+        <AlertDialogContent className="bg-popover border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Serviço</AlertDialogTitle>
+            <AlertDialogDescription>Deseja excluir este serviço permanentemente? Esta ação não pode ser desfeita.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não, voltar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (!deleteServiceId) return;
+                const sid = deleteServiceId;
+                // Restore stock for tires
+                const { data: pnData } = await supabase.from('servicos_pneus').select('*').eq('servico_id', sid);
+                if (pnData?.length) {
+                  for (const p of pnData) {
+                    if (p.baixa_estoque) {
+                      const { data: cur } = await supabase.from('estoque_pneus').select('quantidade').eq('id', p.pneu_id).single();
+                      if (cur) await supabase.from('estoque_pneus').update({ quantidade: cur.quantidade + p.quantidade }).eq('id', p.pneu_id);
+                    }
+                  }
+                }
+                await supabase.from('servicos_pneus').delete().eq('servico_id', sid);
+                await supabase.from('servicos_itens').delete().eq('servico_id', sid);
+                await supabase.from('servicos_pagamentos').delete().eq('servico_id', sid);
+                await supabase.from('servicos_custos').delete().eq('servico_id', sid);
+                await supabase.from('servicos_historico').delete().eq('servico_id', sid);
+                await supabase.from('servicos').delete().eq('id', sid);
+                toast.success('Serviço excluído!');
+                setDeleteServiceId(null);
+                fetchServicos();
+              }}
+            >
+              Sim, excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
