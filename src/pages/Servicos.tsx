@@ -8,6 +8,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
 import { formatCurrency, tiposPagamento } from '@/lib/format';
 import { Plus, Search, CalendarIcon, MoreHorizontal, Pencil, Trash2, UserPlus, RefreshCw, ArrowUpDown, ChevronRight, History } from 'lucide-react';
