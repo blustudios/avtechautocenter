@@ -246,7 +246,10 @@ export default function Clientes() {
 
   const filtered = clientes.filter(c => {
     const s = search.toLowerCase();
-    return !s || c.nome?.toLowerCase().includes(s) || c.cpf?.includes(s) || c.whatsapp?.includes(s);
+    if (!s) return true;
+    const sDigits = s.replace(/\D/g, '');
+    const cpfDigits = c.cpf?.replace(/\D/g, '') || '';
+    return c.nome?.toLowerCase().includes(s) || (sDigits && cpfDigits.includes(sDigits)) || c.cpf?.toLowerCase().includes(s) || c.whatsapp?.includes(s);
   });
 
   // Check if search is an 11-digit CPF with no results

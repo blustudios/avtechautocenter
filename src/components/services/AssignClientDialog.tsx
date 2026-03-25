@@ -123,7 +123,15 @@ export function AssignClientDialog({ open, serviceId, onClose, onAssigned }: Pro
             <Input
               placeholder="Buscar por nome, CPF, marca, modelo ou placa"
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => {
+                const raw = e.target.value;
+                const digitsOnly = raw.replace(/\D/g, '');
+                if (digitsOnly.length > 0 && raw.replace(/[\d.\-]/g, '').length === 0) {
+                  setSearch(formatCPF(digitsOnly));
+                } else {
+                  setSearch(raw);
+                }
+              }}
               className="pl-9 bg-card border-border"
             />
           </div>
