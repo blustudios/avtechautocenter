@@ -115,10 +115,10 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
             status_pagamento: sv.status_pagamento,
             valor_total: String(sv.valor_total),
             observacoes: sv.observacoes || '',
-            is_servico_rapido: (sv as any).is_servico_rapido || false,
-            carro_marca_livre: (sv as any).carro_marca_livre || '',
-            carro_modelo_livre: (sv as any).carro_modelo_livre || '',
-            carro_placa_livre: (sv as any).carro_placa_livre || '',
+            is_servico_rapido: (sv as any).is_servico_rapido || (!sv.cliente_cpf && !!sv.carro_marca),
+            carro_marca_livre: (sv as any).carro_marca_livre || sv.carro_marca || '',
+            carro_modelo_livre: (sv as any).carro_modelo_livre || sv.carro_modelo || '',
+            carro_placa_livre: (sv as any).carro_placa_livre || sv.carro_placa || '',
           });
           if (sv.cliente_cpf) {
             const { data: carrosData } = await supabase.from('carros').select('*').eq('cliente_cpf', sv.cliente_cpf);
