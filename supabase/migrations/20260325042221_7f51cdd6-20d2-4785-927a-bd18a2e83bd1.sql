@@ -1,0 +1,1 @@
+ALTER TABLE public.carros ADD COLUMN ativo boolean NOT NULL DEFAULT true;
