@@ -504,14 +504,14 @@ export default function Servicos() {
         <ClientDialog
           open={showNewClient}
           onClose={() => { setShowNewClient(false); fetchServicos(); }}
-          onSaveAndService={() => {
+          onSaveAndService={(cpf) => {
             setShowNewClient(false);
+            setLastCreatedClientCpf(cpf);
             setShowClientEntryType(true);
           }}
-          onSaveAndOrcamento={() => {
+          onSaveAndOrcamento={(cpf) => {
             setShowNewClient(false);
-            setLastCreatedClientCpf(null);
-            setShowCreate({ status: 'orcamento' });
+            setShowCreate({ status: 'orcamento', clientCpf: cpf });
           }}
         />
       )}

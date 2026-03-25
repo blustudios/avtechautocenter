@@ -70,9 +70,9 @@ export function ClientDialog({ open, onClose, onSaveAndService, onSaveAndOrcamen
     }
     toast.success('Cliente criado!');
     if (action === 'service' && onSaveAndService) {
-      onSaveAndService();
+      onSaveAndService(formatted);
     } else if (action === 'orcamento' && onSaveAndOrcamento) {
-      onSaveAndOrcamento();
+      onSaveAndOrcamento(formatted);
     }
     onClose();
   };
