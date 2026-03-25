@@ -12,6 +12,7 @@ import { Plus, X, Trash2, Car, Info, Wrench, DollarSign, CreditCard, ClipboardLi
 import { Checkbox } from '@/components/ui/checkbox';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { PneuSelectorDialog } from '@/components/services/PneuSelectorDialog';
+import { AssignClientDialog } from '@/components/services/AssignClientDialog';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
 import { formatCurrency, formatPlaca, tiposPagamento, statusLabels } from '@/lib/format';
 import { toast } from 'sonner';
@@ -49,6 +50,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
   const [showFinalizationError, setShowFinalizationError] = useState<string[] | null>(null);
   const [showLucroWarning, setShowLucroWarning] = useState(false);
   const [originalData, setOriginalData] = useState<any>(null);
+  const [showAssignClient, setShowAssignClient] = useState(false);
 
   const [form, setForm] = useState({
     id: '',
@@ -472,11 +474,16 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
               )}
 
               {/* Quick mode: free text car fields */}
-              {quickMode && !isEdit ? (
+              {form.is_servico_rapido && !form.cliente_cpf ? (
                 <div className="col-span-1 sm:col-span-2">
                   <div className="flex items-center gap-2 mb-2">
                     <Car className="w-4 h-4 text-muted-foreground" />
                     <Label className="text-sm font-semibold">Veículo</Label>
+                    {isEdit && (
+                      <Button type="button" variant="outline" size="sm" className="ml-auto text-xs" onClick={() => setShowAssignClient(true)}>
+                        Atribuir Cliente
+                      </Button>
+                    )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div>
@@ -806,6 +813,18 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
 
       <PneuSelectorDialog open={showPneuSelector} onClose={() => setShowPneuSelector(false)}
         onSelect={(pneu) => setPneusServico([...pneusServico, pneu])} />
+
+      {isEdit && form.is_servico_rapido && !form.cliente_cpf && (
+        <AssignClientDialog
+          open={showAssignClient}
+          serviceId={form.id}
+          onClose={() => setShowAssignClient(false)}
+          onAssigned={() => {
+            setShowAssignClient(false);
+            onClose();
+          }}
+        />
+      )}
     </Dialog>
   );
 }
