@@ -15,6 +15,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onSaveAndService?: () => void;
+  onSaveAndOrcamento?: () => void;
 }
 
 interface CarForm {
