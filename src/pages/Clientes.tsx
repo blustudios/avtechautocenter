@@ -9,10 +9,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Separator } from '@/components/ui/separator';
+import { Switch } from '@/components/ui/switch';
 import { Plus, Search, X, Car, MoreHorizontal, Pencil, Trash2, Wrench } from 'lucide-react';
 import { formatCPF, formatPhone, formatPlaca, CAR_COLORS } from '@/lib/format';
 import { toast } from 'sonner';
 import { ServiceDialog } from '@/components/services/ServiceDialog';
+import { useNavigate } from 'react-router-dom';
 
 interface CarForm {
   placa: string;
@@ -20,11 +22,14 @@ interface CarForm {
   modelo: string;
   ano: string;
   cor: string;
+  ativo: boolean;
+  _isExisting?: boolean; // tracks if car already exists in DB
 }
 
-const emptyCar = (): CarForm => ({ placa: '', marca: '', modelo: '', ano: '', cor: '' });
+const emptyCar = (): CarForm => ({ placa: '', marca: '', modelo: '', ano: '', cor: '', ativo: true });
 
 export default function Clientes() {
+  const navigate = useNavigate();
   const [clientes, setClientes] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [showForm, setShowForm] = useState(false);
@@ -35,8 +40,10 @@ export default function Clientes() {
 
   const [form, setForm] = useState({ cpf: '', nome: '', email: '', whatsapp: '' });
   const [carForms, setCarForms] = useState<CarForm[]>([]);
+  const [originalPlacas, setOriginalPlacas] = useState<string[]>([]); // placas in DB before edit
   const [pendingCarConflict, setPendingCarConflict] = useState<{ placa: string; index: number } | null>(null);
   const [pendingSaveOpenService, setPendingSaveOpenService] = useState(false);
+  const [linkedServices, setLinkedServices] = useState<{ placa: string; servicos: any[] } | null>(null);
   const [marcasList, setMarcasList] = useState<{ id: string; nome: string }[]>([]);
   const [modelosList, setModelosList] = useState<{ id: string; marca_id: string; nome: string }[]>([]);
 
@@ -51,7 +58,7 @@ export default function Clientes() {
   }, []);
 
   const fetchClientes = async () => {
-    const { data } = await supabase.from('clientes').select('*, carros(placa, marca, modelo)').order('nome');
+    const { data } = await supabase.from('clientes').select('*, carros(placa, marca, modelo, ativo)').order('nome');
     setClientes(data || []);
   };
 
@@ -67,6 +74,7 @@ export default function Clientes() {
   const openNewClient = () => {
     setForm({ cpf: '', nome: '', email: '', whatsapp: '' });
     setCarForms([]);
+    setOriginalPlacas([]);
     setEditCpf(null);
     setShowForm(true);
   };
@@ -76,10 +84,13 @@ export default function Clientes() {
     const { data: cars } = await supabase.from('carros').select('*').eq('cliente_cpf', cpf);
     if (c) {
       setForm({ cpf: c.cpf, nome: c.nome, email: c.email || '', whatsapp: c.whatsapp || '' });
-      setCarForms((cars || []).map((car: any) => ({
+      const carData = (cars || []).map((car: any) => ({
         placa: car.placa, marca: car.marca || '', modelo: car.modelo || '',
-        ano: car.ano?.toString() || '', cor: car.cor || '',
-      })));
+        ano: car.ano?.toString() || '', cor: car.cor || '', ativo: car.ativo ?? true,
+        _isExisting: true,
+      }));
+      setCarForms(carData);
+      setOriginalPlacas((cars || []).map((car: any) => car.placa));
       setEditCpf(cpf);
       setShowForm(true);
     }
@@ -93,6 +104,22 @@ export default function Clientes() {
     fetchClientes();
   };
 
+  const handleRemoveCar = async (index: number) => {
+    const car = carForms[index];
+    if (car._isExisting && car.placa) {
+      // Check if linked to services
+      const { data: services } = await supabase
+        .from('servicos')
+        .select('id, status')
+        .eq('carro_placa', car.placa.toUpperCase());
+      if (services && services.length > 0) {
+        setLinkedServices({ placa: car.placa, servicos: services });
+        return;
+      }
+    }
+    setCarForms(carForms.filter((_, j) => j !== index));
+  };
+
   const saveClient = async (openService = false) => {
     const cpf = form.cpf.replace(/\D/g, '');
     if (cpf.length !== 11) { toast.error('CPF inválido'); return; }
@@ -102,57 +129,91 @@ export default function Clientes() {
 
     if (editCpf) {
       await supabase.from('clientes').update(data).eq('cpf', editCpf);
-      await supabase.from('carros').delete().eq('cliente_cpf', editCpf);
+
+      // Incremental car save
+      const currentPlacas = carForms.filter(c => c.placa.trim()).map(c => c.placa.toUpperCase());
+
+      // 1. Delete removed cars (that were in DB but not in form anymore)
+      const removedPlacas = originalPlacas.filter(p => !currentPlacas.includes(p));
+      for (const placa of removedPlacas) {
+        const { data: services } = await supabase.from('servicos').select('id').eq('carro_placa', placa).limit(1);
+        if (services && services.length > 0) {
+          // Skip deletion — should have been caught by handleRemoveCar
+          continue;
+        }
+        await supabase.from('carros').delete().eq('placa', placa);
+      }
+
+      // 2. Update existing + insert new
+      for (const car of carForms.filter(c => c.placa.trim())) {
+        const placaUpper = car.placa.toUpperCase();
+        const carData = {
+          marca: car.marca,
+          modelo: car.modelo,
+          ano: car.ano ? parseInt(car.ano) : null,
+          cor: car.cor,
+          ativo: car.ativo,
+          cliente_cpf: formatted,
+        };
+
+        if (originalPlacas.includes(placaUpper)) {
+          // Existing car — update
+          await supabase.from('carros').update(carData).eq('placa', placaUpper);
+        } else {
+          // New car — check if exists without owner
+          const { data: existing } = await supabase.from('carros').select('placa, cliente_cpf').eq('placa', placaUpper).single();
+          if (existing && existing.cliente_cpf === null) {
+            setPendingCarConflict({ placa: placaUpper, index: 0 });
+            setPendingSaveOpenService(openService);
+            toast.success('Cliente atualizado!');
+            setShowForm(false);
+            setEditCpf(null);
+            fetchClientes();
+            return;
+          }
+          await supabase.from('carros').insert({ placa: placaUpper, ...carData });
+        }
+      }
     } else {
       const { error } = await supabase.from('clientes').insert(data);
       if (error?.code === '23505') { toast.error('CPF já cadastrado'); return; }
-    }
 
-    const validCars = carForms.filter(c => c.placa.trim());
-    for (const car of validCars) {
-      const placaUpper = car.placa.toUpperCase();
-      // Check if car already exists without a client (from quick service)
-      const { data: existing } = await supabase.from('carros').select('placa, cliente_cpf').eq('placa', placaUpper).single();
-      if (existing && existing.cliente_cpf === null) {
-        // Show confirmation popup
-        setPendingCarConflict({ placa: placaUpper, index: validCars.indexOf(car) });
-        setPendingSaveOpenService(openService);
-        // Save client data but pause car saving — will resume after confirmation
-        // Update remaining cars that don't conflict
-        const otherCars = validCars.filter(c => c.placa.toUpperCase() !== placaUpper);
-        if (otherCars.length) {
-          await supabase.from('carros').insert(
-            otherCars.map(c => ({
-              placa: c.placa.toUpperCase(),
-              cliente_cpf: formatted,
-              marca: c.marca,
-              modelo: c.modelo,
-              ano: c.ano ? parseInt(c.ano) : null,
-              cor: c.cor,
-            }))
-          );
+      // Insert new cars
+      const validCars = carForms.filter(c => c.placa.trim());
+      for (const car of validCars) {
+        const placaUpper = car.placa.toUpperCase();
+        const { data: existing } = await supabase.from('carros').select('placa, cliente_cpf').eq('placa', placaUpper).single();
+        if (existing && existing.cliente_cpf === null) {
+          setPendingCarConflict({ placa: placaUpper, index: validCars.indexOf(car) });
+          setPendingSaveOpenService(openService);
+          // Insert other cars that don't conflict
+          const otherCars = validCars.filter(c => c.placa.toUpperCase() !== placaUpper);
+          if (otherCars.length) {
+            await supabase.from('carros').insert(
+              otherCars.map(c => ({
+                placa: c.placa.toUpperCase(), cliente_cpf: formatted,
+                marca: c.marca, modelo: c.modelo,
+                ano: c.ano ? parseInt(c.ano) : null, cor: c.cor, ativo: c.ativo,
+              }))
+            );
+          }
+          toast.success('Cliente criado!');
+          setShowForm(false);
+          setEditCpf(null);
+          fetchClientes();
+          return;
         }
-        toast.success(editCpf ? 'Cliente atualizado!' : 'Cliente criado!');
-        setShowForm(false);
-        setEditCpf(null);
-        fetchClientes();
-        return;
       }
-    }
 
-    // No conflicts — insert all cars normally
-    if (validCars.length) {
-      const { error } = await supabase.from('carros').insert(
-        validCars.map(c => ({
-          placa: c.placa.toUpperCase(),
-          cliente_cpf: formatted,
-          marca: c.marca,
-          modelo: c.modelo,
-          ano: c.ano ? parseInt(c.ano) : null,
-          cor: c.cor,
-        }))
-      );
-      if (error) { toast.error('Erro ao salvar carros: ' + error.message); }
+      if (validCars.length) {
+        await supabase.from('carros').insert(
+          validCars.map(c => ({
+            placa: c.placa.toUpperCase(), cliente_cpf: formatted,
+            marca: c.marca, modelo: c.modelo,
+            ano: c.ano ? parseInt(c.ano) : null, cor: c.cor, ativo: c.ativo,
+          }))
+        );
+      }
     }
 
     toast.success(editCpf ? 'Cliente atualizado!' : 'Cliente criado!');
@@ -168,7 +229,6 @@ export default function Clientes() {
   const handleCarConflictConfirm = async () => {
     if (!pendingCarConflict) return;
     const formatted = formatCPF(form.cpf.replace(/\D/g, ''));
-    // Assign the unassigned car to this client
     await supabase.from('carros').update({ cliente_cpf: formatted }).eq('placa', pendingCarConflict.placa);
     toast.success('Carro atribuído ao cliente!');
     setPendingCarConflict(null);
@@ -186,6 +246,11 @@ export default function Clientes() {
       setServiceForCpf(formatted);
       setPendingSaveOpenService(false);
     }
+  };
+
+  const statusLabel = (s: string) => {
+    const map: Record<string, string> = { orcamento: 'Orçamento', em_progresso: 'Em Progresso', finalizado: 'Finalizado', cancelado: 'Cancelado' };
+    return map[s] || s;
   };
 
   const filtered = clientes.filter(c => {
@@ -217,7 +282,7 @@ export default function Clientes() {
               {c.carros && c.carros.length > 0 && (
                 <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
                   <Car className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  {c.carros.map((car: any) => (
+                  {c.carros.filter((car: any) => car.ativo).map((car: any) => (
                     <span key={car.placa} className="text-xs bg-background/50 border border-border rounded px-1.5 py-0.5 text-muted-foreground">
                       {car.marca} {car.modelo}
                     </span>
@@ -248,7 +313,7 @@ export default function Clientes() {
         {filtered.length === 0 && <p className="text-center text-muted-foreground py-12">Nenhum cliente encontrado.</p>}
       </div>
 
-      {/* Client form dialog with inline cars */}
+      {/* Client form dialog */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent className="bg-popover border-border max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>{editCpf ? 'Editar Cliente' : 'Novo Cliente'}</DialogTitle></DialogHeader>
@@ -275,18 +340,29 @@ export default function Clientes() {
               )}
 
               {carForms.map((car, i) => (
-                <div key={i} className="bg-card border border-border rounded-lg p-3 mb-2 space-y-2">
+                <div key={i} className={`bg-card border border-border rounded-lg p-3 mb-2 space-y-2 ${!car.ativo ? 'opacity-60' : ''}`}>
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-medium text-muted-foreground">Carro {i + 1}</span>
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setCarForms(carForms.filter((_, j) => j !== i))}>
-                      <X className="w-3.5 h-3.5" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      {car._isExisting && (
+                        <div className="flex items-center gap-1.5">
+                          <Label className="text-xs text-muted-foreground">{car.ativo ? 'Ativo' : 'Inativo'}</Label>
+                          <Switch
+                            checked={car.ativo}
+                            onCheckedChange={v => { const n = [...carForms]; n[i].ativo = v; setCarForms(n); }}
+                          />
+                        </div>
+                      )}
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => handleRemoveCar(i)}>
+                        <X className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs">Placa</Label>
                       <Input value={car.placa} onChange={e => { const n = [...carForms]; n[i].placa = formatPlaca(e.target.value); setCarForms(n); }}
-                        placeholder="ABC-1234" className="bg-background border-border h-8 text-sm" />
+                        placeholder="ABC-1234" className="bg-background border-border h-8 text-sm" readOnly={!!car._isExisting} />
                     </div>
                     <div>
                       <Label className="text-xs">Marca</Label>
@@ -362,9 +438,14 @@ export default function Clientes() {
                 </h4>
                 {carros.length === 0 && <p className="text-sm text-muted-foreground">Nenhum carro cadastrado.</p>}
                 {carros.map(c => (
-                  <div key={c.placa} className="bg-card rounded-lg p-3 mb-2">
-                    <p className="text-foreground font-medium">{c.marca} {c.modelo}</p>
-                    <p className="text-sm text-muted-foreground">{c.placa} · {c.ano} · {c.cor}</p>
+                  <div key={c.placa} className={`bg-card rounded-lg p-3 mb-2 ${!c.ativo ? 'opacity-60' : ''}`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-foreground font-medium">{c.marca} {c.modelo}</p>
+                        <p className="text-sm text-muted-foreground">{c.placa} · {c.ano} · {c.cor}</p>
+                      </div>
+                      {!c.ativo && <span className="text-xs bg-muted text-muted-foreground rounded px-2 py-0.5">Inativo</span>}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -389,6 +470,7 @@ export default function Clientes() {
         />
       )}
 
+      {/* Car conflict dialog */}
       <AlertDialog open={!!pendingCarConflict} onOpenChange={() => setPendingCarConflict(null)}>
         <AlertDialogContent className="bg-popover border-border">
           <AlertDialogHeader>
@@ -403,6 +485,39 @@ export default function Clientes() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Linked services dialog */}
+      <Dialog open={!!linkedServices} onOpenChange={() => setLinkedServices(null)}>
+        <DialogContent className="bg-popover border-border max-w-md">
+          <DialogHeader>
+            <DialogTitle>Impossível excluir carro vinculado a Serviço</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              O carro <strong>{linkedServices?.placa}</strong> está vinculado aos seguintes serviços:
+            </p>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {linkedServices?.servicos.map(s => (
+                <div
+                  key={s.id}
+                  className="bg-card border border-border rounded-lg p-3 flex items-center justify-between cursor-pointer hover:border-primary/40 transition-colors"
+                  onClick={() => {
+                    setLinkedServices(null);
+                    setShowForm(false);
+                    navigate('/servicos');
+                  }}
+                >
+                  <span className="text-sm font-medium text-foreground">{s.id}</span>
+                  <span className="text-xs bg-muted text-muted-foreground rounded px-2 py-0.5">{statusLabel(s.status)}</span>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Você pode desativar o carro em vez de excluí-lo usando o toggle Ativo/Inativo.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

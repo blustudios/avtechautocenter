@@ -43,6 +43,7 @@ export type Database = {
       carros: {
         Row: {
           ano: number | null
+          ativo: boolean
           cliente_cpf: string | null
           cor: string | null
           marca: string | null
@@ -51,6 +52,7 @@ export type Database = {
         }
         Insert: {
           ano?: number | null
+          ativo?: boolean
           cliente_cpf?: string | null
           cor?: string | null
           marca?: string | null
@@ -59,6 +61,7 @@ export type Database = {
         }
         Update: {
           ano?: number | null
+          ativo?: boolean
           cliente_cpf?: string | null
           cor?: string | null
           marca?: string | null
