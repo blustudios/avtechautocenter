@@ -136,6 +136,7 @@ export default function Servicos() {
       const allDates: Date[] = [];
       if (s.data_entrada) allDates.push(startOfDay(new Date(s.data_entrada + 'T00:00:00')));
       if (s.data_encerramento) allDates.push(startOfDay(new Date(s.data_encerramento + 'T00:00:00')));
+      if (s.data_orcamento) allDates.push(startOfDay(new Date(s.data_orcamento + 'T00:00:00')));
       (s.pagamentos || []).forEach(p => {
         if (p.data_pagamento) allDates.push(startOfDay(new Date(p.data_pagamento + 'T00:00:00')));
       });
