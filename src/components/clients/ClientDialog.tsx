@@ -69,8 +69,10 @@ export function ClientDialog({ open, onClose, onSaveAndService, onSaveAndOrcamen
       );
     }
     toast.success('Cliente criado!');
-    if (andService && onSaveAndService) {
+    if (action === 'service' && onSaveAndService) {
       onSaveAndService();
+    } else if (action === 'orcamento' && onSaveAndOrcamento) {
+      onSaveAndOrcamento();
     }
     onClose();
   };
