@@ -1,21 +1,29 @@
 
 
-## Plano: Incluir `data_orcamento` no filtro de datas e exibição
+## Plano: Corrigir bug de orçamentos não salvando
 
-### Problema
-Orçamentos salvos não aparecem na lista porque o filtro de período não considera o campo `data_orcamento`. Se um orçamento foi criado no mês atual mas não tem `data_entrada` relevante, ele fica invisível.
-
-### Alterações em `src/pages/Servicos.tsx`
-
-1. **Interface `Servico`** (linha 24): adicionar `data_orcamento?: string;`
-
-2. **Filtro de datas** (linhas 135-140): adicionar `data_orcamento` ao array `allDates`:
+### Causa raiz
+Linha 244 de `ServiceDialog.tsx`:
 ```ts
-if (s.data_orcamento) allDates.push(startOfDay(new Date(s.data_orcamento + 'T00:00:00')));
+data_entrada: isOrcamento ? null : form.data_entrada,
+```
+O campo `data_entrada` no banco tem constraint `NOT NULL`. Passar `null` causa erro 400, e o serviço nunca é inserido.
+
+### Correção
+
+**Arquivo: `src/components/services/ServiceDialog.tsx`** — linha 244
+
+Alterar de:
+```ts
+data_entrada: isOrcamento ? null : form.data_entrada,
+```
+Para:
+```ts
+data_entrada: form.data_entrada || new Date().toISOString().split('T')[0],
 ```
 
-Isso garante que a lógica multi-data existente (que já considera `data_entrada`, `data_encerramento` e datas de pagamento) também inclua a data do orçamento na verificação do período.
+Isso garante que orçamentos sempre tenham uma `data_entrada` valida (usa a data atual como fallback), respeitando a constraint do banco. Quando o orçamento for "executado" (transição para `em_progresso`), a `data_entrada` sera atualizada para a data real via `ServiceViewDialog`.
 
 ### Arquivo modificado
-- `src/pages/Servicos.tsx`
+- `src/components/services/ServiceDialog.tsx` (1 linha)
 
