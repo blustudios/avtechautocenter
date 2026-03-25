@@ -233,14 +233,19 @@ export type Database = {
       servicos: {
         Row: {
           carro_marca: string | null
+          carro_marca_livre: string | null
           carro_modelo: string | null
+          carro_modelo_livre: string | null
           carro_placa: string | null
+          carro_placa_livre: string | null
           cliente_cpf: string | null
           created_at: string
           custo_total: number
           data_encerramento: string | null
           data_entrada: string
+          data_orcamento: string | null
           id: string
+          is_servico_rapido: boolean
           lucro_liquido: number
           observacoes: string | null
           status: string
@@ -250,14 +255,19 @@ export type Database = {
         }
         Insert: {
           carro_marca?: string | null
+          carro_marca_livre?: string | null
           carro_modelo?: string | null
+          carro_modelo_livre?: string | null
           carro_placa?: string | null
+          carro_placa_livre?: string | null
           cliente_cpf?: string | null
           created_at?: string
           custo_total?: number
           data_encerramento?: string | null
           data_entrada?: string
+          data_orcamento?: string | null
           id: string
+          is_servico_rapido?: boolean
           lucro_liquido?: number
           observacoes?: string | null
           status?: string
@@ -267,14 +277,19 @@ export type Database = {
         }
         Update: {
           carro_marca?: string | null
+          carro_marca_livre?: string | null
           carro_modelo?: string | null
+          carro_modelo_livre?: string | null
           carro_placa?: string | null
+          carro_placa_livre?: string | null
           cliente_cpf?: string | null
           created_at?: string
           custo_total?: number
           data_encerramento?: string | null
           data_entrada?: string
+          data_orcamento?: string | null
           id?: string
+          is_servico_rapido?: boolean
           lucro_liquido?: number
           observacoes?: string | null
           status?: string
@@ -337,6 +352,41 @@ export type Database = {
           },
           {
             foreignKeyName: "servicos_custos_servico_id_fkey"
+            columns: ["servico_id"]
+            isOneToOne: false
+            referencedRelation: "servicos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      servicos_historico: {
+        Row: {
+          alterado_em: string
+          campo: string
+          id: string
+          servico_id: string
+          valor_anterior: string | null
+          valor_novo: string | null
+        }
+        Insert: {
+          alterado_em?: string
+          campo: string
+          id?: string
+          servico_id: string
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Update: {
+          alterado_em?: string
+          campo?: string
+          id?: string
+          servico_id?: string
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "servicos_historico_servico_id_fkey"
             columns: ["servico_id"]
             isOneToOne: false
             referencedRelation: "servicos"
