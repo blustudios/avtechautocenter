@@ -518,6 +518,46 @@ export default function Servicos() {
       )}
       {editService && <ServiceDialog open={!!editService} serviceId={editService} onClose={() => { setEditService(null); fetchServicos(); }} />}
       {historyService && <HistoryDialog serviceId={historyService} open={!!historyService} onClose={() => setHistoryService(null)} />}
+
+      <AlertDialog open={!!deleteServiceId} onOpenChange={() => setDeleteServiceId(null)}>
+        <AlertDialogContent className="bg-popover border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Serviço</AlertDialogTitle>
+            <AlertDialogDescription>Deseja excluir este serviço permanentemente? Esta ação não pode ser desfeita.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não, voltar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={async () => {
+                if (!deleteServiceId) return;
+                const sid = deleteServiceId;
+                // Restore stock for tires
+                const { data: pnData } = await supabase.from('servicos_pneus').select('*').eq('servico_id', sid);
+                if (pnData?.length) {
+                  for (const p of pnData) {
+                    if (p.baixa_estoque) {
+                      const { data: cur } = await supabase.from('estoque_pneus').select('quantidade').eq('id', p.pneu_id).single();
+                      if (cur) await supabase.from('estoque_pneus').update({ quantidade: cur.quantidade + p.quantidade }).eq('id', p.pneu_id);
+                    }
+                  }
+                }
+                await supabase.from('servicos_pneus').delete().eq('servico_id', sid);
+                await supabase.from('servicos_itens').delete().eq('servico_id', sid);
+                await supabase.from('servicos_pagamentos').delete().eq('servico_id', sid);
+                await supabase.from('servicos_custos').delete().eq('servico_id', sid);
+                await supabase.from('servicos_historico').delete().eq('servico_id', sid);
+                await supabase.from('servicos').delete().eq('id', sid);
+                toast.success('Serviço excluído!');
+                setDeleteServiceId(null);
+                fetchServicos();
+              }}
+            >
+              Sim, excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
