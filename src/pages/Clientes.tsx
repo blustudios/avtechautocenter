@@ -478,6 +478,15 @@ export default function Clientes() {
         />
       )}
 
+      {orcamentoForCpf && (
+        <ServiceDialog
+          open={!!orcamentoForCpf}
+          defaultClienteCpf={orcamentoForCpf}
+          initialStatus="orcamento"
+          onClose={() => { setOrcamentoForCpf(null); }}
+        />
+      )}
+
       {/* Car conflict dialog */}
       <AlertDialog open={!!pendingCarConflict} onOpenChange={() => setPendingCarConflict(null)}>
         <AlertDialogContent className="bg-popover border-border">
