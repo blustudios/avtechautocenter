@@ -474,11 +474,16 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
               )}
 
               {/* Quick mode: free text car fields */}
-              {quickMode && !isEdit ? (
+              {form.is_servico_rapido && !form.cliente_cpf ? (
                 <div className="col-span-1 sm:col-span-2">
                   <div className="flex items-center gap-2 mb-2">
                     <Car className="w-4 h-4 text-muted-foreground" />
                     <Label className="text-sm font-semibold">Veículo</Label>
+                    {isEdit && (
+                      <Button type="button" variant="outline" size="sm" className="ml-auto text-xs" onClick={() => setShowAssignClient(true)}>
+                        Atribuir Cliente
+                      </Button>
+                    )}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                     <div>
