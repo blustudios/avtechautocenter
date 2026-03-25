@@ -77,6 +77,7 @@ export default function Servicos() {
   const [paymentTypeFilter, setPaymentTypeFilter] = useState('all');
 
   const [summaryOpen, setSummaryOpen] = useState(false);
+  const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
 
   const fetchServicos = async () => {
     const { data } = await supabase
