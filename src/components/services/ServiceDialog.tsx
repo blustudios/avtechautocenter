@@ -623,8 +623,17 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
                         placeholder="Qtd" className="bg-background border-border" />
                       <CurrencyInput value={c.valor} onChange={v => { const n = [...custos]; n[i].valor = v; setCustos(n); }} className="bg-background border-border" />
                       {!isOrcamento && (
-                        <Input type="date" value={c.data_compra} onChange={e => { const n = [...custos]; n[i].data_compra = e.target.value; setCustos(n); }}
-                          className="bg-background border-border" />
+                        c.data_compra || showDateField[i] ? (
+                          <Input type="date" value={c.data_compra} onChange={e => {
+                            const n = [...custos]; n[i].data_compra = e.target.value; setCustos(n);
+                            if (!e.target.value) setShowDateField(prev => { const p = { ...prev }; delete p[i]; return p; });
+                          }} className="bg-background border-border" />
+                        ) : (
+                          <button type="button" onClick={() => setShowDateField(prev => ({ ...prev, [i]: true }))}
+                            className="text-xs text-muted-foreground hover:text-foreground whitespace-nowrap transition-colors">
+                            + data de compra
+                          </button>
+                        )
                       )}
                     </div>
                     <Button variant="ghost" size="sm" onClick={() => setCustos(custos.filter((_, j) => j !== i))}>
