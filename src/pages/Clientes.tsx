@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Search, X, Car, MoreHorizontal, Pencil, Trash2, Wrench, ClipboardList } from 'lucide-react';
+import { Plus, Search, X, Car, MoreHorizontal, Pencil, Trash2, Wrench, ClipboardList, UserPlus } from 'lucide-react';
 import { formatCPF, formatPhone, formatPlaca, CAR_COLORS } from '@/lib/format';
 import { toast } from 'sonner';
 import { ServiceDialog } from '@/components/services/ServiceDialog';
@@ -23,7 +23,7 @@ interface CarForm {
   ano: string;
   cor: string;
   ativo: boolean;
-  _isExisting?: boolean; // tracks if car already exists in DB
+  _isExisting?: boolean;
 }
 
 const emptyCar = (): CarForm => ({ placa: '', marca: '', modelo: '', ano: '', cor: '', ativo: true });
@@ -38,10 +38,11 @@ export default function Clientes() {
   const [carros, setCarros] = useState<any[]>([]);
   const [serviceForCpf, setServiceForCpf] = useState<string | null>(null);
   const [orcamentoForCpf, setOrcamentoForCpf] = useState<string | null>(null);
+  const [deleteConfirmCpf, setDeleteConfirmCpf] = useState<string | null>(null);
 
   const [form, setForm] = useState({ cpf: '', nome: '', email: '', whatsapp: '' });
   const [carForms, setCarForms] = useState<CarForm[]>([]);
-  const [originalPlacas, setOriginalPlacas] = useState<string[]>([]); // placas in DB before edit
+  const [originalPlacas, setOriginalPlacas] = useState<string[]>([]);
   const [pendingCarConflict, setPendingCarConflict] = useState<{ placa: string; index: number } | null>(null);
   const [pendingSaveOpenService, setPendingSaveOpenService] = useState(false);
   const [linkedServices, setLinkedServices] = useState<{ placa: string; servicos: any[] } | null>(null);
@@ -72,8 +73,8 @@ export default function Clientes() {
     setCarros(cars || []);
   };
 
-  const openNewClient = () => {
-    setForm({ cpf: '', nome: '', email: '', whatsapp: '' });
+  const openNewClient = (prefillCpf?: string) => {
+    setForm({ cpf: prefillCpf ? formatCPF(prefillCpf) : '', nome: '', email: '', whatsapp: '' });
     setCarForms([]);
     setOriginalPlacas([]);
     setEditCpf(null);
@@ -97,18 +98,18 @@ export default function Clientes() {
     }
   };
 
-  const deleteClient = async (cpf: string) => {
-    if (!confirm('Tem certeza que deseja excluir este cliente e todos os seus carros?')) return;
-    await supabase.from('carros').delete().eq('cliente_cpf', cpf);
-    await supabase.from('clientes').delete().eq('cpf', cpf);
+  const confirmDeleteClient = async () => {
+    if (!deleteConfirmCpf) return;
+    await supabase.from('carros').delete().eq('cliente_cpf', deleteConfirmCpf);
+    await supabase.from('clientes').delete().eq('cpf', deleteConfirmCpf);
     toast.success('Cliente excluído!');
+    setDeleteConfirmCpf(null);
     fetchClientes();
   };
 
   const handleRemoveCar = async (index: number) => {
     const car = carForms[index];
     if (car._isExisting && car.placa) {
-      // Check if linked to services
       const { data: services } = await supabase
         .from('servicos')
         .select('id, status')
@@ -131,37 +132,26 @@ export default function Clientes() {
     if (editCpf) {
       await supabase.from('clientes').update(data).eq('cpf', editCpf);
 
-      // Incremental car save
       const currentPlacas = carForms.filter(c => c.placa.trim()).map(c => c.placa.toUpperCase());
 
-      // 1. Delete removed cars (that were in DB but not in form anymore)
       const removedPlacas = originalPlacas.filter(p => !currentPlacas.includes(p));
       for (const placa of removedPlacas) {
         const { data: services } = await supabase.from('servicos').select('id').eq('carro_placa', placa).limit(1);
-        if (services && services.length > 0) {
-          // Skip deletion — should have been caught by handleRemoveCar
-          continue;
-        }
+        if (services && services.length > 0) continue;
         await supabase.from('carros').delete().eq('placa', placa);
       }
 
-      // 2. Update existing + insert new
       for (const car of carForms.filter(c => c.placa.trim())) {
         const placaUpper = car.placa.toUpperCase();
         const carData = {
-          marca: car.marca,
-          modelo: car.modelo,
-          ano: car.ano ? parseInt(car.ano) : null,
-          cor: car.cor,
-          ativo: car.ativo,
-          cliente_cpf: formatted,
+          marca: car.marca, modelo: car.modelo,
+          ano: car.ano ? parseInt(car.ano) : null, cor: car.cor,
+          ativo: car.ativo, cliente_cpf: formatted,
         };
 
         if (originalPlacas.includes(placaUpper)) {
-          // Existing car — update
           await supabase.from('carros').update(carData).eq('placa', placaUpper);
         } else {
-          // New car — check if exists without owner
           const { data: existing } = await supabase.from('carros').select('placa, cliente_cpf').eq('placa', placaUpper).single();
           if (existing && existing.cliente_cpf === null) {
             setPendingCarConflict({ placa: placaUpper, index: 0 });
@@ -179,7 +169,6 @@ export default function Clientes() {
       const { error } = await supabase.from('clientes').insert(data);
       if (error?.code === '23505') { toast.error('CPF já cadastrado'); return; }
 
-      // Insert new cars
       const validCars = carForms.filter(c => c.placa.trim());
       for (const car of validCars) {
         const placaUpper = car.placa.toUpperCase();
@@ -187,7 +176,6 @@ export default function Clientes() {
         if (existing && existing.cliente_cpf === null) {
           setPendingCarConflict({ placa: placaUpper, index: validCars.indexOf(car) });
           setPendingSaveOpenService(openService);
-          // Insert other cars that don't conflict
           const otherCars = validCars.filter(c => c.placa.toUpperCase() !== placaUpper);
           if (otherCars.length) {
             await supabase.from('carros').insert(
@@ -261,11 +249,15 @@ export default function Clientes() {
     return !s || c.nome?.toLowerCase().includes(s) || c.cpf?.includes(s) || c.whatsapp?.includes(s);
   });
 
+  // Check if search is an 11-digit CPF with no results
+  const searchDigits = search.replace(/\D/g, '');
+  const isUnmatchedCpf = searchDigits.length === 11 && filtered.length === 0;
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold text-foreground">Clientes</h1>
-        <Button onClick={openNewClient}>
+        <Button onClick={() => openNewClient()}>
           <Plus className="w-4 h-4 mr-2" /> Novo Cliente
         </Button>
       </div>
@@ -274,6 +266,19 @@ export default function Clientes() {
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
         <Input placeholder="Buscar por nome, CPF ou WhatsApp..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 bg-card border-border" />
       </div>
+
+      {isUnmatchedCpf && (
+        <Button
+          variant="outline"
+          className="w-full border-dashed border-primary/50 text-primary hover:bg-primary/10"
+          onClick={() => {
+            openNewClient(searchDigits);
+            setSearch('');
+          }}
+        >
+          <UserPlus className="w-4 h-4 mr-2" /> Adicionar CPF {formatCPF(searchDigits)}
+        </Button>
+      )}
 
       <div className="space-y-2">
         {filtered.map(c => (
@@ -306,14 +311,17 @@ export default function Clientes() {
                 <DropdownMenuItem onClick={e => { e.stopPropagation(); setServiceForCpf(c.cpf); }}>
                   <Wrench className="w-4 h-4 mr-2" /> Adicionar Serviço
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={e => { e.stopPropagation(); deleteClient(c.cpf); }} className="text-destructive">
+                <DropdownMenuItem onClick={e => { e.stopPropagation(); setOrcamentoForCpf(c.cpf); }}>
+                  <ClipboardList className="w-4 h-4 mr-2" /> Adicionar Orçamento
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={e => { e.stopPropagation(); setDeleteConfirmCpf(c.cpf); }} className="text-destructive">
                   <Trash2 className="w-4 h-4 mr-2" /> Excluir
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
         ))}
-        {filtered.length === 0 && <p className="text-center text-muted-foreground py-12">Nenhum cliente encontrado.</p>}
+        {filtered.length === 0 && !isUnmatchedCpf && <p className="text-center text-muted-foreground py-12">Nenhum cliente encontrado.</p>}
       </div>
 
       {/* Client form dialog */}
@@ -410,19 +418,19 @@ export default function Clientes() {
               ))}
             </div>
 
-            <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
-              <Button variant="outline" onClick={() => setShowForm(false)} className="w-full sm:w-auto">Cancelar</Button>
+            <div className="flex flex-wrap justify-end gap-3 pt-2">
+              <Button variant="outline" onClick={() => setShowForm(false)}>Cancelar</Button>
               {!editCpf && (
                 <>
-                  <Button variant="outline" onClick={() => saveClient(false, true)} className="w-full sm:w-auto border-blue-500/50 text-blue-500 hover:bg-blue-500/10">
-                    <ClipboardList className="w-4 h-4 mr-2" /> Salvar + Orçamento
+                  <Button variant="outline" onClick={() => saveClient(false, true)} className="border-blue-500/50 text-blue-500 hover:bg-blue-500/10">
+                    <ClipboardList className="w-4 h-4 mr-1" /> Salvar + Orçamento
                   </Button>
-                  <Button variant="outline" onClick={() => saveClient(true)} className="w-full sm:w-auto">
-                    <Wrench className="w-4 h-4 mr-2" /> Salvar + Serviço
+                  <Button variant="outline" onClick={() => saveClient(true)} className="border-primary/50 text-primary hover:bg-primary/10">
+                    Salvar + Serviço
                   </Button>
                 </>
               )}
-              <Button onClick={() => saveClient()} className="w-full sm:w-auto">Salvar</Button>
+              <Button onClick={() => saveClient()}>Salvar</Button>
             </div>
           </div>
         </DialogContent>
@@ -486,6 +494,22 @@ export default function Clientes() {
           onClose={() => { setOrcamentoForCpf(null); }}
         />
       )}
+
+      {/* Delete confirmation dialog */}
+      <AlertDialog open={!!deleteConfirmCpf} onOpenChange={() => setDeleteConfirmCpf(null)}>
+        <AlertDialogContent className="bg-popover border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir cliente</AlertDialogTitle>
+            <AlertDialogDescription>
+              Deseja excluir este cliente e todos os seus carros permanentemente?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Não</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteClient} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Sim</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Car conflict dialog */}
       <AlertDialog open={!!pendingCarConflict} onOpenChange={() => setPendingCarConflict(null)}>
