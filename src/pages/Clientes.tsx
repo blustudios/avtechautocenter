@@ -413,9 +413,14 @@ export default function Clientes() {
             <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
               <Button variant="outline" onClick={() => setShowForm(false)} className="w-full sm:w-auto">Cancelar</Button>
               {!editCpf && (
-                <Button variant="outline" onClick={() => saveClient(true)} className="w-full sm:w-auto">
-                  <Wrench className="w-4 h-4 mr-2" /> Salvar + Serviço
-                </Button>
+                <>
+                  <Button variant="outline" onClick={() => saveClient(false, true)} className="w-full sm:w-auto border-blue-500/50 text-blue-500 hover:bg-blue-500/10">
+                    <ClipboardList className="w-4 h-4 mr-2" /> Salvar + Orçamento
+                  </Button>
+                  <Button variant="outline" onClick={() => saveClient(true)} className="w-full sm:w-auto">
+                    <Wrench className="w-4 h-4 mr-2" /> Salvar + Serviço
+                  </Button>
+                </>
               )}
               <Button onClick={() => saveClient()} className="w-full sm:w-auto">Salvar</Button>
             </div>
