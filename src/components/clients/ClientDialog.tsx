@@ -28,7 +28,7 @@ interface CarForm {
 
 const emptyCar = (): CarForm => ({ placa: '', marca: '', modelo: '', ano: '', cor: '' });
 
-export function ClientDialog({ open, onClose, onSaveAndService }: Props) {
+export function ClientDialog({ open, onClose, onSaveAndService, onSaveAndOrcamento }: Props) {
   const [form, setForm] = useState({ cpf: '', nome: '', email: '', whatsapp: '' });
   const [carForms, setCarForms] = useState<CarForm[]>([]);
   const [marcasList, setMarcasList] = useState<{ id: string; nome: string }[]>([]);
