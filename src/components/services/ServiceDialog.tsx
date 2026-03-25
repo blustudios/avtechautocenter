@@ -158,7 +158,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
 
   useEffect(() => {
     if (form.cliente_cpf) {
-      supabase.from('carros').select('*').eq('cliente_cpf', form.cliente_cpf)
+      supabase.from('carros').select('*').eq('cliente_cpf', form.cliente_cpf).eq('ativo', true)
         .then(({ data }) => {
           setCarros(data || []);
           if (data && data.length === 1 && !isEdit) {
