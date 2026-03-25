@@ -14,8 +14,8 @@ import { toast } from 'sonner';
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSaveAndService?: () => void;
-  onSaveAndOrcamento?: () => void;
+  onSaveAndService?: (cpf: string) => void;
+  onSaveAndOrcamento?: (cpf: string) => void;
 }
 
 interface CarForm {
