@@ -1,50 +1,68 @@
 
 
-## Plano: Corrigir exibição de Serviços Rápidos existentes
+## Plano: Botao "Salvar + Orcamento" no cadastro de cliente
 
-### Causa raiz
+### Contexto
 
-Os serviços rápidos existentes no banco têm **dois problemas**:
+Existem dois locais de cadastro de cliente:
+1. **`ClientDialog`** (`src/components/clients/ClientDialog.tsx`) — usado na pagina de Servicos
+2. **Formulario inline** em `src/pages/Clientes.tsx` — usado na pagina de Clientes
 
-1. `is_servico_rapido = false` — o campo foi adicionado depois que esses serviços já existiam
-2. Dados do veículo estão em `carro_marca`/`carro_modelo` (campos legados) e NÃO em `carro_marca_livre`/`carro_modelo_livre`/`carro_placa_livre`
+Ambos precisam do novo botao.
 
-Resultado: ao editar, a condição `form.is_servico_rapido && !form.cliente_cpf` é falsa, então mostra campos de cliente/carro normais (vazios).
+### Alteracoes
 
-### Correções
+#### 1. `src/components/clients/ClientDialog.tsx`
 
-#### 1. Migração SQL: corrigir dados existentes
+**Props**: Adicionar `onSaveAndOrcamento?: () => void`
 
-```sql
-UPDATE servicos
-SET is_servico_rapido = true,
-    carro_marca_livre = carro_marca,
-    carro_modelo_livre = carro_modelo,
-    carro_placa_livre = carro_placa
-WHERE cliente_cpf IS NULL
-  AND is_servico_rapido = false
-  AND carro_marca IS NOT NULL;
+**Botao**: Adicionar entre "Cancelar" e "Salvar + Servico" um novo botao:
+```tsx
+<Button variant="outline" onClick={() => save('orcamento')}
+  className="border-blue-500/50 text-blue-500 hover:bg-blue-500/10">
+  Salvar + Orçamento
+</Button>
 ```
 
-Isso atualiza todos os serviços que claramente são "rápidos" (sem cliente, com marca preenchida) para terem os campos corretos.
+**Logica `save`**: Alterar parametro de `boolean` para `string` (`'service' | 'orcamento' | undefined`). Quando `'orcamento'`, chamar `onSaveAndOrcamento()`.
 
-#### 2. Fallback no carregamento do form (`ServiceDialog.tsx`)
+Sempre exibir este botao (sem condicional de prop), ja que o botao sempre deve estar disponivel.
 
-Na inicialização do form (linhas 107-122), adicionar fallback para ler de `carro_marca` se `carro_marca_livre` estiver vazio:
+#### 2. `src/pages/Clientes.tsx`
 
+**Estado**: Adicionar `orcamentoForCpf` similar a `serviceForCpf`:
 ```ts
-carro_marca_livre: sv.carro_marca_livre || sv.carro_marca || '',
-carro_modelo_livre: sv.carro_modelo_livre || sv.carro_modelo || '',
-carro_placa_livre: sv.carro_placa_livre || sv.carro_placa || '',
+const [orcamentoForCpf, setOrcamentoForCpf] = useState<string | null>(null);
 ```
 
-E inferir `is_servico_rapido` quando os dados indicam que é um serviço rápido:
-
-```ts
-is_servico_rapido: sv.is_servico_rapido || (!sv.cliente_cpf && !!sv.carro_marca),
+**Botao no formulario inline** (linha 410-416): Adicionar botao "Salvar + Orcamento" com estilo azul, visivel apenas para novos clientes (`!editCpf`):
+```tsx
+<Button variant="outline" onClick={() => saveClient(false, true)}
+  className="w-full sm:w-auto border-blue-500/50 text-blue-500 hover:bg-blue-500/10">
+  <ClipboardList className="w-4 h-4 mr-2" /> Salvar + Orçamento
+</Button>
 ```
+
+**Logica `saveClient`**: Adicionar segundo parametro `openOrcamento = false`. No final do save, quando `openOrcamento`, setar `setOrcamentoForCpf(formatted)`.
+
+**Renderizar ServiceDialog para orcamento** (junto ao bloco do `serviceForCpf`):
+```tsx
+{orcamentoForCpf && (
+  <ServiceDialog
+    open={!!orcamentoForCpf}
+    defaultClienteCpf={orcamentoForCpf}
+    initialStatus="orcamento"
+    onClose={() => { setOrcamentoForCpf(null); }}
+  />
+)}
+```
+
+#### 3. `src/pages/Servicos.tsx`
+
+Na instancia do `ClientDialog`, adicionar prop `onSaveAndOrcamento` que fecha o dialog do cliente e abre o `ServiceDialog` com `initialStatus="orcamento"`.
 
 ### Arquivos modificados
-- **Migração SQL** — corrigir dados existentes no banco
-- **`src/components/services/ServiceDialog.tsx`** — fallback no carregamento (4 linhas)
+- `src/components/clients/ClientDialog.tsx` — nova prop + botao + logica save
+- `src/pages/Clientes.tsx` — botao, estado, ServiceDialog com orcamento
+- `src/pages/Servicos.tsx` — prop `onSaveAndOrcamento` no ClientDialog
 
