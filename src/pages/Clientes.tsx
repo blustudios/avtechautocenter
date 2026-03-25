@@ -246,7 +246,10 @@ export default function Clientes() {
 
   const filtered = clientes.filter(c => {
     const s = search.toLowerCase();
-    return !s || c.nome?.toLowerCase().includes(s) || c.cpf?.includes(s) || c.whatsapp?.includes(s);
+    if (!s) return true;
+    const sDigits = s.replace(/\D/g, '');
+    const cpfDigits = c.cpf?.replace(/\D/g, '') || '';
+    return c.nome?.toLowerCase().includes(s) || (sDigits && cpfDigits.includes(sDigits)) || c.cpf?.toLowerCase().includes(s) || c.whatsapp?.includes(s);
   });
 
   // Check if search is an 11-digit CPF with no results
@@ -264,7 +267,16 @@ export default function Clientes() {
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-        <Input placeholder="Buscar por nome, CPF ou WhatsApp..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 bg-card border-border" />
+        <Input placeholder="Buscar por nome, CPF ou WhatsApp..." value={search} onChange={e => {
+          const raw = e.target.value;
+          const digitsOnly = raw.replace(/\D/g, '');
+          // If input is purely digits, auto-format as CPF
+          if (digitsOnly.length > 0 && raw.replace(/[\d.\-]/g, '').length === 0) {
+            setSearch(formatCPF(digitsOnly));
+          } else {
+            setSearch(raw);
+          }
+        }} className="pl-9 bg-card border-border" />
       </div>
 
       {isUnmatchedCpf && (

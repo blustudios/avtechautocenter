@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Search } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { formatCPF } from '@/lib/format';
 import { toast } from 'sonner';
 
 interface Props {
@@ -46,15 +47,18 @@ export function AssignClientDialog({ open, serviceId, onClose, onAssigned }: Pro
   const filtered = useMemo(() => {
     if (!search) return clients;
     const s = search.toLowerCase();
-    return clients.filter(c =>
-      c.nome.toLowerCase().includes(s) ||
-      c.cpf.toLowerCase().includes(s) ||
-      c.carros.some(car =>
-        car.marca?.toLowerCase().includes(s) ||
-        car.modelo?.toLowerCase().includes(s) ||
-        car.placa?.toLowerCase().includes(s)
-      )
-    );
+    const sDigits = s.replace(/\D/g, '');
+    return clients.filter(c => {
+      const cpfDigits = c.cpf.replace(/\D/g, '');
+      return c.nome.toLowerCase().includes(s) ||
+        c.cpf.toLowerCase().includes(s) ||
+        (sDigits && cpfDigits.includes(sDigits)) ||
+        c.carros.some(car =>
+          car.marca?.toLowerCase().includes(s) ||
+          car.modelo?.toLowerCase().includes(s) ||
+          car.placa?.toLowerCase().includes(s)
+        );
+    });
   }, [clients, search]);
 
   const handleAssign = async () => {
@@ -119,7 +123,15 @@ export function AssignClientDialog({ open, serviceId, onClose, onAssigned }: Pro
             <Input
               placeholder="Buscar por nome, CPF, marca, modelo ou placa"
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => {
+                const raw = e.target.value;
+                const digitsOnly = raw.replace(/\D/g, '');
+                if (digitsOnly.length > 0 && raw.replace(/[\d.\-]/g, '').length === 0) {
+                  setSearch(formatCPF(digitsOnly));
+                } else {
+                  setSearch(raw);
+                }
+              }}
               className="pl-9 bg-card border-border"
             />
           </div>
