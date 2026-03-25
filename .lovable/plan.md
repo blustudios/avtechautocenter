@@ -1,35 +1,50 @@
 
 
-## Plano: Manter janela de edição aberta após atribuir cliente
+## Plano: Corrigir exibição de Serviços Rápidos existentes
 
-### Problema
-No `ServiceDialog.tsx` linha 834, o `onAssigned` chama `onClose()` que fecha o dialog de edição inteiro.
+### Causa raiz
 
-### Correção em `src/components/services/ServiceDialog.tsx` — linha 832-835
+Os serviços rápidos existentes no banco têm **dois problemas**:
 
-Substituir o callback `onAssigned` para recarregar os dados do serviço em vez de fechar:
+1. `is_servico_rapido = false` — o campo foi adicionado depois que esses serviços já existiam
+2. Dados do veículo estão em `carro_marca`/`carro_modelo` (campos legados) e NÃO em `carro_marca_livre`/`carro_modelo_livre`/`carro_placa_livre`
 
-```tsx
-onAssigned={async () => {
-  setShowAssignClient(false);
-  // Recarregar dados do serviço para refletir o cliente atribuído
-  const { data } = await supabase.from('servicos').select('*').eq('id', form.id).single();
-  if (data) {
-    setForm(prev => ({
-      ...prev,
-      cliente_cpf: data.cliente_cpf,
-      carro_placa: data.carro_placa,
-      is_servico_rapido: data.is_servico_rapido,
-      carro_marca_livre: data.carro_marca_livre,
-      carro_modelo_livre: data.carro_modelo_livre,
-      carro_placa_livre: data.carro_placa_livre,
-    }));
-  }
-}}
+Resultado: ao editar, a condição `form.is_servico_rapido && !form.cliente_cpf` é falsa, então mostra campos de cliente/carro normais (vazios).
+
+### Correções
+
+#### 1. Migração SQL: corrigir dados existentes
+
+```sql
+UPDATE servicos
+SET is_servico_rapido = true,
+    carro_marca_livre = carro_marca,
+    carro_modelo_livre = carro_modelo,
+    carro_placa_livre = carro_placa
+WHERE cliente_cpf IS NULL
+  AND is_servico_rapido = false
+  AND carro_marca IS NOT NULL;
 ```
 
-Isso fecha apenas o `AssignClientDialog`, atualiza o form com os dados do cliente atribuído (fazendo os campos mudarem de livre para cliente/carro), e mantém o `ServiceDialog` aberto.
+Isso atualiza todos os serviços que claramente são "rápidos" (sem cliente, com marca preenchida) para terem os campos corretos.
 
-### Arquivo modificado
-- `src/components/services/ServiceDialog.tsx` (callback do onAssigned)
+#### 2. Fallback no carregamento do form (`ServiceDialog.tsx`)
+
+Na inicialização do form (linhas 107-122), adicionar fallback para ler de `carro_marca` se `carro_marca_livre` estiver vazio:
+
+```ts
+carro_marca_livre: sv.carro_marca_livre || sv.carro_marca || '',
+carro_modelo_livre: sv.carro_modelo_livre || sv.carro_modelo || '',
+carro_placa_livre: sv.carro_placa_livre || sv.carro_placa || '',
+```
+
+E inferir `is_servico_rapido` quando os dados indicam que é um serviço rápido:
+
+```ts
+is_servico_rapido: sv.is_servico_rapido || (!sv.cliente_cpf && !!sv.carro_marca),
+```
+
+### Arquivos modificados
+- **Migração SQL** — corrigir dados existentes no banco
+- **`src/components/services/ServiceDialog.tsx`** — fallback no carregamento (4 linhas)
 
