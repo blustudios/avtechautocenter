@@ -1,26 +1,26 @@
 import { useState, useEffect, useMemo } from 'react';
-
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { CurrencyInput } from '@/components/ui/currency-input';
-import { Plus, X, Trash2, UserPlus, Car, Info, Wrench, DollarSign, CreditCard, ClipboardList, CircleDot } from 'lucide-react';
+import { Plus, X, Trash2, Car, Info, Wrench, DollarSign, CreditCard, ClipboardList, CircleDot, CheckCircle } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { PneuSelectorDialog } from '@/components/services/PneuSelectorDialog';
-import { formatCurrency, formatPlaca, tiposPagamento, paymentStatusLabels } from '@/lib/format';
-import { PaymentBadge } from '@/components/StatusBadge';
+import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
+import { formatCurrency, formatPlaca, tiposPagamento, statusLabels } from '@/lib/format';
 import { toast } from 'sonner';
 
 interface Props {
   open: boolean;
   serviceId?: string;
   defaultClienteCpf?: string;
+  initialStatus?: 'orcamento' | 'em_progresso';
   quickMode?: boolean;
   onClose: () => void;
 }
@@ -33,11 +33,8 @@ interface PneuItem {
   baixa_estoque?: boolean;
 }
 
-export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, onClose }: Props) {
+export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatus = 'em_progresso', quickMode, onClose }: Props) {
   const isEdit = !!serviceId;
-  const [showClientFields, setShowClientFields] = useState(false);
-  const [quickCar, setQuickCar] = useState({ marca: '', modelo: '', placa: '' });
-  const [semPlaca, setSemPlaca] = useState(false);
   const [loading, setLoading] = useState(false);
   const [clientes, setClientes] = useState<any[]>([]);
   const [carros, setCarros] = useState<any[]>([]);
@@ -49,6 +46,9 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
   const [modelosList, setModelosList] = useState<{ id: string; marca_id: string; nome: string }[]>([]);
   const [pneusServico, setPneusServico] = useState<PneuItem[]>([]);
   const [showPneuSelector, setShowPneuSelector] = useState(false);
+  const [showFinalizationError, setShowFinalizationError] = useState<string[] | null>(null);
+  const [showLucroWarning, setShowLucroWarning] = useState(false);
+  const [originalData, setOriginalData] = useState<any>(null);
 
   const [form, setForm] = useState({
     id: '',
@@ -56,10 +56,15 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
     carro_placa: '',
     data_entrada: new Date().toISOString().split('T')[0],
     data_encerramento: '',
-    status: 'a_iniciar',
+    data_orcamento: new Date().toISOString().split('T')[0],
+    status: initialStatus as string,
     status_pagamento: 'pendente',
     valor_total: '',
     observacoes: '',
+    is_servico_rapido: quickMode || false,
+    carro_marca_livre: '',
+    carro_modelo_livre: '',
+    carro_placa_livre: '',
   });
 
   const [itens, setItens] = useState<{ descricao: string }[]>([{ descricao: '' }]);
@@ -69,6 +74,9 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
   const [custos, setCustos] = useState<{
     item: string; quantidade: string; fornecedor_id: string; valor: string; data_compra: string;
   }[]>([]);
+
+  const isOrcamento = form.status === 'orcamento';
+  const isEmProgresso = form.status === 'em_progresso';
 
   useEffect(() => {
     const load = async () => {
@@ -92,30 +100,26 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
       if (isEdit) {
         const { data: sv } = await supabase.from('servicos').select('*').eq('id', serviceId).single();
         if (sv) {
+          setOriginalData(sv);
           setForm({
             id: sv.id,
             cliente_cpf: sv.cliente_cpf || '',
             carro_placa: sv.carro_placa || '',
             data_entrada: sv.data_entrada,
             data_encerramento: sv.data_encerramento || '',
+            data_orcamento: (sv as any).data_orcamento || '',
             status: sv.status,
             status_pagamento: sv.status_pagamento,
             valor_total: String(sv.valor_total),
             observacoes: sv.observacoes || '',
+            is_servico_rapido: (sv as any).is_servico_rapido || false,
+            carro_marca_livre: (sv as any).carro_marca_livre || '',
+            carro_modelo_livre: (sv as any).carro_modelo_livre || '',
+            carro_placa_livre: (sv as any).carro_placa_livre || '',
           });
           if (sv.cliente_cpf) {
             const { data: carrosData } = await supabase.from('carros').select('*').eq('cliente_cpf', sv.cliente_cpf);
             setCarros(carrosData || []);
-          }
-          if (!sv.carro_placa && !sv.cliente_cpf) {
-            setSemPlaca(true);
-            setQuickCar({ marca: (sv as any).carro_marca || '', modelo: (sv as any).carro_modelo || '', placa: '' });
-          }
-          if (sv.carro_placa && !sv.cliente_cpf) {
-            const { data: carData } = await supabase.from('carros').select('*').eq('placa', sv.carro_placa).single();
-            if (carData) {
-              setQuickCar({ marca: carData.marca || '', modelo: carData.modelo || '', placa: carData.placa });
-            }
           }
           const { data: it } = await supabase.from('servicos_itens').select('*').eq('servico_id', serviceId).order('ordem');
           if (it?.length) setItens(it.map(i => ({ descricao: i.descricao })));
@@ -123,7 +127,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
           if (pg?.length) setPagamentos(pg.map(p => ({
             tipo: p.tipo, maquininha_id: p.maquininha_id || '', bandeira_id: p.bandeira_id || '',
             parcelas: p.parcelas ? String(p.parcelas) : '', valor: String(p.valor),
-            data_pagamento: (p as any).data_pagamento || '', pago: (p as any).pago ?? false,
+            data_pagamento: p.data_pagamento || '', pago: p.pago ?? false,
           })));
           const { data: ct } = await supabase.from('servicos_custos').select('*').eq('servico_id', serviceId);
           if (ct?.length) setCustos(ct.map((c: any) => ({
@@ -131,12 +135,10 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
             fornecedor_id: c.fornecedor_id || '', valor: String(c.valor),
             data_compra: c.data_compra || sv.data_entrada,
           })));
-          // Load pneus
           const { data: pn } = await supabase.from('servicos_pneus').select('*, estoque_pneus(marca, medida_01, medida_02, aro)').eq('servico_id', serviceId);
           if (pn?.length) {
             setPneusServico(pn.map((p: any) => ({
-              pneu_id: p.pneu_id,
-              quantidade: p.quantidade,
+              pneu_id: p.pneu_id, quantidade: p.quantidade,
               valor_unitario: Number(p.valor_unitario),
               nome_display: p.estoque_pneus ? `${p.estoque_pneus.marca} ${p.estoque_pneus.medida_01}/${p.estoque_pneus.medida_02} ${p.estoque_pneus.aro}` : 'Pneu',
               baixa_estoque: p.baixa_estoque,
@@ -157,7 +159,12 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
   useEffect(() => {
     if (form.cliente_cpf) {
       supabase.from('carros').select('*').eq('cliente_cpf', form.cliente_cpf)
-        .then(({ data }) => setCarros(data || []));
+        .then(({ data }) => {
+          setCarros(data || []);
+          if (data && data.length === 1 && !isEdit) {
+            setForm(f => ({ ...f, carro_placa: data[0].placa }));
+          }
+        });
     } else {
       setCarros([]);
     }
@@ -177,12 +184,12 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
     else if (tipo === 'Crédito à vista') tipoDb = 'credito_avista';
     else if (tipo === 'Crédito Parcelado') tipoDb = 'credito_parcelado';
     if (tipoDb === 'credito_parcelado') {
-      const t = taxas.find(t => t.bandeira_id === bandeira_id && t.tipo_pagamento === tipoDb &&
+      const tx = taxas.find(t => t.bandeira_id === bandeira_id && t.tipo_pagamento === tipoDb &&
         parcelas >= (t.parcelas_de || 0) && parcelas <= (t.parcelas_ate || 999));
-      return t ? Number(t.percentual) : 0;
+      return tx ? Number(tx.percentual) : 0;
     }
-    const t = taxas.find(t => t.bandeira_id === bandeira_id && t.tipo_pagamento === tipoDb);
-    return t ? Number(t.percentual) : 0;
+    const tx = taxas.find(t => t.bandeira_id === bandeira_id && t.tipo_pagamento === tipoDb);
+    return tx ? Number(tx.percentual) : 0;
   };
 
   const calcPaymentStatus = () => {
@@ -210,9 +217,18 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
 
   const valorLiquido = calcValorLiquido();
   const custoTotal = calcCustoTotal();
-  const lucroLiquido = valorLiquido - custoTotal;
+  const lucroLiquido = isOrcamento
+    ? (parseFloat(form.valor_total) || 0) - custoTotal
+    : valorLiquido - custoTotal;
 
-  const handleSave = async () => {
+  const logHistory = async (id: string, campo: string, anterior: string | null, novo: string | null) => {
+    if (anterior === novo) return;
+    await supabase.from('servicos_historico').insert({
+      servico_id: id, campo, valor_anterior: anterior, valor_novo: novo,
+    });
+  };
+
+  const handleSave = async (finalizeAfter = false) => {
     setLoading(true);
     try {
       let id = form.id;
@@ -221,54 +237,48 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
         id = data as string;
       }
 
-      const isQuickFlow = (quickMode && !isEdit) || (isEdit && !form.cliente_cpf && !showClientFields);
-      let carroPlaca = form.carro_placa || null;
-
-      if (!semPlaca && quickCar.placa.trim()) {
-        const formattedPlaca = quickCar.placa.toUpperCase();
-        if (showClientFields && form.cliente_cpf) {
-          await supabase.from('carros').upsert({ placa: formattedPlaca, marca: quickCar.marca, modelo: quickCar.modelo, cliente_cpf: form.cliente_cpf }, { onConflict: 'placa' });
-          carroPlaca = formattedPlaca;
-        } else if (isQuickFlow) {
-          await supabase.from('carros').upsert({ placa: formattedPlaca, marca: quickCar.marca, modelo: quickCar.modelo, cliente_cpf: null }, { onConflict: 'placa' });
-          carroPlaca = formattedPlaca;
-        }
-      }
-      if (semPlaca) carroPlaca = null;
-      if (showClientFields && form.carro_placa) carroPlaca = form.carro_placa;
-
-      const dataEnc = form.status === 'entregue' && !form.data_encerramento
-        ? new Date().toISOString().split('T')[0] : form.data_encerramento || null;
-
       const servicoData: any = {
         id,
         cliente_cpf: form.cliente_cpf || null,
-        carro_placa: carroPlaca,
-        carro_marca: quickCar.marca.trim() || null,
-        carro_modelo: quickCar.modelo.trim() || null,
-        data_entrada: form.data_entrada,
-        data_encerramento: dataEnc,
-        status: form.status,
-        status_pagamento: calcPaymentStatus(),
+        carro_placa: form.carro_placa || null,
+        data_entrada: isOrcamento ? null : form.data_entrada,
+        data_encerramento: form.data_encerramento || null,
+        data_orcamento: isOrcamento ? form.data_orcamento : (originalData?.data_orcamento || null),
+        status: finalizeAfter ? 'finalizado' : form.status,
+        status_pagamento: isOrcamento ? 'pendente' : calcPaymentStatus(),
         valor_total: parseFloat(form.valor_total) || 0,
-        valor_liquido: valorLiquido,
+        valor_liquido: isOrcamento ? 0 : valorLiquido,
         custo_total: custoTotal,
-        lucro_liquido: lucroLiquido,
+        lucro_liquido: isOrcamento ? 0 : (valorLiquido - custoTotal),
         observacoes: form.observacoes || null,
+        is_servico_rapido: form.is_servico_rapido,
+        carro_marca_livre: form.carro_marca_livre || null,
+        carro_modelo_livre: form.carro_modelo_livre || null,
+        carro_placa_livre: form.carro_placa_livre || null,
+        // legacy compat
+        carro_marca: form.carro_marca_livre || null,
+        carro_modelo: form.carro_modelo_livre || null,
       };
+
+      if (finalizeAfter) {
+        servicoData.data_encerramento = new Date().toISOString().split('T')[0];
+      }
 
       if (isEdit) {
         await supabase.from('servicos').update(servicoData).eq('id', id);
+        // Log changes
+        if (originalData) {
+          if (originalData.status !== servicoData.status) await logHistory(id, 'status', originalData.status, servicoData.status);
+          if (String(originalData.valor_total) !== String(servicoData.valor_total)) await logHistory(id, 'valor_total', String(originalData.valor_total), String(servicoData.valor_total));
+          if (originalData.data_entrada !== servicoData.data_entrada) await logHistory(id, 'data_entrada', originalData.data_entrada, servicoData.data_entrada);
+        }
         await supabase.from('servicos_itens').delete().eq('servico_id', id);
         await supabase.from('servicos_pagamentos').delete().eq('servico_id', id);
         await supabase.from('servicos_custos').delete().eq('servico_id', id);
-        // Handle pneus: estornar estoque dos que tinham baixa antes de deletar
         const { data: oldPneus } = await supabase.from('servicos_pneus').select('*').eq('servico_id', id);
         if (oldPneus?.length) {
           for (const op of oldPneus) {
             if (op.baixa_estoque) {
-              await supabase.rpc('generate_service_id'); // dummy to keep flow
-              // Estornar
               const { data: currentPneu } = await supabase.from('estoque_pneus').select('quantidade').eq('id', op.pneu_id).single();
               if (currentPneu) {
                 await supabase.from('estoque_pneus').update({ quantidade: currentPneu.quantidade + op.quantidade }).eq('id', op.pneu_id);
@@ -286,14 +296,16 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
         await supabase.from('servicos_itens').insert(validItens.map((i, idx) => ({ servico_id: id, descricao: i.descricao, ordem: idx })));
       }
 
-      const validPag = pagamentos.filter(p => p.tipo && parseFloat(p.valor));
-      if (validPag.length) {
-        await supabase.from('servicos_pagamentos').insert(validPag.map(p => ({
-          servico_id: id, tipo: p.tipo, maquininha_id: p.maquininha_id || null,
-          bandeira_id: p.bandeira_id || null, parcelas: p.parcelas ? parseInt(p.parcelas) : null,
-          valor: parseFloat(p.valor) || 0, taxa_aplicada: getTaxRate(p.tipo, p.maquininha_id, p.bandeira_id, parseInt(p.parcelas) || 0),
-          data_pagamento: p.data_pagamento || null, pago: p.pago,
-        })));
+      if (!isOrcamento) {
+        const validPag = pagamentos.filter(p => p.tipo && parseFloat(p.valor));
+        if (validPag.length) {
+          await supabase.from('servicos_pagamentos').insert(validPag.map(p => ({
+            servico_id: id, tipo: p.tipo, maquininha_id: p.maquininha_id || null,
+            bandeira_id: p.bandeira_id || null, parcelas: p.parcelas ? parseInt(p.parcelas) : null,
+            valor: parseFloat(p.valor) || 0, taxa_aplicada: getTaxRate(p.tipo, p.maquininha_id, p.bandeira_id, parseInt(p.parcelas) || 0),
+            data_pagamento: p.data_pagamento || null, pago: p.pago,
+          })));
+        }
       }
 
       const validCustos = custos.filter(c => c.item.trim());
@@ -301,13 +313,12 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
         await supabase.from('servicos_custos').insert(validCustos.map(c => ({
           servico_id: id, item: c.item, quantidade: parseFloat(c.quantidade) || 1,
           fornecedor_id: c.fornecedor_id || null, valor: parseFloat(c.valor) || 0,
-          data_compra: c.data_compra || form.data_entrada,
+          data_compra: isOrcamento ? null : (c.data_compra || form.data_entrada),
         })));
       }
 
-      // Save pneus and handle stock deduction
       if (pneusServico.length) {
-        const shouldDeduct = form.status === 'entregue';
+        const shouldDeduct = finalizeAfter || form.status === 'finalizado';
         await supabase.from('servicos_pneus').insert(pneusServico.map(p => ({
           servico_id: id, pneu_id: p.pneu_id, quantidade: p.quantidade,
           valor_unitario: p.valor_unitario, baixa_estoque: shouldDeduct,
@@ -330,55 +341,128 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
     setLoading(false);
   };
 
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-
-  const handleDelete = async () => {
-    if (!serviceId) return;
+  const handleExecuteService = async () => {
+    setForm(f => ({ ...f, status: 'em_progresso', data_entrada: f.data_entrada || new Date().toISOString().split('T')[0] }));
+    // Save with status change
+    setLoading(true);
     try {
-      // Estornar pneus
-      const { data: pnData } = await supabase.from('servicos_pneus').select('*').eq('servico_id', serviceId);
-      if (pnData?.length) {
-        for (const p of pnData) {
-          if (p.baixa_estoque) {
-            const { data: cur } = await supabase.from('estoque_pneus').select('quantidade').eq('id', p.pneu_id).single();
-            if (cur) await supabase.from('estoque_pneus').update({ quantidade: cur.quantidade + p.quantidade }).eq('id', p.pneu_id);
-          }
-        }
+      let id = form.id;
+      if (!isEdit) {
+        const { data } = await supabase.rpc('generate_service_id');
+        id = data as string;
       }
-      await supabase.from('servicos_pneus').delete().eq('servico_id', serviceId);
-      await supabase.from('servicos_itens').delete().eq('servico_id', serviceId);
-      await supabase.from('servicos_pagamentos').delete().eq('servico_id', serviceId);
-      await supabase.from('servicos_custos').delete().eq('servico_id', serviceId);
-      await supabase.from('servicos').delete().eq('id', serviceId);
-      toast.success('Serviço excluído!');
+      const servicoData: any = {
+        id,
+        cliente_cpf: form.cliente_cpf || null,
+        carro_placa: form.carro_placa || null,
+        data_entrada: form.data_entrada || new Date().toISOString().split('T')[0],
+        data_encerramento: null,
+        data_orcamento: form.data_orcamento || null,
+        status: 'em_progresso',
+        status_pagamento: 'pendente',
+        valor_total: parseFloat(form.valor_total) || 0,
+        valor_liquido: 0,
+        custo_total: custoTotal,
+        lucro_liquido: 0,
+        observacoes: form.observacoes || null,
+        is_servico_rapido: form.is_servico_rapido,
+        carro_marca_livre: form.carro_marca_livre || null,
+        carro_modelo_livre: form.carro_modelo_livre || null,
+        carro_placa_livre: form.carro_placa_livre || null,
+        carro_marca: form.carro_marca_livre || null,
+        carro_modelo: form.carro_modelo_livre || null,
+      };
+      if (isEdit) {
+        await supabase.from('servicos').update(servicoData).eq('id', id);
+        await logHistory(id, 'status', 'orcamento', 'em_progresso');
+      } else {
+        await supabase.from('servicos').insert(servicoData);
+      }
+      // Save itens
+      if (isEdit) await supabase.from('servicos_itens').delete().eq('servico_id', id);
+      const validItens = itens.filter(i => i.descricao.trim());
+      if (validItens.length) {
+        await supabase.from('servicos_itens').insert(validItens.map((i, idx) => ({ servico_id: id, descricao: i.descricao, ordem: idx })));
+      }
+      // Save custos
+      if (isEdit) await supabase.from('servicos_custos').delete().eq('servico_id', id);
+      const validCustos = custos.filter(c => c.item.trim());
+      if (validCustos.length) {
+        await supabase.from('servicos_custos').insert(validCustos.map(c => ({
+          servico_id: id, item: c.item, quantidade: parseFloat(c.quantidade) || 1,
+          fornecedor_id: c.fornecedor_id || null, valor: parseFloat(c.valor) || 0,
+          data_compra: form.data_entrada || new Date().toISOString().split('T')[0],
+        })));
+      }
+      toast.success('Serviço iniciado!');
       onClose();
     } catch {
-      toast.error('Erro ao excluir serviço');
+      toast.error('Erro ao executar serviço');
     }
+    setLoading(false);
   };
 
-  const SectionTitle = ({ icon: Icon, title }: { icon: any; title: string }) => (
+  const attemptFinalize = () => {
+    // Step 1: check lucro
+    if (lucroLiquido <= 0) {
+      setShowLucroWarning(true);
+      return;
+    }
+    runFinalizationChecks();
+  };
+
+  const runFinalizationChecks = () => {
+    const errors: string[] = [];
+    if (!form.data_entrada) errors.push('📅 Data de Entrada não preenchida. Preencha a data em que o carro entrou na oficina.');
+    const validItens = itens.filter(i => i.descricao.trim());
+    if (validItens.length === 0) errors.push('🔧 Nenhum serviço descrito. Adicione ao menos uma linha na seção Descrição dos Serviços.');
+    const validCustos = custos.filter(c => c.item.trim());
+    if (validCustos.length > 0 && validCustos.some(c => !c.data_compra)) {
+      errors.push('🧾 Um ou mais itens de custo estão sem data de compra. Preencha as datas na seção Custos.');
+    }
+    if (pagamentos.some(p => !p.pago)) {
+      errors.push('💳 Uma ou mais formas de pagamento não foram marcadas como pagas. Marque todos os pagamentos como Pago na seção Pagamentos.');
+    }
+
+    if (errors.length > 0) {
+      setShowFinalizationError(errors);
+      return;
+    }
+
+    handleSave(true);
+  };
+
+  const clienteSearch = useMemo(() => {
+    return clientes.map(c => ({ label: `${c.nome} · ${c.cpf}`, value: c.cpf }));
+  }, [clientes]);
+
+  const SectionTitle = ({ icon: Icon, title, extra }: { icon: any; title: string; extra?: React.ReactNode }) => (
     <div className="flex items-center gap-2 mb-3">
       <Icon className="w-4 h-4 text-primary" />
       <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">{title}</h3>
+      {extra}
     </div>
   );
 
+  const dialogTitle = isEdit
+    ? `Editar Serviço`
+    : quickMode
+      ? 'Novo Serviço Rápido'
+      : isOrcamento
+        ? 'Novo Orçamento'
+        : 'Novo Serviço';
+
   return (
     <Dialog open={open} onOpenChange={() => onClose()}>
-      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-popover border-border">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto bg-popover border-border w-[95vw] sm:w-full">
         <DialogHeader>
-          <DialogTitle>
-            {isEdit
-              ? (isEdit && !form.cliente_cpf && !showClientFields ? 'Editar Serviço Rápido' : 'Editar Serviço')
-              : (quickMode ? 'Serviço Rápido' : 'Novo Serviço')}
-          </DialogTitle>
+          <DialogTitle>{dialogTitle}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5">
           {/* Section: Informações Gerais */}
           <div className="border border-border rounded-lg p-4 space-y-4">
-            <SectionTitle icon={Info} title="Informações Gerais" />
+            <SectionTitle icon={Info} title="Informações Gerais" extra={<StatusBadge status={form.status} />} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {isEdit && (
                 <div>
@@ -386,17 +470,45 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                   <Input value={form.id} readOnly className="bg-card border-border" />
                 </div>
               )}
-              {(() => {
-                const isQuickCreate = quickMode && !isEdit;
-                const isQuickEdit = isEdit && !form.cliente_cpf && !showClientFields;
-                return !isQuickCreate && !isQuickEdit;
-              })() && (
+
+              {/* Quick mode: free text car fields */}
+              {quickMode && !isEdit ? (
+                <div className="col-span-1 sm:col-span-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Car className="w-4 h-4 text-muted-foreground" />
+                    <Label className="text-sm font-semibold">Veículo</Label>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <div>
+                      <Label className="text-xs">Marca</Label>
+                      <AutocompleteInput value={form.carro_marca_livre} onChange={v => setForm({ ...form, carro_marca_livre: v })}
+                        suggestions={marcasList.map(m => m.nome)} placeholder="Ex: Fiat" className="bg-card border-border" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Modelo</Label>
+                      <AutocompleteInput value={form.carro_modelo_livre} onChange={v => setForm({ ...form, carro_modelo_livre: v })}
+                        suggestions={(() => {
+                          const marca = marcasList.find(m => m.nome.toLowerCase() === form.carro_marca_livre.trim().toLowerCase());
+                          return marca ? modelosList.filter(md => md.marca_id === marca.id).map(md => md.nome) : modelosList.map(md => md.nome);
+                        })()}
+                        placeholder="Ex: Uno" className="bg-card border-border" />
+                    </div>
+                    <div>
+                      <Label className="text-xs">Placa</Label>
+                      <Input value={form.carro_placa_livre} onChange={e => setForm({ ...form, carro_placa_livre: formatPlaca(e.target.value) })}
+                        placeholder="ABC-1234" className="bg-card border-border" />
+                    </div>
+                  </div>
+                </div>
+              ) : (
                 <>
                   <div>
                     <Label>Cliente</Label>
                     <Select value={form.cliente_cpf} onValueChange={v => setForm({ ...form, cliente_cpf: v, carro_placa: '' })}>
                       <SelectTrigger className="bg-card border-border"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                      <SelectContent>{clientes.map(c => <SelectItem key={c.cpf} value={c.cpf}>{c.nome} · {c.cpf}</SelectItem>)}</SelectContent>
+                      <SelectContent>
+                        {clientes.map(c => <SelectItem key={c.cpf} value={c.cpf}>{c.nome} · {c.cpf}</SelectItem>)}
+                      </SelectContent>
                     </Select>
                   </div>
                   <div>
@@ -408,65 +520,19 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                   </div>
                 </>
               )}
-              {(() => {
-                const isQuickCreate = quickMode && !isEdit;
-                const isQuickEdit = isEdit && !form.cliente_cpf && !showClientFields;
-                return isQuickCreate || isQuickEdit;
-              })() && (
-                <div className="col-span-1 sm:col-span-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Car className="w-4 h-4 text-muted-foreground" />
-                    <Label className="text-sm font-semibold">Carro (opcional)</Label>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                    <div>
-                      <Label className="text-xs">Marca</Label>
-                      <AutocompleteInput value={quickCar.marca} onChange={v => setQuickCar({ ...quickCar, marca: v })}
-                        suggestions={marcasList.map(m => m.nome)} placeholder="Ex: Fiat" className="bg-card border-border" />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Modelo</Label>
-                      <AutocompleteInput value={quickCar.modelo} onChange={v => setQuickCar({ ...quickCar, modelo: v })}
-                        suggestions={(() => {
-                          const marca = marcasList.find(m => m.nome.toLowerCase() === quickCar.marca.trim().toLowerCase());
-                          return marca ? modelosList.filter(md => md.marca_id === marca.id).map(md => md.nome) : modelosList.map(md => md.nome);
-                        })()}
-                        placeholder="Ex: Uno" className="bg-card border-border" />
-                    </div>
-                    <div>
-                      <Label className="text-xs">Placa</Label>
-                      <Input value={quickCar.placa} onChange={e => setQuickCar({ ...quickCar, placa: formatPlaca(e.target.value) })}
-                        placeholder="ABC-1234" className="bg-card border-border" disabled={semPlaca} />
-                      <div className="flex items-center gap-1.5 mt-1.5">
-                        <Checkbox id="semPlaca" checked={semPlaca} onCheckedChange={(checked) => {
-                          setSemPlaca(!!checked);
-                          if (checked) setQuickCar(c => ({ ...c, placa: '' }));
-                        }} className="h-3.5 w-3.5" />
-                        <label htmlFor="semPlaca" className="text-xs text-muted-foreground cursor-pointer select-none">Sem Placa</label>
-                      </div>
-                    </div>
-                  </div>
+
+              {isOrcamento && (
+                <div>
+                  <Label>Data do Orçamento</Label>
+                  <Input type="date" value={form.data_orcamento} onChange={e => setForm({ ...form, data_orcamento: e.target.value })} className="bg-card border-border" />
                 </div>
               )}
-              <div>
-                <Label>Data de Entrada</Label>
-                <Input type="date" value={form.data_entrada} onChange={e => setForm({ ...form, data_entrada: e.target.value })} className="bg-card border-border" />
-              </div>
-              <div>
-                <Label>Finalizado em</Label>
-                <Input type="date" value={form.data_encerramento} onChange={e => setForm({ ...form, data_encerramento: e.target.value })} className="bg-card border-border" />
-              </div>
-              <div>
-                <Label>Status</Label>
-                <Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}>
-                  <SelectTrigger className="bg-card border-border"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="a_iniciar">À Iniciar</SelectItem>
-                    <SelectItem value="em_progresso">Em Progresso</SelectItem>
-                    <SelectItem value="entregue">Entregue</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+              {isEmProgresso && (
+                <div>
+                  <Label>Data de Entrada</Label>
+                  <Input type="date" value={form.data_entrada} onChange={e => setForm({ ...form, data_entrada: e.target.value })} className="bg-card border-border" />
+                </div>
+              )}
             </div>
           </div>
 
@@ -516,10 +582,12 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                 <Label>Valor Total do Serviço (R$)</Label>
                 <CurrencyInput value={form.valor_total} onChange={v => setForm({ ...form, valor_total: v })} className="bg-card border-border" />
               </div>
-              <div>
-                <Label>Valor c/ Desconto das Taxas</Label>
-                <CurrencyInput value={String(valorLiquido.toFixed(2))} onChange={() => {}} readOnly className="bg-card border-border" />
-              </div>
+              {isEmProgresso && (
+                <div>
+                  <Label>Valor c/ Desconto das Taxas</Label>
+                  <CurrencyInput value={String(valorLiquido.toFixed(2))} onChange={() => {}} readOnly className="bg-card border-border" />
+                </div>
+              )}
             </div>
           </div>
 
@@ -542,12 +610,14 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
                         <SelectContent>{fornecedores.map(f => <SelectItem key={f.id} value={f.id}>{f.nome}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
-                    <div className="grid grid-cols-3 gap-2">
+                    <div className={`grid gap-2 ${isOrcamento ? 'grid-cols-2' : 'grid-cols-3'}`}>
                       <Input type="number" value={c.quantidade} onChange={e => { const n = [...custos]; n[i].quantidade = e.target.value; setCustos(n); }}
                         placeholder="Qtd" className="bg-background border-border" />
                       <CurrencyInput value={c.valor} onChange={v => { const n = [...custos]; n[i].valor = v; setCustos(n); }} className="bg-background border-border" />
-                      <Input type="date" value={c.data_compra} onChange={e => { const n = [...custos]; n[i].data_compra = e.target.value; setCustos(n); }}
-                        className="bg-background border-border" />
+                      {!isOrcamento && (
+                        <Input type="date" value={c.data_compra} onChange={e => { const n = [...custos]; n[i].data_compra = e.target.value; setCustos(n); }}
+                          className="bg-background border-border" />
+                      )}
                     </div>
                     <Button variant="ghost" size="sm" onClick={() => setCustos(custos.filter((_, j) => j !== i))}>
                       <X className="w-4 h-4 mr-1" /> Remover
@@ -562,93 +632,92 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
             )}
           </div>
 
-          {/* Section: Pagamentos */}
-          <div className="border border-border rounded-lg p-4 space-y-3">
-            <div className="flex items-center gap-2 mb-3">
-              <CreditCard className="w-4 h-4 text-primary" />
-              <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Pagamentos</h3>
-              <PaymentBadge status={calcPaymentStatus()} />
-            </div>
-            {pagamentos.length === 0 ? (
-              <Button variant="ghost" size="sm" onClick={() => {
-                const valorAberto = Math.max(0, (parseFloat(form.valor_total) || 0)).toFixed(2);
-                setPagamentos([{ tipo: 'A Definir', maquininha_id: '', bandeira_id: '', parcelas: '', valor: valorAberto, data_pagamento: new Date().toISOString().split('T')[0], pago: false }]);
-              }}>
-                <Plus className="w-4 h-4 mr-1" /> Adicionar Pagamento
-              </Button>
-            ) : (
-              <>
-                {pagamentos.map((p, i) => (
-                  <div key={i} className="bg-card border border-border rounded-lg p-3 space-y-2">
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
-                      <Select value={p.tipo} onValueChange={v => {
-                        const n = [...pagamentos]; n[i].tipo = v; n[i].maquininha_id = ''; n[i].bandeira_id = ''; setPagamentos(n);
-                      }}>
-                        <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Tipo" /></SelectTrigger>
-                        <SelectContent>{tiposPagamento.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                      </Select>
-                      {needsMaquininha(p.tipo) && (
-                        <Select value={p.maquininha_id} onValueChange={v => {
-                          const n = [...pagamentos]; n[i].maquininha_id = v; n[i].bandeira_id = ''; setPagamentos(n);
-                        }}>
-                          <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Maquininha" /></SelectTrigger>
-                          <SelectContent>{maquininhas.map(m => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}</SelectContent>
-                        </Select>
-                      )}
-                      {needsBandeira(p.tipo) && p.maquininha_id && (
-                        <Select value={p.bandeira_id} onValueChange={v => {
-                          const n = [...pagamentos]; n[i].bandeira_id = v; setPagamentos(n);
-                        }}>
-                          <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Bandeira" /></SelectTrigger>
-                          <SelectContent>{bandeiras.filter(b => b.maquininha_id === p.maquininha_id).map(b => <SelectItem key={b.id} value={b.id}>{b.nome}</SelectItem>)}</SelectContent>
-                        </Select>
-                      )}
-                      {p.tipo === 'Crédito Parcelado' && (
-                        <Input type="number" placeholder="Parcelas" value={p.parcelas}
-                          onChange={e => { const n = [...pagamentos]; n[i].parcelas = e.target.value; setPagamentos(n); }}
-                          className="bg-background border-border" />
-                      )}
-                      <CurrencyInput value={p.valor} onChange={v => { const n = [...pagamentos]; n[i].valor = v; setPagamentos(n); }}
-                        placeholder="Valor (R$)" className="bg-background border-border" />
-                      <Input type="date" value={p.data_pagamento}
-                        onChange={e => { const n = [...pagamentos]; n[i].data_pagamento = e.target.value; setPagamentos(n); }}
-                        className="bg-background border-border" />
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          id={`pago-${i}`}
-                          checked={p.pago}
-                          onCheckedChange={(checked) => { const n = [...pagamentos]; n[i].pago = !!checked; setPagamentos(n); }}
-                          className="rounded-full h-4 w-4"
-                        />
-                        <label htmlFor={`pago-${i}`} className={`text-xs font-medium cursor-pointer select-none ${p.pago ? 'text-emerald-500' : 'text-muted-foreground'}`}>
-                          {p.pago ? 'Pago' : 'Pendente'}
-                        </label>
-                      </div>
-                      <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-destructive" onClick={() => setPagamentos(pagamentos.filter((_, j) => j !== i))}>
-                        <X className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+          {/* Section: Pagamentos - only for em_progresso */}
+          {isEmProgresso && (
+            <div className="border border-border rounded-lg p-4 space-y-3">
+              <div className="flex items-center gap-2 mb-3">
+                <CreditCard className="w-4 h-4 text-primary" />
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wider">Pagamentos</h3>
+                <PaymentBadge status={calcPaymentStatus()} />
+              </div>
+              {pagamentos.length === 0 ? (
                 <Button variant="ghost" size="sm" onClick={() => {
-                  const somaExistente = pagamentos.reduce((sum, pg) => sum + (parseFloat(pg.valor) || 0), 0);
-                  const valorAberto = Math.max(0, (parseFloat(form.valor_total) || 0) - somaExistente).toFixed(2);
-                  setPagamentos([...pagamentos, { tipo: 'A Definir', maquininha_id: '', bandeira_id: '', parcelas: '', valor: valorAberto, data_pagamento: new Date().toISOString().split('T')[0], pago: false }]);
+                  const valorAberto = Math.max(0, (parseFloat(form.valor_total) || 0)).toFixed(2);
+                  setPagamentos([{ tipo: 'A Definir', maquininha_id: '', bandeira_id: '', parcelas: '', valor: valorAberto, data_pagamento: new Date().toISOString().split('T')[0], pago: false }]);
                 }}>
                   <Plus className="w-4 h-4 mr-1" /> Adicionar Pagamento
                 </Button>
-              </>
-            )}
-          </div>
+              ) : (
+                <>
+                  {pagamentos.map((p, i) => (
+                    <div key={i} className="bg-card border border-border rounded-lg p-3 space-y-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                        <Select value={p.tipo} onValueChange={v => {
+                          const n = [...pagamentos]; n[i].tipo = v; n[i].maquininha_id = ''; n[i].bandeira_id = ''; setPagamentos(n);
+                        }}>
+                          <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                          <SelectContent>{tiposPagamento.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
+                        </Select>
+                        {needsMaquininha(p.tipo) && (
+                          <Select value={p.maquininha_id} onValueChange={v => {
+                            const n = [...pagamentos]; n[i].maquininha_id = v; n[i].bandeira_id = ''; setPagamentos(n);
+                          }}>
+                            <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Maquininha" /></SelectTrigger>
+                            <SelectContent>{maquininhas.map(m => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}</SelectContent>
+                          </Select>
+                        )}
+                        {needsBandeira(p.tipo) && p.maquininha_id && (
+                          <Select value={p.bandeira_id} onValueChange={v => {
+                            const n = [...pagamentos]; n[i].bandeira_id = v; setPagamentos(n);
+                          }}>
+                            <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Bandeira" /></SelectTrigger>
+                            <SelectContent>{bandeiras.filter(b => b.maquininha_id === p.maquininha_id).map(b => <SelectItem key={b.id} value={b.id}>{b.nome}</SelectItem>)}</SelectContent>
+                          </Select>
+                        )}
+                        {p.tipo === 'Crédito Parcelado' && (
+                          <Input type="number" placeholder="Parcelas" value={p.parcelas}
+                            onChange={e => { const n = [...pagamentos]; n[i].parcelas = e.target.value; setPagamentos(n); }}
+                            className="bg-background border-border" />
+                        )}
+                        <CurrencyInput value={p.valor} onChange={v => { const n = [...pagamentos]; n[i].valor = v; setPagamentos(n); }}
+                          placeholder="Valor (R$)" className="bg-background border-border" />
+                        <Input type="date" value={p.data_pagamento}
+                          onChange={e => { const n = [...pagamentos]; n[i].data_pagamento = e.target.value; setPagamentos(n); }}
+                          className="bg-background border-border" />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Checkbox id={`pago-${i}`} checked={p.pago}
+                            onCheckedChange={(checked) => { const n = [...pagamentos]; n[i].pago = !!checked; setPagamentos(n); }}
+                            className="rounded-full h-4 w-4" />
+                          <label htmlFor={`pago-${i}`} className={`text-xs font-medium cursor-pointer select-none ${p.pago ? 'text-emerald-500' : 'text-muted-foreground'}`}>
+                            {p.pago ? 'Pago' : 'Pendente'}
+                          </label>
+                        </div>
+                        <Button variant="ghost" size="sm" className="h-7 px-2 text-muted-foreground hover:text-destructive" onClick={() => setPagamentos(pagamentos.filter((_, j) => j !== i))}>
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  <Button variant="ghost" size="sm" onClick={() => {
+                    const somaExistente = pagamentos.reduce((sum, pg) => sum + (parseFloat(pg.valor) || 0), 0);
+                    const valorAberto = Math.max(0, (parseFloat(form.valor_total) || 0) - somaExistente).toFixed(2);
+                    setPagamentos([...pagamentos, { tipo: 'A Definir', maquininha_id: '', bandeira_id: '', parcelas: '', valor: valorAberto, data_pagamento: new Date().toISOString().split('T')[0], pago: false }]);
+                  }}>
+                    <Plus className="w-4 h-4 mr-1" /> Adicionar Pagamento
+                  </Button>
+                </>
+              )}
+            </div>
+          )}
 
           {/* Section: Resumo */}
           <div className="border border-border rounded-lg p-4 space-y-4">
             <SectionTitle icon={DollarSign} title="Resumo" />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <Label>Lucro Líquido</Label>
+                <Label>{isOrcamento ? 'Estimativa de Lucro' : 'Lucro Líquido'}</Label>
                 <div className={`p-2 rounded border border-border text-lg font-semibold ${lucroLiquido >= 0 ? 'text-emerald-500' : 'text-destructive'}`}>
                   {formatCurrency(lucroLiquido)}
                 </div>
@@ -660,37 +729,76 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, quickMode, o
             </div>
           </div>
 
-          <div className="flex flex-col-reverse sm:flex-row sm:justify-between gap-3 pt-4 border-t border-border">
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              {isEdit && (
-                <Button variant="destructive" onClick={() => setShowDeleteConfirm(true)} className="w-full sm:w-auto">
-                  <Trash2 className="w-4 h-4 mr-2" /> Excluir
-                </Button>
-              )}
-              {isEdit && !form.cliente_cpf && !showClientFields && (
-                <Button variant="outline" onClick={() => setShowClientFields(true)} className="w-full sm:w-auto border-primary/50 text-primary hover:bg-primary/10">
-                  <UserPlus className="w-4 h-4 mr-2" /> Atribuir Cliente
-                </Button>
-              )}
-            </div>
-            <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-              <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">Cancelar</Button>
-              <Button onClick={handleSave} disabled={loading} className="w-full sm:w-auto">
-                {loading ? 'Salvando...' : 'Salvar Serviço'}
+          {/* Action Buttons */}
+          <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-3 pt-4 border-t border-border">
+            <Button variant="outline" onClick={onClose} className="w-full sm:w-auto">Cancelar</Button>
+
+            {/* New orcamento */}
+            {!isEdit && isOrcamento && (
+              <Button onClick={() => handleSave()} disabled={loading} className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white">
+                {loading ? 'Salvando...' : 'Salvar Orçamento'}
               </Button>
-            </div>
+            )}
+
+            {/* Edit orcamento */}
+            {isEdit && isOrcamento && (
+              <>
+                <Button onClick={() => handleSave()} disabled={loading} className="w-full sm:w-auto">
+                  {loading ? 'Salvando...' : 'Salvar'}
+                </Button>
+                <Button onClick={handleExecuteService} disabled={loading} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white">
+                  <CheckCircle className="w-4 h-4 mr-2" /> Executar Serviço
+                </Button>
+              </>
+            )}
+
+            {/* New/edit em_progresso */}
+            {((!isEdit && !isOrcamento) || (isEdit && isEmProgresso)) && (
+              <>
+                <Button onClick={() => handleSave()} disabled={loading} className="w-full sm:w-auto">
+                  {loading ? 'Salvando...' : 'Salvar'}
+                </Button>
+                <Button onClick={attemptFinalize} disabled={loading} className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white">
+                  <CheckCircle className="w-4 h-4 mr-2" /> Finalizar Serviço
+                </Button>
+              </>
+            )}
           </div>
         </div>
 
-        <AlertDialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+        {/* Finalization error dialog */}
+        <AlertDialog open={!!showFinalizationError} onOpenChange={() => setShowFinalizationError(null)}>
           <AlertDialogContent className="bg-popover border-border">
             <AlertDialogHeader>
-              <AlertDialogTitle>Excluir Serviço</AlertDialogTitle>
-              <AlertDialogDescription>Deseja excluir essa entrada permanentemente?</AlertDialogDescription>
+              <AlertDialogTitle>Não foi possível finalizar o serviço</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-2">
+                  {showFinalizationError?.map((err, i) => (
+                    <p key={i} className="text-sm">{err}</p>
+                  ))}
+                </div>
+              </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>Não</AlertDialogCancel>
-              <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Sim</AlertDialogAction>
+              <AlertDialogAction onClick={() => setShowFinalizationError(null)}>Entendido, vou corrigir</AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* Lucro warning dialog */}
+        <AlertDialog open={showLucroWarning} onOpenChange={setShowLucroWarning}>
+          <AlertDialogContent className="bg-popover border-border">
+            <AlertDialogHeader>
+              <AlertDialogTitle>⚠️ Atenção: Lucro Negativo ou Zero</AlertDialogTitle>
+              <AlertDialogDescription>
+                O Lucro Líquido deste serviço está zerado ou negativo. Isso pode indicar que algum valor não foi preenchido corretamente. Confirma que os valores estão corretos e deseja finalizar mesmo assim?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setShowLucroWarning(false)}>Não, revisar valores</AlertDialogCancel>
+              <AlertDialogAction onClick={() => { setShowLucroWarning(false); runFinalizationChecks(); }}>
+                Sim, está correto
+              </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
