@@ -641,7 +641,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
                     </Button>
                   </div>
                 ))}
-                <Button variant="ghost" size="sm" onClick={() => setCustos([...custos, { item: '', quantidade: '1', fornecedor_id: '', valor: '', data_compra: form.data_entrada }])}>
+                <Button variant="ghost" size="sm" onClick={() => setCustos([...custos, { item: '', quantidade: '1', fornecedor_id: '', valor: '', data_compra: '' }])}>
                   <Plus className="w-4 h-4 mr-1" /> Adicionar Custo
                 </Button>
                 <p className="text-sm text-muted-foreground">Total de Custos: {formatCurrency(custoTotal)}</p>

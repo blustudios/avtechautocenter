@@ -108,6 +108,7 @@ export default function Dashboard() {
         .not('servicos.status', 'in', '("orcamento","cancelado")'),
       supabase.from('servicos_custos')
         .select('valor, quantidade, data_compra, servicos!inner(status)')
+        .not('data_compra', 'is', null)
         .gte('data_compra', s).lte('data_compra', e)
         .not('servicos.status', 'in', '("orcamento","cancelado")'),
     ]).then(([pRes, sRes, ppRes, cRes]) => {
