@@ -1,0 +1,1 @@
+UPDATE servicos SET is_servico_rapido = true, carro_marca_livre = carro_marca, carro_modelo_livre = carro_modelo, carro_placa_livre = carro_placa WHERE cliente_cpf IS NULL AND is_servico_rapido = false AND carro_marca IS NOT NULL;
