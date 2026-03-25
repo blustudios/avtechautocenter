@@ -76,6 +76,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
   const [custos, setCustos] = useState<{
     item: string; quantidade: string; fornecedor_id: string; valor: string; data_compra: string;
   }[]>([]);
+  const [showDateField, setShowDateField] = useState<Record<number, boolean>>({});
 
   const isOrcamento = form.status === 'orcamento';
   const isEmProgresso = form.status === 'em_progresso';
@@ -135,7 +136,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
           if (ct?.length) setCustos(ct.map((c: any) => ({
             item: c.item, quantidade: String(c.quantidade),
             fornecedor_id: c.fornecedor_id || '', valor: String(c.valor),
-            data_compra: c.data_compra || sv.data_entrada,
+            data_compra: c.data_compra || '',
           })));
           const { data: pn } = await supabase.from('servicos_pneus').select('*, estoque_pneus(marca, medida_01, medida_02, aro)').eq('servico_id', serviceId);
           if (pn?.length) {
@@ -315,7 +316,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
         await supabase.from('servicos_custos').insert(validCustos.map(c => ({
           servico_id: id, item: c.item, quantidade: parseFloat(c.quantidade) || 1,
           fornecedor_id: c.fornecedor_id || null, valor: parseFloat(c.valor) || 0,
-          data_compra: isOrcamento ? null : (c.data_compra || form.data_entrada),
+          data_compra: c.data_compra || null,
         })));
       }
 
@@ -393,7 +394,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
         await supabase.from('servicos_custos').insert(validCustos.map(c => ({
           servico_id: id, item: c.item, quantidade: parseFloat(c.quantidade) || 1,
           fornecedor_id: c.fornecedor_id || null, valor: parseFloat(c.valor) || 0,
-          data_compra: form.data_entrada || new Date().toISOString().split('T')[0],
+          data_compra: c.data_compra || null,
         })));
       }
       toast.success('Serviço iniciado!');
@@ -602,7 +603,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
           <div className="border border-border rounded-lg p-4 space-y-3">
             <SectionTitle icon={ClipboardList} title="Custos" />
             {custos.length === 0 ? (
-              <Button variant="ghost" size="sm" onClick={() => setCustos([{ item: '', quantidade: '1', fornecedor_id: '', valor: '', data_compra: form.data_entrada }])}>
+              <Button variant="ghost" size="sm" onClick={() => setCustos([{ item: '', quantidade: '1', fornecedor_id: '', valor: '', data_compra: '' }])}>
                 <Plus className="w-4 h-4 mr-1" /> Adicionar Custo
               </Button>
             ) : (
@@ -622,8 +623,17 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
                         placeholder="Qtd" className="bg-background border-border" />
                       <CurrencyInput value={c.valor} onChange={v => { const n = [...custos]; n[i].valor = v; setCustos(n); }} className="bg-background border-border" />
                       {!isOrcamento && (
-                        <Input type="date" value={c.data_compra} onChange={e => { const n = [...custos]; n[i].data_compra = e.target.value; setCustos(n); }}
-                          className="bg-background border-border" />
+                        c.data_compra || showDateField[i] ? (
+                          <Input type="date" value={c.data_compra} onChange={e => {
+                            const n = [...custos]; n[i].data_compra = e.target.value; setCustos(n);
+                            if (!e.target.value) setShowDateField(prev => { const p = { ...prev }; delete p[i]; return p; });
+                          }} className="bg-background border-border" />
+                        ) : (
+                          <button type="button" onClick={() => setShowDateField(prev => ({ ...prev, [i]: true }))}
+                            className="text-xs text-muted-foreground hover:text-foreground whitespace-nowrap transition-colors">
+                            + data de compra
+                          </button>
+                        )
                       )}
                     </div>
                     <Button variant="ghost" size="sm" onClick={() => setCustos(custos.filter((_, j) => j !== i))}>
@@ -631,7 +641,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
                     </Button>
                   </div>
                 ))}
-                <Button variant="ghost" size="sm" onClick={() => setCustos([...custos, { item: '', quantidade: '1', fornecedor_id: '', valor: '', data_compra: form.data_entrada }])}>
+                <Button variant="ghost" size="sm" onClick={() => setCustos([...custos, { item: '', quantidade: '1', fornecedor_id: '', valor: '', data_compra: '' }])}>
                   <Plus className="w-4 h-4 mr-1" /> Adicionar Custo
                 </Button>
                 <p className="text-sm text-muted-foreground">Total de Custos: {formatCurrency(custoTotal)}</p>

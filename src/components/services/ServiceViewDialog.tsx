@@ -285,7 +285,10 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
                 {custos.map((c, idx) =>
                   <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
                     <span>{c.item} {c.fornecedores?.nome ? <span className="text-muted-foreground">({c.fornecedores.nome})</span> : ''} <span className="text-muted-foreground">×{c.quantidade}</span></span>
-                    <span>{formatCurrency(Number(c.valor) * Number(c.quantidade))}</span>
+                    <div className="flex items-center gap-2">
+                      <span>{formatCurrency(Number(c.valor) * Number(c.quantidade))}</span>
+                      {!c.data_compra && <span className="text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded">Pendente</span>}
+                    </div>
                   </div>
                 )}
               </div>
