@@ -47,15 +47,18 @@ export function AssignClientDialog({ open, serviceId, onClose, onAssigned }: Pro
   const filtered = useMemo(() => {
     if (!search) return clients;
     const s = search.toLowerCase();
-    return clients.filter(c =>
-      c.nome.toLowerCase().includes(s) ||
-      c.cpf.toLowerCase().includes(s) ||
-      c.carros.some(car =>
-        car.marca?.toLowerCase().includes(s) ||
-        car.modelo?.toLowerCase().includes(s) ||
-        car.placa?.toLowerCase().includes(s)
-      )
-    );
+    const sDigits = s.replace(/\D/g, '');
+    return clients.filter(c => {
+      const cpfDigits = c.cpf.replace(/\D/g, '');
+      return c.nome.toLowerCase().includes(s) ||
+        c.cpf.toLowerCase().includes(s) ||
+        (sDigits && cpfDigits.includes(sDigits)) ||
+        c.carros.some(car =>
+          car.marca?.toLowerCase().includes(s) ||
+          car.modelo?.toLowerCase().includes(s) ||
+          car.placa?.toLowerCase().includes(s)
+        );
+    });
   }, [clients, search]);
 
   const handleAssign = async () => {
