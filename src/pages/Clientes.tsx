@@ -224,6 +224,8 @@ export default function Clientes() {
 
     if (openService) {
       setServiceForCpf(formatted);
+    } else if (openOrcamento) {
+      setOrcamentoForCpf(formatted);
     }
   };
 
