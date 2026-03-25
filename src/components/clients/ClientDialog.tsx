@@ -14,8 +14,8 @@ import { toast } from 'sonner';
 interface Props {
   open: boolean;
   onClose: () => void;
-  onSaveAndService?: () => void;
-  onSaveAndOrcamento?: () => void;
+  onSaveAndService?: (cpf: string) => void;
+  onSaveAndOrcamento?: (cpf: string) => void;
 }
 
 interface CarForm {
@@ -70,9 +70,9 @@ export function ClientDialog({ open, onClose, onSaveAndService, onSaveAndOrcamen
     }
     toast.success('Cliente criado!');
     if (action === 'service' && onSaveAndService) {
-      onSaveAndService();
+      onSaveAndService(formatted);
     } else if (action === 'orcamento' && onSaveAndOrcamento) {
-      onSaveAndOrcamento();
+      onSaveAndOrcamento(formatted);
     }
     onClose();
   };
