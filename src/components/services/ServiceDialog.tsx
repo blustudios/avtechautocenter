@@ -136,7 +136,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
           if (ct?.length) setCustos(ct.map((c: any) => ({
             item: c.item, quantidade: String(c.quantidade),
             fornecedor_id: c.fornecedor_id || '', valor: String(c.valor),
-            data_compra: c.data_compra || sv.data_entrada,
+            data_compra: c.data_compra || '',
           })));
           const { data: pn } = await supabase.from('servicos_pneus').select('*, estoque_pneus(marca, medida_01, medida_02, aro)').eq('servico_id', serviceId);
           if (pn?.length) {
