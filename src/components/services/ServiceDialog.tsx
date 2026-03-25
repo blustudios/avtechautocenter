@@ -50,6 +50,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
   const [showFinalizationError, setShowFinalizationError] = useState<string[] | null>(null);
   const [showLucroWarning, setShowLucroWarning] = useState(false);
   const [originalData, setOriginalData] = useState<any>(null);
+  const [showAssignClient, setShowAssignClient] = useState(false);
 
   const [form, setForm] = useState({
     id: '',
