@@ -117,8 +117,13 @@ export function ClientDialog({ open, onClose, onSaveAndService, onSaveAndOrcamen
           </div>
           <div className="flex flex-wrap justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => onClose()}>Cancelar</Button>
+            {onSaveAndOrcamento && (
+              <Button variant="outline" onClick={() => save('orcamento')} className="border-blue-500/50 text-blue-500 hover:bg-blue-500/10">
+                <ClipboardList className="w-4 h-4 mr-1" /> Salvar + Orçamento
+              </Button>
+            )}
             {onSaveAndService && (
-              <Button variant="outline" onClick={() => save(true)} className="border-primary/50 text-primary hover:bg-primary/10">
+              <Button variant="outline" onClick={() => save('service')} className="border-primary/50 text-primary hover:bg-primary/10">
                 Salvar + Serviço
               </Button>
             )}
