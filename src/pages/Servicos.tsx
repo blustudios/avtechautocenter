@@ -434,6 +434,9 @@ export default function Servicos() {
                         ? `${s.carro_marca || ''} ${s.carro_modelo || ''} · Sem Placa`.trim()
                         : '—'}
                   {s.data_entrada ? ` · ${new Date(s.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR')}` : ''}
+                  {s.status === 'finalizado' && s.data_encerramento && (
+                    <span className="text-muted-foreground"> → <span className="text-emerald-500/80">{new Date(s.data_encerramento + 'T00:00:00').toLocaleDateString('pt-BR')}</span></span>
+                  )}
                 </p>
               </div>
               <div className="flex items-center gap-2">

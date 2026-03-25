@@ -813,6 +813,18 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
 
       <PneuSelectorDialog open={showPneuSelector} onClose={() => setShowPneuSelector(false)}
         onSelect={(pneu) => setPneusServico([...pneusServico, pneu])} />
+
+      {isEdit && form.is_servico_rapido && !form.cliente_cpf && (
+        <AssignClientDialog
+          open={showAssignClient}
+          serviceId={form.id}
+          onClose={() => setShowAssignClient(false)}
+          onAssigned={() => {
+            setShowAssignClient(false);
+            onClose();
+          }}
+        />
+      )}
     </Dialog>
   );
 }
