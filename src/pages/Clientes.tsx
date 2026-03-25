@@ -121,7 +121,7 @@ export default function Clientes() {
     setCarForms(carForms.filter((_, j) => j !== index));
   };
 
-  const saveClient = async (openService = false) => {
+  const saveClient = async (openService = false, openOrcamento = false) => {
     const cpf = form.cpf.replace(/\D/g, '');
     if (cpf.length !== 11) { toast.error('CPF inválido'); return; }
     if (!form.nome.trim()) { toast.error('Nome obrigatório'); return; }
