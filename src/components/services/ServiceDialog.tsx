@@ -12,6 +12,7 @@ import { Plus, X, Trash2, Car, Info, Wrench, DollarSign, CreditCard, ClipboardLi
 import { Checkbox } from '@/components/ui/checkbox';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { PneuSelectorDialog } from '@/components/services/PneuSelectorDialog';
+import { AssignClientDialog } from '@/components/services/AssignClientDialog';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
 import { formatCurrency, formatPlaca, tiposPagamento, statusLabels } from '@/lib/format';
 import { toast } from 'sonner';
