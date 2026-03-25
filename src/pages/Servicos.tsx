@@ -456,7 +456,7 @@ export default function Servicos() {
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={e => { e.stopPropagation(); setEditService(s.id); }}><Pencil className="w-4 h-4 mr-2" /> Editar</DropdownMenuItem>
                     <DropdownMenuItem onClick={e => { e.stopPropagation(); setHistoryService(s.id); }}><History className="w-4 h-4 mr-2" /> Histórico</DropdownMenuItem>
-                    <DropdownMenuItem onClick={e => { e.stopPropagation(); /* delete handled in view dialog */ }} className="text-destructive"><Trash2 className="w-4 h-4 mr-2" /> Excluir</DropdownMenuItem>
+                    <DropdownMenuItem onClick={e => { e.stopPropagation(); setDeleteServiceId(s.id); }} className="text-destructive"><Trash2 className="w-4 h-4 mr-2" /> Excluir</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
