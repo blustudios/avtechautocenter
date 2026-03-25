@@ -76,6 +76,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
   const [custos, setCustos] = useState<{
     item: string; quantidade: string; fornecedor_id: string; valor: string; data_compra: string;
   }[]>([]);
+  const [showDateField, setShowDateField] = useState<Record<number, boolean>>({});
 
   const isOrcamento = form.status === 'orcamento';
   const isEmProgresso = form.status === 'em_progresso';
