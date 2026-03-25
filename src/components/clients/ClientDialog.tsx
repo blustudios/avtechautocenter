@@ -44,7 +44,7 @@ export function ClientDialog({ open, onClose, onSaveAndService, onSaveAndOrcamen
     });
   }, []);
 
-  const save = async (andService?: boolean) => {
+  const save = async (action?: 'service' | 'orcamento') => {
     const cpf = form.cpf.replace(/\D/g, '');
     if (cpf.length !== 11) { toast.error('CPF inválido'); return; }
     if (!form.nome.trim()) { toast.error('Nome obrigatório'); return; }
