@@ -508,6 +508,11 @@ export default function Servicos() {
             setShowNewClient(false);
             setShowClientEntryType(true);
           }}
+          onSaveAndOrcamento={() => {
+            setShowNewClient(false);
+            setLastCreatedClientCpf(null);
+            setShowCreate({ status: 'orcamento' });
+          }}
         />
       )}
 

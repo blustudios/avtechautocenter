@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
-import { Plus, X, Car } from 'lucide-react';
+import { Plus, X, Car, ClipboardList } from 'lucide-react';
 import { formatCPF, formatPhone, formatPlaca, CAR_COLORS } from '@/lib/format';
 import { toast } from 'sonner';
 
@@ -15,6 +15,7 @@ interface Props {
   open: boolean;
   onClose: () => void;
   onSaveAndService?: () => void;
+  onSaveAndOrcamento?: () => void;
 }
 
 interface CarForm {
@@ -27,7 +28,7 @@ interface CarForm {
 
 const emptyCar = (): CarForm => ({ placa: '', marca: '', modelo: '', ano: '', cor: '' });
 
-export function ClientDialog({ open, onClose, onSaveAndService }: Props) {
+export function ClientDialog({ open, onClose, onSaveAndService, onSaveAndOrcamento }: Props) {
   const [form, setForm] = useState({ cpf: '', nome: '', email: '', whatsapp: '' });
   const [carForms, setCarForms] = useState<CarForm[]>([]);
   const [marcasList, setMarcasList] = useState<{ id: string; nome: string }[]>([]);
@@ -43,7 +44,7 @@ export function ClientDialog({ open, onClose, onSaveAndService }: Props) {
     });
   }, []);
 
-  const save = async (andService?: boolean) => {
+  const save = async (action?: 'service' | 'orcamento') => {
     const cpf = form.cpf.replace(/\D/g, '');
     if (cpf.length !== 11) { toast.error('CPF inválido'); return; }
     if (!form.nome.trim()) { toast.error('Nome obrigatório'); return; }
@@ -68,8 +69,10 @@ export function ClientDialog({ open, onClose, onSaveAndService }: Props) {
       );
     }
     toast.success('Cliente criado!');
-    if (andService && onSaveAndService) {
+    if (action === 'service' && onSaveAndService) {
       onSaveAndService();
+    } else if (action === 'orcamento' && onSaveAndOrcamento) {
+      onSaveAndOrcamento();
     }
     onClose();
   };
@@ -114,8 +117,13 @@ export function ClientDialog({ open, onClose, onSaveAndService }: Props) {
           </div>
           <div className="flex flex-wrap justify-end gap-3 pt-2">
             <Button variant="outline" onClick={() => onClose()}>Cancelar</Button>
+            {onSaveAndOrcamento && (
+              <Button variant="outline" onClick={() => save('orcamento')} className="border-blue-500/50 text-blue-500 hover:bg-blue-500/10">
+                <ClipboardList className="w-4 h-4 mr-1" /> Salvar + Orçamento
+              </Button>
+            )}
             {onSaveAndService && (
-              <Button variant="outline" onClick={() => save(true)} className="border-primary/50 text-primary hover:bg-primary/10">
+              <Button variant="outline" onClick={() => save('service')} className="border-primary/50 text-primary hover:bg-primary/10">
                 Salvar + Serviço
               </Button>
             )}

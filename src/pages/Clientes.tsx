@@ -10,7 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Search, X, Car, MoreHorizontal, Pencil, Trash2, Wrench } from 'lucide-react';
+import { Plus, Search, X, Car, MoreHorizontal, Pencil, Trash2, Wrench, ClipboardList } from 'lucide-react';
 import { formatCPF, formatPhone, formatPlaca, CAR_COLORS } from '@/lib/format';
 import { toast } from 'sonner';
 import { ServiceDialog } from '@/components/services/ServiceDialog';
@@ -37,6 +37,7 @@ export default function Clientes() {
   const [viewClient, setViewClient] = useState<any>(null);
   const [carros, setCarros] = useState<any[]>([]);
   const [serviceForCpf, setServiceForCpf] = useState<string | null>(null);
+  const [orcamentoForCpf, setOrcamentoForCpf] = useState<string | null>(null);
 
   const [form, setForm] = useState({ cpf: '', nome: '', email: '', whatsapp: '' });
   const [carForms, setCarForms] = useState<CarForm[]>([]);
@@ -120,7 +121,7 @@ export default function Clientes() {
     setCarForms(carForms.filter((_, j) => j !== index));
   };
 
-  const saveClient = async (openService = false) => {
+  const saveClient = async (openService = false, openOrcamento = false) => {
     const cpf = form.cpf.replace(/\D/g, '');
     if (cpf.length !== 11) { toast.error('CPF inválido'); return; }
     if (!form.nome.trim()) { toast.error('Nome obrigatório'); return; }
@@ -223,6 +224,8 @@ export default function Clientes() {
 
     if (openService) {
       setServiceForCpf(formatted);
+    } else if (openOrcamento) {
+      setOrcamentoForCpf(formatted);
     }
   };
 
@@ -410,9 +413,14 @@ export default function Clientes() {
             <div className="flex flex-col sm:flex-row justify-end gap-3 pt-2">
               <Button variant="outline" onClick={() => setShowForm(false)} className="w-full sm:w-auto">Cancelar</Button>
               {!editCpf && (
-                <Button variant="outline" onClick={() => saveClient(true)} className="w-full sm:w-auto">
-                  <Wrench className="w-4 h-4 mr-2" /> Salvar + Serviço
-                </Button>
+                <>
+                  <Button variant="outline" onClick={() => saveClient(false, true)} className="w-full sm:w-auto border-blue-500/50 text-blue-500 hover:bg-blue-500/10">
+                    <ClipboardList className="w-4 h-4 mr-2" /> Salvar + Orçamento
+                  </Button>
+                  <Button variant="outline" onClick={() => saveClient(true)} className="w-full sm:w-auto">
+                    <Wrench className="w-4 h-4 mr-2" /> Salvar + Serviço
+                  </Button>
+                </>
               )}
               <Button onClick={() => saveClient()} className="w-full sm:w-auto">Salvar</Button>
             </div>
@@ -467,6 +475,15 @@ export default function Clientes() {
           open={!!serviceForCpf}
           defaultClienteCpf={serviceForCpf}
           onClose={() => { setServiceForCpf(null); }}
+        />
+      )}
+
+      {orcamentoForCpf && (
+        <ServiceDialog
+          open={!!orcamentoForCpf}
+          defaultClienteCpf={orcamentoForCpf}
+          initialStatus="orcamento"
+          onClose={() => { setOrcamentoForCpf(null); }}
         />
       )}
 
