@@ -6,15 +6,16 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
 import { formatCurrency, tiposPagamento } from '@/lib/format';
-import { Plus, Search, CalendarIcon, MoreHorizontal, Pencil, Trash2, Zap, UserPlus, RefreshCw, ArrowUpDown, ChevronRight } from 'lucide-react';
+import { Plus, Search, CalendarIcon, MoreHorizontal, Pencil, Trash2, UserPlus, RefreshCw, ArrowUpDown, ChevronRight, History } from 'lucide-react';
 import { ServiceDialog } from '@/components/services/ServiceDialog';
 import { ServiceViewDialog } from '@/components/services/ServiceViewDialog';
 import { ClientDialog } from '@/components/clients/ClientDialog';
+import { EntryTypeDialog } from '@/components/services/EntryTypeDialog';
+import { HistoryDialog } from '@/components/services/HistoryDialog';
 import { format, startOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, isBefore, isAfter } from 'date-fns';
 import { toast } from 'sonner';
 import { ptBR } from 'date-fns/locale';
@@ -26,6 +27,9 @@ interface Servico {
   carro_placa: string;
   carro_marca?: string;
   carro_modelo?: string;
+  carro_marca_livre?: string;
+  carro_modelo_livre?: string;
+  carro_placa_livre?: string;
   data_entrada: string;
   data_encerramento?: string;
   status: string;
@@ -33,6 +37,7 @@ interface Servico {
   valor_total: number;
   custo_total: number;
   lucro_liquido: number;
+  is_servico_rapido?: boolean;
   cliente?: { nome: string };
   carro?: { marca: string; modelo: string; placa: string };
   primeira_data_pagamento?: string;
@@ -51,25 +56,24 @@ export default function Servicos() {
   const [datePreset, setDatePreset] = useState<DatePreset>('mes');
   const [dateFrom, setDateFrom] = useState<Date | undefined>();
   const [dateTo, setDateTo] = useState<Date | undefined>();
-  const [showCreate, setShowCreate] = useState(false);
-  const [showQuickCreate, setShowQuickCreate] = useState(false);
+  const [showEntryType, setShowEntryType] = useState(false);
+  const [showClientEntryType, setShowClientEntryType] = useState(false);
+  const [showCreate, setShowCreate] = useState<{ status: 'orcamento' | 'em_progresso'; quick?: boolean; clientCpf?: string } | null>(null);
   const [showNewClient, setShowNewClient] = useState(false);
   const [viewService, setViewService] = useState<string | null>(null);
   const [editService, setEditService] = useState<string | null>(null);
-  const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
+  const [historyService, setHistoryService] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [lastCreatedClientCpf, setLastCreatedClientCpf] = useState<string | null>(null);
 
-  // Sorting
   const [sortField, setSortField] = useState<SortField>('data_entrada');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
-  // Advanced filters
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [paymentDateFrom, setPaymentDateFrom] = useState<Date | undefined>();
   const [paymentDateTo, setPaymentDateTo] = useState<Date | undefined>();
   const [paymentTypeFilter, setPaymentTypeFilter] = useState('all');
 
-  // Summary
   const [summaryOpen, setSummaryOpen] = useState(false);
 
   const fetchServicos = async () => {
@@ -80,10 +84,7 @@ export default function Servicos() {
     if (data) {
       setServicos(data.map((s: any) => {
         const pagamentos = (s.servicos_pagamentos || []) as { data_pagamento: string | null; pago: boolean; tipo: string }[];
-        const sortedDates = pagamentos
-          .map(p => p.data_pagamento)
-          .filter(Boolean)
-          .sort();
+        const sortedDates = pagamentos.map(p => p.data_pagamento).filter(Boolean).sort();
         return {
           ...s,
           cliente: s.clientes,
@@ -97,6 +98,8 @@ export default function Servicos() {
   };
 
   useEffect(() => { fetchServicos(); }, []);
+
+  const orcamentoCount = useMemo(() => servicos.filter(s => s.status === 'orcamento').length, [servicos]);
 
   const handleRefresh = async () => {
     setLoading(true);
@@ -119,7 +122,7 @@ export default function Servicos() {
 
   const filtered = servicos.filter(s => {
     const searchLower = search.toLowerCase();
-    const matchSearch = !search || 
+    const matchSearch = !search ||
       s.id.toLowerCase().includes(searchLower) ||
       s.cliente?.nome?.toLowerCase().includes(searchLower) ||
       s.carro?.placa?.toLowerCase().includes(searchLower);
@@ -130,25 +133,24 @@ export default function Servicos() {
     let matchDate = true;
     if (from || to) {
       const allDates: Date[] = [];
-      allDates.push(startOfDay(new Date(s.data_entrada + 'T00:00:00')));
-      if (s.data_encerramento) {
-        allDates.push(startOfDay(new Date(s.data_encerramento + 'T00:00:00')));
-      }
+      if (s.data_entrada) allDates.push(startOfDay(new Date(s.data_entrada + 'T00:00:00')));
+      if (s.data_encerramento) allDates.push(startOfDay(new Date(s.data_encerramento + 'T00:00:00')));
       (s.pagamentos || []).forEach(p => {
-        if (p.data_pagamento) {
-          allDates.push(startOfDay(new Date(p.data_pagamento + 'T00:00:00')));
-        }
+        if (p.data_pagamento) allDates.push(startOfDay(new Date(p.data_pagamento + 'T00:00:00')));
       });
-      const f = from ? startOfDay(from) : null;
-      const t = to ? startOfDay(to) : null;
-      matchDate = allDates.some(d => {
-        if (f && isBefore(d, f)) return false;
-        if (t && isAfter(d, t)) return false;
-        return true;
-      });
+      if (allDates.length === 0) {
+        matchDate = true; // orcamentos without dates always show
+      } else {
+        const f = from ? startOfDay(from) : null;
+        const t = to ? startOfDay(to) : null;
+        matchDate = allDates.some(d => {
+          if (f && isBefore(d, f)) return false;
+          if (t && isAfter(d, t)) return false;
+          return true;
+        });
+      }
     }
 
-    // Payment date filter
     let matchPaymentDate = true;
     if (paymentDateFrom) {
       const pFrom = startOfDay(paymentDateFrom);
@@ -168,7 +170,6 @@ export default function Servicos() {
       }
     }
 
-    // Payment type filter
     let matchPaymentType = true;
     if (paymentTypeFilter !== 'all') {
       matchPaymentType = (s.pagamentos || []).some(p => p.tipo === paymentTypeFilter);
@@ -177,31 +178,19 @@ export default function Servicos() {
     return matchSearch && matchStatus && matchPayment && matchDate && matchPaymentDate && matchPaymentType;
   });
 
-  // Sorting
   const sorted = [...filtered].sort((a, b) => {
     let valA: string | undefined;
     let valB: string | undefined;
-
-    if (sortField === 'data_entrada') {
-      valA = a.data_entrada;
-      valB = b.data_entrada;
-    } else if (sortField === 'id') {
-      valA = a.id;
-      valB = b.id;
-    } else {
-      valA = a.primeira_data_pagamento;
-      valB = b.primeira_data_pagamento;
-    }
-
+    if (sortField === 'data_entrada') { valA = a.data_entrada; valB = b.data_entrada; }
+    else if (sortField === 'id') { valA = a.id; valB = b.id; }
+    else { valA = a.primeira_data_pagamento; valB = b.primeira_data_pagamento; }
     if (!valA && !valB) return 0;
     if (!valA) return 1;
     if (!valB) return -1;
-
     const cmp = valA.localeCompare(valB);
     return sortDirection === 'asc' ? cmp : -cmp;
   });
 
-  // Summary calculations
   const summaryTotals = useMemo(() => {
     const valorTotal = sorted.reduce((sum, s) => sum + Number(s.valor_total), 0);
     const custos = sorted.reduce((sum, s) => sum + Number(s.custo_total), 0);
@@ -217,11 +206,22 @@ export default function Servicos() {
     { label: 'Personalizado', value: 'custom' },
   ];
 
+  const getCardBorderClass = (status: string) => {
+    switch (status) {
+      case 'orcamento': return 'border-l-4 border-l-blue-500';
+      case 'cancelado': return 'border-l-4 border-l-red-500';
+      case 'finalizado': return 'border-l-4 border-l-green-500';
+      default: return '';
+    }
+  };
+
+  const showPaymentTag = (status: string) => status === 'em_progresso';
+
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
         <h1 className="text-2xl font-bold text-foreground shrink-0">Entradas de Serviço</h1>
-        <div className="flex items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -240,14 +240,15 @@ export default function Servicos() {
               <TooltipContent>Atualizar</TooltipContent>
             </Tooltip>
           </TooltipProvider>
-          <Button variant="outline" size="sm" onClick={() => setShowQuickCreate(true)} className="shrink-0 border-primary/50 text-primary hover:bg-primary/10 h-9 px-2.5 sm:px-3">
-            <Zap className="w-4 h-4 sm:mr-1.5" />
-            <span className="hidden sm:inline">Rápido</span>
-          </Button>
-          <Button size="sm" onClick={() => setShowCreate(true)} className="shrink-0 h-9 px-2.5 sm:px-3">
+          <Button size="sm" onClick={() => setShowEntryType(true)} className="shrink-0 h-9 px-2.5 sm:px-3">
             <Plus className="w-4 h-4 sm:mr-1.5" />
             <span className="hidden sm:inline">Novo</span>
           </Button>
+          {orcamentoCount > 0 && (
+            <span className="bg-amber-500/20 text-amber-400 text-xs font-medium px-2.5 py-1.5 rounded-full">
+              Orçamentos em aberto: {orcamentoCount}
+            </span>
+          )}
         </div>
       </div>
 
@@ -260,9 +261,10 @@ export default function Servicos() {
           <SelectTrigger className="w-full sm:w-48 bg-card border-border"><SelectValue placeholder="Status" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos Status</SelectItem>
-            <SelectItem value="a_iniciar">À Iniciar</SelectItem>
+            <SelectItem value="orcamento">Orçamento</SelectItem>
             <SelectItem value="em_progresso">Em Progresso</SelectItem>
-            <SelectItem value="entregue">Entregue</SelectItem>
+            <SelectItem value="finalizado">Finalizado</SelectItem>
+            <SelectItem value="cancelado">Cancelado</SelectItem>
           </SelectContent>
         </Select>
         <Select value={paymentFilter} onValueChange={setPaymentFilter}>
@@ -410,29 +412,32 @@ export default function Servicos() {
         <div className="space-y-2">
           {sorted.map(s => (
             <div key={s.id} onClick={() => setViewService(s.id)}
-              className="bg-card border border-border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:border-primary/40 transition-colors">
+              className={cn(
+                "bg-card border border-border rounded-lg p-4 flex flex-col sm:flex-row sm:items-center gap-3 cursor-pointer hover:border-primary/40 transition-colors",
+                getCardBorderClass(s.status)
+              )}>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1 flex-wrap">
                   <span className="font-mono text-sm text-primary font-semibold">{s.id}</span>
                   <StatusBadge status={s.status} />
-                  <PaymentBadge status={s.status_pagamento} />
+                  {showPaymentTag(s.status) && <PaymentBadge status={s.status_pagamento} />}
                 </div>
                 <p className="text-foreground font-medium truncate">{s.cliente?.nome || <span className="italic text-muted-foreground">Serviço Rápido</span>}</p>
                 <p className="text-sm text-muted-foreground">
                   {s.carro
                     ? `${s.carro.marca} ${s.carro.modelo} · ${s.carro.placa}`
-                    : s.carro_marca || s.carro_modelo
-                      ? `${s.carro_marca || ''} ${s.carro_modelo || ''} · Sem Placa`.trim()
-                      : '—'}
-                  {' · '}{new Date(s.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR')}
+                    : s.carro_marca_livre || s.carro_modelo_livre
+                      ? `${s.carro_marca_livre || ''} ${s.carro_modelo_livre || ''} · ${s.carro_placa_livre || 'Sem Placa'}`.trim()
+                      : s.carro_marca || s.carro_modelo
+                        ? `${s.carro_marca || ''} ${s.carro_modelo || ''} · Sem Placa`.trim()
+                        : '—'}
+                  {s.data_entrada ? ` · ${new Date(s.data_entrada + 'T00:00:00').toLocaleDateString('pt-BR')}` : ''}
                 </p>
               </div>
               <div className="flex items-center gap-2">
                 <div className="text-right">
                   <p className="text-lg font-semibold text-foreground">{formatCurrency(Number(s.valor_total))}</p>
-                  <p className="text-xs font-medium text-destructive">
-                    Custo: {formatCurrency(Number(s.custo_total))}
-                  </p>
+                  <p className="text-xs font-medium text-destructive">Custo: {formatCurrency(Number(s.custo_total))}</p>
                   <p className={cn("text-xs font-medium", Number(s.lucro_liquido) >= 0 ? "text-emerald-500" : "text-destructive")}>
                     Lucro: {formatCurrency(Number(s.lucro_liquido))}
                   </p>
@@ -443,7 +448,8 @@ export default function Servicos() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem onClick={e => { e.stopPropagation(); setEditService(s.id); }}><Pencil className="w-4 h-4 mr-2" /> Editar</DropdownMenuItem>
-                    <DropdownMenuItem onClick={e => { e.stopPropagation(); setDeleteServiceId(s.id); }} className="text-destructive"><Trash2 className="w-4 h-4 mr-2" /> Excluir</DropdownMenuItem>
+                    <DropdownMenuItem onClick={e => { e.stopPropagation(); setHistoryService(s.id); }}><History className="w-4 h-4 mr-2" /> Histórico</DropdownMenuItem>
+                    <DropdownMenuItem onClick={e => { e.stopPropagation(); /* delete handled in view dialog */ }} className="text-destructive"><Trash2 className="w-4 h-4 mr-2" /> Excluir</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </div>
@@ -452,39 +458,59 @@ export default function Servicos() {
         </div>
       )}
 
-      {showCreate && <ServiceDialog open={showCreate} onClose={() => { setShowCreate(false); fetchServicos(); }} />}
-      {showQuickCreate && <ServiceDialog open={showQuickCreate} quickMode onClose={() => { setShowQuickCreate(false); fetchServicos(); }} />}
-      {showNewClient && <ClientDialog open={showNewClient} onClose={() => { setShowNewClient(false); fetchServicos(); }} onSaveAndService={() => { setShowNewClient(false); setShowCreate(true); }} />}
+      {/* Entry type selector */}
+      <EntryTypeDialog
+        open={showEntryType}
+        onClose={() => setShowEntryType(false)}
+        onSelect={(type) => {
+          setShowEntryType(false);
+          if (type === 'orcamento') setShowCreate({ status: 'orcamento' });
+          else if (type === 'rapido') setShowCreate({ status: 'em_progresso', quick: true });
+          else setShowCreate({ status: 'em_progresso' });
+        }}
+      />
+
+      {/* Client entry type selector (after client creation) */}
+      <EntryTypeDialog
+        open={showClientEntryType}
+        showRapido={false}
+        onClose={() => setShowClientEntryType(false)}
+        onSelect={(type) => {
+          setShowClientEntryType(false);
+          if (type === 'orcamento') setShowCreate({ status: 'orcamento', clientCpf: lastCreatedClientCpf || undefined });
+          else setShowCreate({ status: 'em_progresso', clientCpf: lastCreatedClientCpf || undefined });
+        }}
+      />
+
+      {/* Service create */}
+      {showCreate && (
+        <ServiceDialog
+          open={!!showCreate}
+          initialStatus={showCreate.status}
+          quickMode={showCreate.quick}
+          defaultClienteCpf={showCreate.clientCpf}
+          onClose={() => { setShowCreate(null); fetchServicos(); }}
+        />
+      )}
+
+      {showNewClient && (
+        <ClientDialog
+          open={showNewClient}
+          onClose={() => { setShowNewClient(false); fetchServicos(); }}
+          onSaveAndService={() => {
+            setShowNewClient(false);
+            setShowClientEntryType(true);
+          }}
+        />
+      )}
+
       {viewService && (
         <ServiceViewDialog serviceId={viewService} open={!!viewService}
           onClose={() => { setViewService(null); fetchServicos(); }}
           onEdit={(id) => { setViewService(null); setEditService(id); }} />
       )}
       {editService && <ServiceDialog open={!!editService} serviceId={editService} onClose={() => { setEditService(null); fetchServicos(); }} />}
-
-      <AlertDialog open={!!deleteServiceId} onOpenChange={() => setDeleteServiceId(null)}>
-        <AlertDialogContent className="bg-popover border-border">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir Serviço</AlertDialogTitle>
-            <AlertDialogDescription>Deseja excluir essa entrada permanentemente?</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Não</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={async () => {
-                const id = deleteServiceId!;
-                await supabase.from('servicos_pneus').delete().eq('servico_id', id);
-                await supabase.from('servicos_itens').delete().eq('servico_id', id);
-                await supabase.from('servicos_pagamentos').delete().eq('servico_id', id);
-                await supabase.from('servicos_custos').delete().eq('servico_id', id);
-                await supabase.from('servicos').delete().eq('id', id);
-                toast.success('Serviço excluído!');
-                setDeleteServiceId(null);
-                fetchServicos();
-              }}>Sim</AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {historyService && <HistoryDialog serviceId={historyService} open={!!historyService} onClose={() => setHistoryService(null)} />}
     </div>
   );
 }
