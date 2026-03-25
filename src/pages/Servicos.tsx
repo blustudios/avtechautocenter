@@ -32,6 +32,7 @@ interface Servico {
   carro_placa_livre?: string;
   data_entrada: string;
   data_encerramento?: string;
+  data_orcamento?: string;
   status: string;
   status_pagamento: string;
   valor_total: number;
