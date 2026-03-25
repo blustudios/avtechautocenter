@@ -2,8 +2,12 @@ import { statusLabels, paymentStatusLabels } from '@/lib/format';
 import { cn } from '@/lib/utils';
 
 const statusStyles: Record<string, string> = {
-  a_iniciar: 'bg-neutral text-status-a-iniciar',
+  orcamento: 'bg-blue-500/15 text-blue-400',
   em_progresso: 'bg-status-em-progresso-bg text-status-em-progresso',
+  finalizado: 'bg-status-entregue-bg text-status-entregue',
+  cancelado: 'bg-destructive/15 text-destructive',
+  // legacy
+  a_iniciar: 'bg-neutral text-status-a-iniciar',
   entregue: 'bg-status-entregue-bg text-status-entregue',
 };
 

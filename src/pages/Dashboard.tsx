@@ -46,14 +46,10 @@ interface CustoItem {
 function getDateRange(type: FilterType, customStart?: Date, customEnd?: Date): [Date, Date] {
   const today = new Date();
   switch (type) {
-    case 'hoje':
-      return [today, today];
-    case 'semana':
-      return [startOfWeek(today, { weekStartsOn: 1 }), endOfWeek(today, { weekStartsOn: 1 })];
-    case 'mes':
-      return [startOfMonth(today), endOfMonth(today)];
-    case 'custom':
-      return [customStart || today, customEnd || today];
+    case 'hoje': return [today, today];
+    case 'semana': return [startOfWeek(today, { weekStartsOn: 1 }), endOfWeek(today, { weekStartsOn: 1 })];
+    case 'mes': return [startOfMonth(today), endOfMonth(today)];
+    case 'custom': return [customStart || today, customEnd || today];
   }
 }
 
@@ -95,16 +91,30 @@ export default function Dashboard() {
     const ps = toDateStr(prevStart);
     const pe = toDateStr(prevEnd);
 
+    // Fetch pagamentos - need to exclude orcamento/cancelado services
+    // We join with servicos to filter by status
     Promise.all([
-      supabase.from('servicos_pagamentos').select('tipo, valor, taxa_aplicada, pago, data_pagamento, servico_id').gte('data_pagamento', s).lte('data_pagamento', e),
-      supabase.from('servicos').select('id, data_entrada, valor_total, custo_total, status, status_pagamento').gte('data_entrada', s).lte('data_entrada', e),
-      supabase.from('servicos_pagamentos').select('tipo, valor, taxa_aplicada, pago, data_pagamento, servico_id').gte('data_pagamento', ps).lte('data_pagamento', pe),
-      supabase.from('servicos_custos').select('valor, quantidade, data_compra').gte('data_compra', s).lte('data_compra', e),
+      supabase.from('servicos_pagamentos')
+        .select('tipo, valor, taxa_aplicada, pago, data_pagamento, servico_id, servicos!inner(status)')
+        .gte('data_pagamento', s).lte('data_pagamento', e)
+        .not('servicos.status', 'in', '("orcamento","cancelado")'),
+      supabase.from('servicos')
+        .select('id, data_entrada, valor_total, custo_total, status, status_pagamento')
+        .gte('data_entrada', s).lte('data_entrada', e)
+        .not('status', 'in', '("orcamento","cancelado")'),
+      supabase.from('servicos_pagamentos')
+        .select('tipo, valor, taxa_aplicada, pago, data_pagamento, servico_id, servicos!inner(status)')
+        .gte('data_pagamento', ps).lte('data_pagamento', pe)
+        .not('servicos.status', 'in', '("orcamento","cancelado")'),
+      supabase.from('servicos_custos')
+        .select('valor, quantidade, data_compra, servicos!inner(status)')
+        .gte('data_compra', s).lte('data_compra', e)
+        .not('servicos.status', 'in', '("orcamento","cancelado")'),
     ]).then(([pRes, sRes, ppRes, cRes]) => {
-      setPagamentos((pRes.data || []) as Pagamento[]);
+      setPagamentos((pRes.data || []) as any as Pagamento[]);
       setServicos((sRes.data || []) as Servico[]);
-      setPrevPagamentos((ppRes.data || []) as Pagamento[]);
-      setCustosData((cRes.data || []) as CustoItem[]);
+      setPrevPagamentos((ppRes.data || []) as any as Pagamento[]);
+      setCustosData((cRes.data || []) as any as CustoItem[]);
       setLoading(false);
     });
   }, [startDate, endDate, prevStart, prevEnd]);
@@ -125,7 +135,6 @@ export default function Dashboard() {
     toast.success('Filtro salvo como padrão');
   };
 
-  // KPI calculations
   const validPagamentos = useMemo(() => pagamentos.filter(p => p.tipo !== 'A Definir'), [pagamentos]);
   const prevValid = useMemo(() => prevPagamentos.filter(p => p.tipo !== 'A Definir'), [prevPagamentos]);
 
@@ -146,7 +155,6 @@ export default function Dashboard() {
   const prevFat = prevValid.reduce((s, p) => s + Number(p.valor), 0);
   const fatChange = prevFat > 0 ? ((faturamento - prevFat) / prevFat * 100) : 0;
 
-  // Bar chart — group by data_pagamento
   const barData = useMemo(() => {
     const map: Record<string, number> = {};
     validPagamentos.forEach(p => {
@@ -161,15 +169,11 @@ export default function Dashboard() {
     });
   }, [validPagamentos, startDate, endDate]);
 
-  // Status donut
   const statusCounts = [
-    { name: 'À Iniciar', value: servicos.filter(s => s.status === 'a_iniciar').length, color: 'hsl(var(--status-a-iniciar))' },
     { name: 'Em Progresso', value: servicos.filter(s => s.status === 'em_progresso').length, color: 'hsl(var(--status-em-progresso))' },
-    { name: 'Aguardando Peça', value: servicos.filter(s => s.status === 'aguardando_peca').length, color: 'hsl(var(--status-aguardando))' },
-    { name: 'Entregue', value: servicos.filter(s => s.status === 'entregue').length, color: 'hsl(var(--status-entregue))' },
+    { name: 'Finalizado', value: servicos.filter(s => s.status === 'finalizado').length, color: 'hsl(var(--status-entregue))' },
   ].filter(s => s.value > 0);
 
-  // Payment donut
   const paymentCounts = [
     { name: 'Pago', value: servicos.filter(s => s.status_pagamento === 'pago').length, color: 'hsl(var(--status-pago))' },
     { name: 'Pendente', value: servicos.filter(s => s.status_pagamento === 'pendente').length, color: 'hsl(var(--status-pendente))' },
@@ -199,20 +203,13 @@ export default function Dashboard() {
     <div className="space-y-6 animate-fade-in">
       <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
 
-      {/* Filters */}
       <div className="flex flex-wrap items-center gap-2">
         {filterButtons.map(f => (
-          <Button
-            key={f.value}
-            variant={filterType === f.value ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => changeFilter(f.value)}
-          >
+          <Button key={f.value} variant={filterType === f.value ? 'default' : 'outline'} size="sm" onClick={() => changeFilter(f.value)}>
             {f.label}
           </Button>
         ))}
 
-        {/* Custom date range */}
         <Popover>
           <PopoverTrigger asChild>
             <Button variant={filterType === 'custom' ? 'default' : 'outline'} size="sm">
@@ -226,21 +223,15 @@ export default function Dashboard() {
             <div className="space-y-3">
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Data Início</p>
-                <Calendar
-                  mode="single"
-                  selected={customStart}
+                <Calendar mode="single" selected={customStart}
                   onSelect={(d) => { setCustomStart(d || undefined); if (d && customEnd) { changeFilter('custom'); } }}
-                  className={cn("p-2 pointer-events-auto")}
-                />
+                  className={cn("p-2 pointer-events-auto")} />
               </div>
               <div>
                 <p className="text-xs text-muted-foreground mb-1">Data Fim</p>
-                <Calendar
-                  mode="single"
-                  selected={customEnd}
+                <Calendar mode="single" selected={customEnd}
                   onSelect={(d) => { setCustomEnd(d || undefined); if (d && customStart) { changeFilter('custom'); } }}
-                  className={cn("p-2 pointer-events-auto")}
-                />
+                  className={cn("p-2 pointer-events-auto")} />
               </div>
             </div>
           </PopoverContent>
@@ -273,7 +264,6 @@ export default function Dashboard() {
             ))}
           </div>
 
-          {/* Comparison card */}
           <div className="bg-card border border-border rounded-lg p-4 flex items-center gap-4">
             <div>
               <span className="text-sm text-muted-foreground">vs. Período Anterior</span>
@@ -290,7 +280,6 @@ export default function Dashboard() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Bar chart */}
             <div className="bg-card border border-border rounded-lg p-4">
               <h3 className="text-sm font-semibold text-muted-foreground mb-4">Faturamento por Dia</h3>
               <ResponsiveContainer width="100%" height={250}>
@@ -306,7 +295,6 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </div>
 
-            {/* Status donut */}
             <div className="bg-card border border-border rounded-lg p-4">
               <h3 className="text-sm font-semibold text-muted-foreground mb-4">Serviços por Status</h3>
               {statusCounts.length > 0 ? (
@@ -330,7 +318,6 @@ export default function Dashboard() {
               ) : <p className="text-muted-foreground text-sm">Sem dados</p>}
             </div>
 
-            {/* Payment donut */}
             <div className="bg-card border border-border rounded-lg p-4">
               <h3 className="text-sm font-semibold text-muted-foreground mb-4">Pagamentos</h3>
               {paymentCounts.length > 0 ? (

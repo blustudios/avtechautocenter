@@ -31,8 +31,12 @@ export function formatPlaca(value: string): string {
 }
 
 export const statusLabels: Record<string, string> = {
-  a_iniciar: 'À Iniciar',
+  orcamento: 'Orçamento',
   em_progresso: 'Em Progresso',
+  finalizado: 'Finalizado',
+  cancelado: 'Cancelado',
+  // legacy
+  a_iniciar: 'À Iniciar',
   entregue: 'Entregue',
 };
 

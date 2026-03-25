@@ -1,44 +1,36 @@
+## Implementação Concluída: Overhaul completo do fluxo de Entrada de Serviço
 
+### O que foi feito
 
-## Plano: Filtro de período multi-data na tela de Serviços
+1. **Migration**: Novos campos (`data_orcamento`, `is_servico_rapido`, `carro_marca_livre`, `carro_modelo_livre`, `carro_placa_livre`), tabela `servicos_historico`, migração de status (`a_iniciar` → `em_progresso`, `entregue` → `finalizado`)
 
-### Problema atual
-O filtro de período considera apenas `data_entrada`. Serviços com datas em meses diferentes (entrada em fev, saída/pagamento em mar) desaparecem ao filtrar por um dos meses.
+2. **Novo fluxo de entrada**: Popup "Selecione o tipo de Entrada" com 3 opções (Orçamento, Serviço Rápido, Serviço Completo). Botão "Rápido" removido.
 
-### Solução
-Alterar a lógica de `matchDate` para considerar **todas as datas** do serviço: `data_entrada`, `data_encerramento` (saída), e todas as `data_pagamento` dos pagamentos. Se **qualquer** dessas datas cair dentro do período filtrado, o serviço aparece na lista.
+3. **Novos status**: `orcamento`, `em_progresso`, `finalizado`, `cancelado` com badges e cores distintas.
 
-### Alterações em `src/pages/Servicos.tsx`
+4. **Cards com bordas coloridas**: Azul (orçamento), verde (finalizado), vermelho (cancelado). Apenas `em_progresso` mostra tag de pagamento.
 
-1. **Interface `Servico`**: adicionar `data_encerramento?: string` (já existe no banco mas não está no select).
+5. **Summary popup read-only** com botões de ação por status (Executar Serviço, Cancelar Orçamento, Reabrir, Finalizar, Excluir, etc.)
 
-2. **`fetchServicos`**: já busca `*` (inclui `data_encerramento`), então basta garantir que o campo está mapeado.
+6. **Formulário adaptativo**: Seções condicionais por status (Pagamentos hidden em orçamento, data_compra hidden em orçamento, Estimativa de Lucro vs Lucro Líquido)
 
-3. **Lógica `matchDate`** (linhas 129-134): substituir a verificação atual que só olha `data_entrada` por uma que coleta todas as datas do serviço e verifica se ao menos uma está dentro do range:
+7. **Checklist de finalização**: Verifica lucro negativo, data_entrada, itens, custos sem data, pagamentos não pagos.
 
-```ts
-let matchDate = true;
-if (from || to) {
-  const allDates: Date[] = [];
-  allDates.push(startOfDay(new Date(s.data_entrada + 'T00:00:00')));
-  if (s.data_encerramento) {
-    allDates.push(startOfDay(new Date(s.data_encerramento + 'T00:00:00')));
-  }
-  (s.pagamentos || []).forEach(p => {
-    if (p.data_pagamento) {
-      allDates.push(startOfDay(new Date(p.data_pagamento + 'T00:00:00')));
-    }
-  });
-  const f = from ? startOfDay(from) : null;
-  const t = to ? startOfDay(to) : null;
-  matchDate = allDates.some(d => {
-    if (f && isBefore(d, f)) return false;
-    if (t && isAfter(d, t)) return false;
-    return true;
-  });
-}
-```
+8. **Atribuir Cliente**: Modal de busca e atribuição para serviços rápidos.
 
-### Arquivo modificado
-- `src/pages/Servicos.tsx` — lógica de filtro de período + interface
+9. **Histórico de alterações**: Tabela + modal de visualização.
 
+10. **Dashboard**: KPIs excluem `orcamento` e `cancelado`.
+
+### Arquivos criados
+- `src/components/services/EntryTypeDialog.tsx`
+- `src/components/services/AssignClientDialog.tsx`
+- `src/components/services/HistoryDialog.tsx`
+
+### Arquivos modificados
+- `src/lib/format.ts`
+- `src/components/StatusBadge.tsx`
+- `src/components/services/ServiceViewDialog.tsx`
+- `src/components/services/ServiceDialog.tsx`
+- `src/pages/Servicos.tsx`
+- `src/pages/Dashboard.tsx`
