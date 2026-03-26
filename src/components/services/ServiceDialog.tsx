@@ -350,8 +350,15 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
 
       toast.success(isEdit ? 'Serviço atualizado!' : 'Serviço criado!');
       onClose();
-    } catch (err) {
-      toast.error('Erro ao salvar serviço');
+    } catch (err: any) {
+      const msg = err?.message?.toLowerCase() || '';
+      if (msg.includes('jwt') || msg.includes('token') || msg.includes('expired')) {
+        toast.error('Sessão expirada. Reconectando...');
+        await supabase.auth.refreshSession();
+        toast.info('Tente salvar novamente.');
+      } else {
+        toast.error('Erro ao salvar serviço');
+      }
     }
     setLoading(false);
   };
