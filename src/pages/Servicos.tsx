@@ -415,10 +415,14 @@ export default function Servicos() {
       </Collapsible>
 
       {loading ? (
-        <div className="text-center text-muted-foreground py-12">Carregando...</div>
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-lg" />
+          ))}
+        </div>
       ) : sorted.length === 0 ? (
         <div className="text-center text-muted-foreground py-12">
-          {servicos.length === 0 ? 'Nenhum serviço cadastrado. Crie o primeiro!' : 'Nenhum resultado encontrado.'}
+          {totalCount === 0 ? 'Nenhum serviço encontrado para os filtros selecionados.' : 'Nenhum resultado encontrado.'}
         </div>
       ) : (
         <div className="space-y-2">
@@ -470,6 +474,23 @@ export default function Servicos() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <span className="text-sm text-muted-foreground">
+            Página {page + 1} de {totalPages} ({totalCount} serviços)
+          </span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+              <ChevronLeft className="w-4 h-4 mr-1" /> Anterior
+            </Button>
+            <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>
+              Próxima <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
         </div>
       )}
 
