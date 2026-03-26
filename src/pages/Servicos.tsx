@@ -11,7 +11,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { StatusBadge, PaymentBadge } from '@/components/StatusBadge';
 import { formatCurrency, tiposPagamento } from '@/lib/format';
-import { Plus, Search, CalendarIcon, MoreHorizontal, Pencil, Trash2, UserPlus, RefreshCw, ArrowUpDown, ChevronRight, History } from 'lucide-react';
+import { Plus, Search, CalendarIcon, MoreHorizontal, Pencil, Trash2, UserPlus, RefreshCw, ArrowUpDown, ChevronRight, History, ChevronLeft } from 'lucide-react';
 import { ServiceDialog } from '@/components/services/ServiceDialog';
 import { ServiceViewDialog } from '@/components/services/ServiceViewDialog';
 import { ClientDialog } from '@/components/clients/ClientDialog';
@@ -21,6 +21,7 @@ import { format, startOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, s
 import { toast } from 'sonner';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Servico {
   id: string;
@@ -50,8 +51,12 @@ type DatePreset = 'mes' | 'semana' | 'ontem' | 'hoje' | 'custom';
 type SortField = 'data_entrada' | 'data_pagamento' | 'id';
 type SortDirection = 'asc' | 'desc';
 
+const PAGE_SIZE = 20;
+
 export default function Servicos() {
   const [servicos, setServicos] = useState<Servico[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
@@ -79,11 +84,52 @@ export default function Servicos() {
   const [summaryOpen, setSummaryOpen] = useState(false);
   const [deleteServiceId, setDeleteServiceId] = useState<string | null>(null);
 
-  const fetchServicos = async () => {
-    const { data } = await supabase
+  const getDateRange = useCallback((): { from: Date | null; to: Date | null } => {
+    const today = new Date();
+    if (datePreset === 'hoje') return { from: today, to: today };
+    if (datePreset === 'ontem') { const y = subDays(today, 1); return { from: y, to: y }; }
+    if (datePreset === 'semana') return { from: startOfWeek(today, { weekStartsOn: 1 }), to: endOfWeek(today, { weekStartsOn: 1 }) };
+    if (datePreset === 'mes') return { from: startOfMonth(today), to: endOfMonth(today) };
+    if (datePreset === 'custom') {
+      if (dateFrom && !dateTo) return { from: dateFrom, to: dateFrom };
+      return { from: dateFrom || null, to: dateTo || null };
+    }
+    return { from: null, to: null };
+  }, [datePreset, dateFrom, dateTo]);
+
+  const fetchServicos = useCallback(async () => {
+    setLoading(true);
+
+    // Build server-side query with only card-display fields + pagamentos for payment date filtering
+    let query = supabase
       .from('servicos')
-      .select('*, clientes(nome), carros(marca, modelo, placa), servicos_pagamentos(data_pagamento, pago, tipo)')
-      .order('created_at', { ascending: false });
+      .select('id, status, status_pagamento, cliente_cpf, carro_placa, carro_marca, carro_modelo, carro_marca_livre, carro_modelo_livre, carro_placa_livre, data_entrada, data_encerramento, data_orcamento, valor_total, custo_total, lucro_liquido, is_servico_rapido, clientes(nome), carros(marca, modelo, placa), servicos_pagamentos(data_pagamento, pago, tipo)', { count: 'exact' });
+
+    // Server-side filters
+    if (statusFilter !== 'all') query = query.eq('status', statusFilter);
+    if (paymentFilter !== 'all') query = query.eq('status_pagamento', paymentFilter);
+
+    // Date range filter on data_entrada (server-side)
+    const { from, to } = getDateRange();
+    if (from) query = query.gte('data_entrada', format(startOfDay(from), 'yyyy-MM-dd'));
+    if (to) query = query.lte('data_entrada', format(startOfDay(to), 'yyyy-MM-dd'));
+
+    // Search filter (server-side for id)
+    if (search) {
+      const s = search.toLowerCase();
+      query = query.or(`id.ilike.%${s}%`);
+    }
+
+    // Sorting
+    const orderCol = sortField === 'data_pagamento' ? 'data_entrada' : sortField;
+    query = query.order(orderCol, { ascending: sortDirection === 'asc' });
+
+    // Pagination
+    const rangeFrom = page * PAGE_SIZE;
+    const rangeTo = rangeFrom + PAGE_SIZE - 1;
+    query = query.range(rangeFrom, rangeTo);
+
+    const { data, count } = await query;
     if (data) {
       setServicos(data.map((s: any) => {
         const pagamentos = (s.servicos_pagamentos || []) as { data_pagamento: string | null; pago: boolean; tipo: string }[];
@@ -96,11 +142,15 @@ export default function Servicos() {
           primeira_data_pagamento: sortedDates[0] || undefined,
         };
       }));
+      setTotalCount(count || 0);
     }
     setLoading(false);
-  };
+  }, [statusFilter, paymentFilter, search, datePreset, dateFrom, dateTo, sortField, sortDirection, page, getDateRange]);
 
-  useEffect(() => { fetchServicos(); }, []);
+  // Reset page when filters change
+  useEffect(() => { setPage(0); }, [statusFilter, paymentFilter, search, datePreset, dateFrom, dateTo, sortField, sortDirection]);
+
+  useEffect(() => { fetchServicos(); }, [fetchServicos]);
 
   const orcamentoCount = useMemo(() => servicos.filter(s => s.status === 'orcamento').length, [servicos]);
 
@@ -110,51 +160,8 @@ export default function Servicos() {
     toast.success('Atualizado!');
   };
 
-  const getDateRange = (): { from: Date | null; to: Date | null } => {
-    const today = new Date();
-    if (datePreset === 'hoje') return { from: today, to: today };
-    if (datePreset === 'ontem') { const y = subDays(today, 1); return { from: y, to: y }; }
-    if (datePreset === 'semana') return { from: startOfWeek(today, { weekStartsOn: 1 }), to: endOfWeek(today, { weekStartsOn: 1 }) };
-    if (datePreset === 'mes') return { from: startOfMonth(today), to: endOfMonth(today) };
-    if (datePreset === 'custom') {
-      if (dateFrom && !dateTo) return { from: dateFrom, to: dateFrom };
-      return { from: dateFrom || null, to: dateTo || null };
-    }
-    return { from: null, to: null };
-  };
-
+  // Client-side advanced filters (payment date, payment type) applied on current page
   const filtered = servicos.filter(s => {
-    const searchLower = search.toLowerCase();
-    const matchSearch = !search ||
-      s.id.toLowerCase().includes(searchLower) ||
-      s.cliente?.nome?.toLowerCase().includes(searchLower) ||
-      s.carro?.placa?.toLowerCase().includes(searchLower);
-    const matchStatus = statusFilter === 'all' || s.status === statusFilter;
-    const matchPayment = paymentFilter === 'all' || s.status_pagamento === paymentFilter;
-
-    const { from, to } = getDateRange();
-    let matchDate = true;
-    if (from || to) {
-      const allDates: Date[] = [];
-      if (s.data_entrada) allDates.push(startOfDay(new Date(s.data_entrada + 'T00:00:00')));
-      if (s.data_encerramento) allDates.push(startOfDay(new Date(s.data_encerramento + 'T00:00:00')));
-      if (s.data_orcamento) allDates.push(startOfDay(new Date(s.data_orcamento + 'T00:00:00')));
-      (s.pagamentos || []).forEach(p => {
-        if (p.data_pagamento) allDates.push(startOfDay(new Date(p.data_pagamento + 'T00:00:00')));
-      });
-      if (allDates.length === 0) {
-        matchDate = true; // orcamentos without dates always show
-      } else {
-        const f = from ? startOfDay(from) : null;
-        const t = to ? startOfDay(to) : null;
-        matchDate = allDates.some(d => {
-          if (f && isBefore(d, f)) return false;
-          if (t && isAfter(d, t)) return false;
-          return true;
-        });
-      }
-    }
-
     let matchPaymentDate = true;
     if (paymentDateFrom) {
       const pFrom = startOfDay(paymentDateFrom);
@@ -179,21 +186,20 @@ export default function Servicos() {
       matchPaymentType = (s.pagamentos || []).some(p => p.tipo === paymentTypeFilter);
     }
 
-    return matchSearch && matchStatus && matchPayment && matchDate && matchPaymentDate && matchPaymentType;
+    return matchPaymentDate && matchPaymentType;
   });
 
-  const sorted = [...filtered].sort((a, b) => {
-    let valA: string | undefined;
-    let valB: string | undefined;
-    if (sortField === 'data_entrada') { valA = a.data_entrada; valB = b.data_entrada; }
-    else if (sortField === 'id') { valA = a.id; valB = b.id; }
-    else { valA = a.primeira_data_pagamento; valB = b.primeira_data_pagamento; }
-    if (!valA && !valB) return 0;
-    if (!valA) return 1;
-    if (!valB) return -1;
-    const cmp = valA.localeCompare(valB);
-    return sortDirection === 'asc' ? cmp : -cmp;
-  });
+  const sorted = sortField === 'data_pagamento'
+    ? [...filtered].sort((a, b) => {
+        const valA = a.primeira_data_pagamento;
+        const valB = b.primeira_data_pagamento;
+        if (!valA && !valB) return 0;
+        if (!valA) return 1;
+        if (!valB) return -1;
+        const cmp = valA.localeCompare(valB);
+        return sortDirection === 'asc' ? cmp : -cmp;
+      })
+    : filtered; // Already sorted server-side
 
   const summaryTotals = useMemo(() => {
     const valorTotal = sorted.reduce((sum, s) => sum + Number(s.valor_total), 0);
@@ -201,6 +207,8 @@ export default function Servicos() {
     const lucro = sorted.reduce((sum, s) => sum + Number(s.lucro_liquido), 0);
     return { valorTotal, custos, lucro };
   }, [sorted]);
+
+  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
   const datePresets: { label: string; value: DatePreset }[] = [
     { label: 'Este Mês', value: 'mes' },
@@ -407,10 +415,14 @@ export default function Servicos() {
       </Collapsible>
 
       {loading ? (
-        <div className="text-center text-muted-foreground py-12">Carregando...</div>
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-lg" />
+          ))}
+        </div>
       ) : sorted.length === 0 ? (
         <div className="text-center text-muted-foreground py-12">
-          {servicos.length === 0 ? 'Nenhum serviço cadastrado. Crie o primeiro!' : 'Nenhum resultado encontrado.'}
+          {totalCount === 0 ? 'Nenhum serviço encontrado para os filtros selecionados.' : 'Nenhum resultado encontrado.'}
         </div>
       ) : (
         <div className="space-y-2">
@@ -462,6 +474,23 @@ export default function Servicos() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between pt-2">
+          <span className="text-sm text-muted-foreground">
+            Página {page + 1} de {totalPages} ({totalCount} serviços)
+          </span>
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(p => p - 1)}>
+              <ChevronLeft className="w-4 h-4 mr-1" /> Anterior
+            </Button>
+            <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(p => p + 1)}>
+              Próxima <ChevronRight className="w-4 h-4 ml-1" />
+            </Button>
+          </div>
         </div>
       )}
 
