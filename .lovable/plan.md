@@ -1,48 +1,38 @@
 
 
-## Plano: Preencher campo Cliente no ServiceDialog apos salvar cliente
+## Plano: Migrar serviços com status legado "a_iniciar"
 
-### Problema
+### Causa raiz
 
-Os callbacks `onSaveAndService` e `onSaveAndOrcamento` do `ClientDialog` nao passam o CPF do cliente recem-criado. Em `Servicos.tsx`, o `showCreate` e aberto sem `clientCpf`, entao o ServiceDialog abre com o campo cliente vazio.
+A coluna `servicos.status` tinha `DEFAULT 'a_iniciar'`. Quando o fluxo foi atualizado para os novos status (`orcamento`, `em_progresso`, `finalizado`, `cancelado`), o default da coluna e os serviços existentes não foram atualizados.
 
-### Alteracoes
+O serviço 2603C70 (e possivelmente outros) ainda tem `status = 'a_iniciar'` no banco.
 
-#### 1. `src/components/clients/ClientDialog.tsx`
+### Alterações
 
-Alterar as props de callback para receber o CPF:
-```ts
-onSaveAndService?: (cpf: string) => void;
-onSaveAndOrcamento?: (cpf: string) => void;
+#### 1. Migração SQL — corrigir dados e default
+
+```sql
+-- Migrar serviços legados: a_iniciar → em_progresso
+UPDATE servicos SET status = 'em_progresso' WHERE status = 'a_iniciar';
+
+-- Migrar serviços legados: entregue → finalizado
+UPDATE servicos SET status = 'finalizado' WHERE status = 'entregue';
+
+-- Alterar o default da coluna para o novo status inicial
+ALTER TABLE servicos ALTER COLUMN status SET DEFAULT 'orcamento';
 ```
 
-Na funcao `save`, passar o CPF formatado ao chamar os callbacks:
-```ts
-if (action === 'service' && onSaveAndService) onSaveAndService(formatted);
-else if (action === 'orcamento' && onSaveAndOrcamento) onSaveAndOrcamento(formatted);
-```
+#### 2. Limpar mapeamentos legados (opcional)
 
-#### 2. `src/pages/Servicos.tsx`
+Remover as entradas `a_iniciar` e `entregue` de:
+- `src/lib/format.ts` — `statusLabels`
+- `src/components/StatusBadge.tsx` — `statusStyles`
 
-Atualizar os callbacks do `ClientDialog` para capturar o CPF:
-
-```tsx
-onSaveAndService={(cpf) => {
-  setShowNewClient(false);
-  setLastCreatedClientCpf(cpf);
-  setShowClientEntryType(true);
-}}
-onSaveAndOrcamento={(cpf) => {
-  setShowNewClient(false);
-  setShowCreate({ status: 'orcamento', clientCpf: cpf });
-}}
-```
-
-#### 3. `src/pages/Clientes.tsx`
-
-Verificar se os callbacks do `ClientDialog` (se usado aqui) tambem precisam de ajuste — ja esta correto pois `Clientes.tsx` usa `serviceForCpf`/`orcamentoForCpf` diretamente no `saveClient` com o CPF formatado.
+Isso garante que se algum status inesperado aparecer, ele cairá no fallback genérico em vez de parecer intencional.
 
 ### Arquivos modificados
-- `src/components/clients/ClientDialog.tsx` — callbacks passam CPF
-- `src/pages/Servicos.tsx` — callbacks recebem e usam CPF
+- **Migração SQL** — UPDATE dados + ALTER DEFAULT
+- `src/lib/format.ts` — remover labels legados
+- `src/components/StatusBadge.tsx` — remover estilos legados
 
