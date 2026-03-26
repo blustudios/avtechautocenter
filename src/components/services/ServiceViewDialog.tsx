@@ -102,7 +102,23 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
     link.click();
   };
 
-  if (!service) return null;
+  if (!service) return (
+    <Dialog open={open} onOpenChange={() => onClose()}>
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto bg-popover border-border w-[95vw] sm:w-full">
+        <DialogHeader><DialogTitle><Skeleton className="h-6 w-48" /></DialogTitle></DialogHeader>
+        <div className="space-y-5">
+          <div className="grid grid-cols-2 gap-4">
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+            <Skeleton className="h-12 w-full" />
+          </div>
+          <Skeleton className="h-20 w-full" />
+          <Skeleton className="h-16 w-full" />
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
 
   const car = service.carros;
   const client = service.clientes;
