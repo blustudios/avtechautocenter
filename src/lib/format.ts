@@ -35,9 +35,6 @@ export const statusLabels: Record<string, string> = {
   em_progresso: 'Em Progresso',
   finalizado: 'Finalizado',
   cancelado: 'Cancelado',
-  // legacy
-  a_iniciar: 'À Iniciar',
-  entregue: 'Entregue',
 };
 
 export const paymentStatusLabels: Record<string, string> = {

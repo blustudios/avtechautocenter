@@ -6,9 +6,6 @@ const statusStyles: Record<string, string> = {
   em_progresso: 'bg-status-em-progresso-bg text-status-em-progresso',
   finalizado: 'bg-status-entregue-bg text-status-entregue',
   cancelado: 'bg-destructive/15 text-destructive',
-  // legacy
-  a_iniciar: 'bg-neutral text-status-a-iniciar',
-  entregue: 'bg-status-entregue-bg text-status-entregue',
 };
 
 const paymentStyles: Record<string, string> = {
