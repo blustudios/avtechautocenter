@@ -28,17 +28,23 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
   const [showAssign, setShowAssign] = useState(false);
   const receiptRef = useRef<HTMLDivElement>(null);
 
+  const [loadingData, setLoadingData] = useState(true);
+
   const load = async () => {
-    const { data: s } = await supabase.from('servicos').select('*, clientes(nome, whatsapp), carros(marca, modelo, ano, cor, placa)').eq('id', serviceId).single();
-    setService(s);
-    const { data: it } = await supabase.from('servicos_itens').select('*').eq('servico_id', serviceId).order('ordem');
-    setItens(it || []);
-    const { data: pg } = await supabase.from('servicos_pagamentos').select('*, maquininhas(nome), bandeiras(nome)').eq('servico_id', serviceId);
-    setPagamentos(pg || []);
-    const { data: ct } = await supabase.from('servicos_custos').select('*, fornecedores(nome)').eq('servico_id', serviceId);
-    setCustos(ct || []);
-    const { data: pn } = await supabase.from('servicos_pneus').select('*, estoque_pneus(marca, medida_01, medida_02, aro)').eq('servico_id', serviceId);
-    setPneus(pn || []);
+    setLoadingData(true);
+    const [sRes, itRes, pgRes, ctRes, pnRes] = await Promise.all([
+      supabase.from('servicos').select('*, clientes(nome, whatsapp), carros(marca, modelo, ano, cor, placa)').eq('id', serviceId).single(),
+      supabase.from('servicos_itens').select('*').eq('servico_id', serviceId).order('ordem'),
+      supabase.from('servicos_pagamentos').select('*, maquininhas(nome), bandeiras(nome)').eq('servico_id', serviceId),
+      supabase.from('servicos_custos').select('*, fornecedores(nome)').eq('servico_id', serviceId),
+      supabase.from('servicos_pneus').select('*, estoque_pneus(marca, medida_01, medida_02, aro)').eq('servico_id', serviceId),
+    ]);
+    setService(sRes.data);
+    setItens(itRes.data || []);
+    setPagamentos(pgRes.data || []);
+    setCustos(ctRes.data || []);
+    setPneus(pnRes.data || []);
+    setLoadingData(false);
   };
 
   useEffect(() => {
