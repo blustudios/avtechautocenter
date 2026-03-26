@@ -234,6 +234,18 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
   const handleSave = async (finalizeAfter = false) => {
     setLoading(true);
     try {
+      // Ensure session is fresh before saving
+      const { data: sessionData } = await supabase.auth.getSession();
+      if (!sessionData.session) {
+        const { error: refreshErr } = await supabase.auth.refreshSession();
+        if (refreshErr) {
+          toast.error('Sessão expirada. Faça login novamente.');
+          setLoading(false);
+          return;
+        }
+        toast.info('Sessão reconectada.');
+      }
+
       let id = form.id;
       if (!isEdit) {
         const { data } = await supabase.rpc('generate_service_id');
