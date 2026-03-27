@@ -58,6 +58,7 @@ export default function Servicos() {
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [datePreset, setDatePreset] = useState<DatePreset>('mes');
