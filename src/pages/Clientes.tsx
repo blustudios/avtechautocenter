@@ -59,8 +59,18 @@ export default function Clientes() {
     });
   }, []);
 
-  const fetchClientes = async () => {
-    const { data } = await supabase.from('clientes').select('*, carros(placa, marca, modelo, ativo)').order('nome');
+  const fetchClientes = async (searchTerm?: string) => {
+    let query = supabase.from('clientes').select('*, carros(placa, marca, modelo, ativo)').order('nome');
+    if (searchTerm && searchTerm.length >= 3) {
+      const digits = searchTerm.replace(/\D/g, '');
+      if (digits.length >= 3) {
+        query = query.ilike('cpf', `%${digits}%`);
+      } else {
+        query = query.or(`nome.ilike.%${searchTerm}%,whatsapp.ilike.%${searchTerm}%`);
+      }
+    }
+    query = query.limit(50);
+    const { data } = await query;
     setClientes(data || []);
   };
 
