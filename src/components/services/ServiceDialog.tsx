@@ -329,20 +329,20 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
           bandeira_id: p.bandeira_id || null, parcelas: p.parcelas ? parseInt(p.parcelas) : null,
           valor: parseFloat(p.valor) || 0, taxa_aplicada: getTaxRate(p.tipo, p.maquininha_id, p.bandeira_id, parseInt(p.parcelas) || 0),
           data_pagamento: p.data_pagamento || null, pago: p.pago,
-        }))));
+        })).select());
       }
       if (validCustos.length) {
         insertOps.push(supabase.from('servicos_custos').insert(validCustos.map(c => ({
           servico_id: id, item: c.item, quantidade: parseFloat(c.quantidade) || 1,
           fornecedor_id: c.fornecedor_id || null, valor: parseFloat(c.valor) || 0,
           data_compra: c.data_compra || null,
-        }))));
+        })).select());
       }
       if (pneusServico.length) {
         insertOps.push(supabase.from('servicos_pneus').insert(pneusServico.map(p => ({
           servico_id: id, pneu_id: p.pneu_id, quantidade: p.quantidade,
           valor_unitario: p.valor_unitario, baixa_estoque: shouldDeduct,
-        }))));
+        })).select());
       }
       await Promise.all(insertOps);
 
