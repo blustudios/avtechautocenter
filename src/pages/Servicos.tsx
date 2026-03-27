@@ -116,8 +116,8 @@ export default function Servicos() {
     if (to) query = query.lte('data_entrada', format(startOfDay(to), 'yyyy-MM-dd'));
 
     // Search filter (server-side for id)
-    if (search) {
-      const s = search.toLowerCase();
+    if (debouncedSearch) {
+      const s = debouncedSearch.toLowerCase();
       query = query.or(`id.ilike.%${s}%`);
     }
 
