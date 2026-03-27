@@ -287,17 +287,24 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
           if (String(originalData.valor_total) !== String(servicoData.valor_total)) await logHistory(id, 'valor_total', String(originalData.valor_total), String(servicoData.valor_total));
           if (originalData.data_entrada !== servicoData.data_entrada) await logHistory(id, 'data_entrada', originalData.data_entrada, servicoData.data_entrada);
         }
-        await supabase.from('servicos_itens').delete().eq('servico_id', id);
-        await supabase.from('servicos_pagamentos').delete().eq('servico_id', id);
-        await supabase.from('servicos_custos').delete().eq('servico_id', id);
-        const { data: oldPneus } = await supabase.from('servicos_pneus').select('*').eq('servico_id', id);
+        // Parallel deletes for itens, pagamentos, custos
+        const [, , , pneusRes] = await Promise.all([
+          supabase.from('servicos_itens').delete().eq('servico_id', id),
+          supabase.from('servicos_pagamentos').delete().eq('servico_id', id),
+          supabase.from('servicos_custos').delete().eq('servico_id', id),
+          supabase.from('servicos_pneus').select('*').eq('servico_id', id),
+        ]);
+        const oldPneus = pneusRes.data;
         if (oldPneus?.length) {
-          for (const op of oldPneus) {
-            if (op.baixa_estoque) {
-              const { data: currentPneu } = await supabase.from('estoque_pneus').select('quantidade').eq('id', op.pneu_id).single();
-              if (currentPneu) {
-                await supabase.from('estoque_pneus').update({ quantidade: currentPneu.quantidade + op.quantidade }).eq('id', op.pneu_id);
-              }
+          const pneusToRestore = oldPneus.filter(op => op.baixa_estoque);
+          if (pneusToRestore.length) {
+            const pneuIds = pneusToRestore.map(op => op.pneu_id);
+            const { data: currentPneus } = await supabase.from('estoque_pneus').select('id, quantidade').in('id', pneuIds);
+            if (currentPneus?.length) {
+              await Promise.all(currentPneus.map(cp => {
+                const restored = pneusToRestore.filter(op => op.pneu_id === cp.id).reduce((s, op) => s + op.quantidade, 0);
+                return supabase.from('estoque_pneus').update({ quantidade: cp.quantidade + restored }).eq('id', cp.id);
+              }));
             }
           }
         }
@@ -306,45 +313,48 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
         await supabase.from('servicos').insert(servicoData);
       }
 
+      // Parallel inserts for itens, pagamentos, custos, pneus
       const validItens = itens.filter(i => i.descricao.trim());
-      if (validItens.length) {
-        await supabase.from('servicos_itens').insert(validItens.map((i, idx) => ({ servico_id: id, descricao: i.descricao, ordem: idx })));
-      }
-
-      if (!isOrcamento) {
-        const validPag = pagamentos.filter(p => p.tipo && parseFloat(p.valor));
-        if (validPag.length) {
-          await supabase.from('servicos_pagamentos').insert(validPag.map(p => ({
-            servico_id: id, tipo: p.tipo, maquininha_id: p.maquininha_id || null,
-            bandeira_id: p.bandeira_id || null, parcelas: p.parcelas ? parseInt(p.parcelas) : null,
-            valor: parseFloat(p.valor) || 0, taxa_aplicada: getTaxRate(p.tipo, p.maquininha_id, p.bandeira_id, parseInt(p.parcelas) || 0),
-            data_pagamento: p.data_pagamento || null, pago: p.pago,
-          })));
-        }
-      }
-
+      const validPag = !isOrcamento ? pagamentos.filter(p => p.tipo && parseFloat(p.valor)) : [];
       const validCustos = custos.filter(c => c.item.trim());
+      const shouldDeduct = pneusServico.length > 0 && (finalizeAfter || form.status === 'finalizado');
+
+      const insertOps: PromiseLike<any>[] = [];
+      if (validItens.length) {
+        insertOps.push(supabase.from('servicos_itens').insert(validItens.map((i, idx) => ({ servico_id: id, descricao: i.descricao, ordem: idx }))).select());
+      }
+      if (validPag.length) {
+        insertOps.push(supabase.from('servicos_pagamentos').insert(validPag.map(p => ({
+          servico_id: id, tipo: p.tipo, maquininha_id: p.maquininha_id || null,
+          bandeira_id: p.bandeira_id || null, parcelas: p.parcelas ? parseInt(p.parcelas) : null,
+          valor: parseFloat(p.valor) || 0, taxa_aplicada: getTaxRate(p.tipo, p.maquininha_id, p.bandeira_id, parseInt(p.parcelas) || 0),
+          data_pagamento: p.data_pagamento || null, pago: p.pago,
+        }))).select());
+      }
       if (validCustos.length) {
-        await supabase.from('servicos_custos').insert(validCustos.map(c => ({
+        insertOps.push(supabase.from('servicos_custos').insert(validCustos.map(c => ({
           servico_id: id, item: c.item, quantidade: parseFloat(c.quantidade) || 1,
           fornecedor_id: c.fornecedor_id || null, valor: parseFloat(c.valor) || 0,
           data_compra: c.data_compra || null,
-        })));
+        }))).select());
       }
-
       if (pneusServico.length) {
-        const shouldDeduct = finalizeAfter || form.status === 'finalizado';
-        await supabase.from('servicos_pneus').insert(pneusServico.map(p => ({
+        insertOps.push(supabase.from('servicos_pneus').insert(pneusServico.map(p => ({
           servico_id: id, pneu_id: p.pneu_id, quantidade: p.quantidade,
           valor_unitario: p.valor_unitario, baixa_estoque: shouldDeduct,
-        })));
-        if (shouldDeduct) {
-          for (const p of pneusServico) {
-            const { data: currentPneu } = await supabase.from('estoque_pneus').select('quantidade').eq('id', p.pneu_id).single();
-            if (currentPneu) {
-              await supabase.from('estoque_pneus').update({ quantidade: Math.max(0, currentPneu.quantidade - p.quantidade) }).eq('id', p.pneu_id);
-            }
-          }
+        }))).select());
+      }
+      await Promise.all(insertOps);
+
+      // Batch stock deduction for pneus
+      if (shouldDeduct) {
+        const pneuIds = pneusServico.map(p => p.pneu_id);
+        const { data: currentPneus } = await supabase.from('estoque_pneus').select('id, quantidade').in('id', pneuIds);
+        if (currentPneus?.length) {
+          await Promise.all(currentPneus.map(cp => {
+            const deducted = pneusServico.filter(p => p.pneu_id === cp.id).reduce((s, p) => s + p.quantidade, 0);
+            return supabase.from('estoque_pneus').update({ quantidade: Math.max(0, cp.quantidade - deducted) }).eq('id', cp.id);
+          }));
         }
       }
 

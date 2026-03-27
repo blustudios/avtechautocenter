@@ -59,12 +59,30 @@ export default function Clientes() {
     });
   }, []);
 
-  const fetchClientes = async () => {
-    const { data } = await supabase.from('clientes').select('*, carros(placa, marca, modelo, ativo)').order('nome');
+  const fetchClientes = async (searchTerm?: string) => {
+    let query = supabase.from('clientes').select('*, carros(placa, marca, modelo, ativo)').order('nome');
+    if (searchTerm && searchTerm.length >= 3) {
+      const digits = searchTerm.replace(/\D/g, '');
+      if (digits.length >= 3) {
+        query = query.ilike('cpf', `%${digits}%`);
+      } else {
+        query = query.or(`nome.ilike.%${searchTerm}%,whatsapp.ilike.%${searchTerm}%`);
+      }
+    }
+    query = query.limit(50);
+    const { data } = await query;
     setClientes(data || []);
   };
 
   useEffect(() => { fetchClientes(); }, []);
+
+  // Server-side search with debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchClientes(search);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   const loadClient = async (cpf: string) => {
     const { data: c } = await supabase.from('clientes').select('*').eq('cpf', cpf).single();
@@ -244,13 +262,8 @@ export default function Clientes() {
     return map[s] || s;
   };
 
-  const filtered = clientes.filter(c => {
-    const s = search.toLowerCase();
-    if (!s) return true;
-    const sDigits = s.replace(/\D/g, '');
-    const cpfDigits = c.cpf?.replace(/\D/g, '') || '';
-    return c.nome?.toLowerCase().includes(s) || (sDigits && cpfDigits.includes(sDigits)) || c.cpf?.toLowerCase().includes(s) || c.whatsapp?.includes(s);
-  });
+  // Data is already filtered server-side
+  const filtered = clientes;
 
   // Check if search is an 11-digit CPF with no results
   const searchDigits = search.replace(/\D/g, '');

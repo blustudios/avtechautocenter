@@ -58,6 +58,7 @@ export default function Servicos() {
   const [totalCount, setTotalCount] = useState(0);
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [datePreset, setDatePreset] = useState<DatePreset>('mes');
@@ -115,8 +116,8 @@ export default function Servicos() {
     if (to) query = query.lte('data_entrada', format(startOfDay(to), 'yyyy-MM-dd'));
 
     // Search filter (server-side for id)
-    if (search) {
-      const s = search.toLowerCase();
+    if (debouncedSearch) {
+      const s = debouncedSearch.toLowerCase();
       query = query.or(`id.ilike.%${s}%`);
     }
 
@@ -145,10 +146,16 @@ export default function Servicos() {
       setTotalCount(count || 0);
     }
     setLoading(false);
-  }, [statusFilter, paymentFilter, search, datePreset, dateFrom, dateTo, sortField, sortDirection, page, getDateRange]);
+  }, [statusFilter, paymentFilter, debouncedSearch, datePreset, dateFrom, dateTo, sortField, sortDirection, page, getDateRange]);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   // Reset page when filters change
-  useEffect(() => { setPage(0); }, [statusFilter, paymentFilter, search, datePreset, dateFrom, dateTo, sortField, sortDirection]);
+  useEffect(() => { setPage(0); }, [statusFilter, paymentFilter, debouncedSearch, datePreset, dateFrom, dateTo, sortField, sortDirection]);
 
   useEffect(() => { fetchServicos(); }, [fetchServicos]);
 
