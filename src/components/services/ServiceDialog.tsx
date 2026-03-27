@@ -287,17 +287,24 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
           if (String(originalData.valor_total) !== String(servicoData.valor_total)) await logHistory(id, 'valor_total', String(originalData.valor_total), String(servicoData.valor_total));
           if (originalData.data_entrada !== servicoData.data_entrada) await logHistory(id, 'data_entrada', originalData.data_entrada, servicoData.data_entrada);
         }
-        await supabase.from('servicos_itens').delete().eq('servico_id', id);
-        await supabase.from('servicos_pagamentos').delete().eq('servico_id', id);
-        await supabase.from('servicos_custos').delete().eq('servico_id', id);
-        const { data: oldPneus } = await supabase.from('servicos_pneus').select('*').eq('servico_id', id);
+        // Parallel deletes for itens, pagamentos, custos
+        const [, , , pneusRes] = await Promise.all([
+          supabase.from('servicos_itens').delete().eq('servico_id', id),
+          supabase.from('servicos_pagamentos').delete().eq('servico_id', id),
+          supabase.from('servicos_custos').delete().eq('servico_id', id),
+          supabase.from('servicos_pneus').select('*').eq('servico_id', id),
+        ]);
+        const oldPneus = pneusRes.data;
         if (oldPneus?.length) {
-          for (const op of oldPneus) {
-            if (op.baixa_estoque) {
-              const { data: currentPneu } = await supabase.from('estoque_pneus').select('quantidade').eq('id', op.pneu_id).single();
-              if (currentPneu) {
-                await supabase.from('estoque_pneus').update({ quantidade: currentPneu.quantidade + op.quantidade }).eq('id', op.pneu_id);
-              }
+          const pneusToRestore = oldPneus.filter(op => op.baixa_estoque);
+          if (pneusToRestore.length) {
+            const pneuIds = pneusToRestore.map(op => op.pneu_id);
+            const { data: currentPneus } = await supabase.from('estoque_pneus').select('id, quantidade').in('id', pneuIds);
+            if (currentPneus?.length) {
+              await Promise.all(currentPneus.map(cp => {
+                const restored = pneusToRestore.filter(op => op.pneu_id === cp.id).reduce((s, op) => s + op.quantidade, 0);
+                return supabase.from('estoque_pneus').update({ quantidade: cp.quantidade + restored }).eq('id', cp.id);
+              }));
             }
           }
         }
