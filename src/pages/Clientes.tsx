@@ -262,13 +262,8 @@ export default function Clientes() {
     return map[s] || s;
   };
 
-  const filtered = clientes.filter(c => {
-    const s = search.toLowerCase();
-    if (!s) return true;
-    const sDigits = s.replace(/\D/g, '');
-    const cpfDigits = c.cpf?.replace(/\D/g, '') || '';
-    return c.nome?.toLowerCase().includes(s) || (sDigits && cpfDigits.includes(sDigits)) || c.cpf?.toLowerCase().includes(s) || c.whatsapp?.includes(s);
-  });
+  // Data is already filtered server-side
+  const filtered = clientes;
 
   // Check if search is an 11-digit CPF with no results
   const searchDigits = search.replace(/\D/g, '');
