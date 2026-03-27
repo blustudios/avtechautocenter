@@ -146,10 +146,16 @@ export default function Servicos() {
       setTotalCount(count || 0);
     }
     setLoading(false);
-  }, [statusFilter, paymentFilter, search, datePreset, dateFrom, dateTo, sortField, sortDirection, page, getDateRange]);
+  }, [statusFilter, paymentFilter, debouncedSearch, datePreset, dateFrom, dateTo, sortField, sortDirection, page, getDateRange]);
+
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(timer);
+  }, [search]);
 
   // Reset page when filters change
-  useEffect(() => { setPage(0); }, [statusFilter, paymentFilter, search, datePreset, dateFrom, dateTo, sortField, sortDirection]);
+  useEffect(() => { setPage(0); }, [statusFilter, paymentFilter, debouncedSearch, datePreset, dateFrom, dateTo, sortField, sortDirection]);
 
   useEffect(() => { fetchServicos(); }, [fetchServicos]);
 
