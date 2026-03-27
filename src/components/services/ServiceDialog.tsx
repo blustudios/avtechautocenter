@@ -319,7 +319,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
       const validCustos = custos.filter(c => c.item.trim());
       const shouldDeduct = pneusServico.length > 0 && (finalizeAfter || form.status === 'finalizado');
 
-      const insertOps: Promise<any>[] = [];
+      const insertOps: PromiseLike<any>[] = [];
       if (validItens.length) {
         insertOps.push(supabase.from('servicos_itens').insert(validItens.map((i, idx) => ({ servico_id: id, descricao: i.descricao, ordem: idx }))).select());
       }
