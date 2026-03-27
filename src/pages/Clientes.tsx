@@ -76,6 +76,14 @@ export default function Clientes() {
 
   useEffect(() => { fetchClientes(); }, []);
 
+  // Server-side search with debounce
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchClientes(search);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const loadClient = async (cpf: string) => {
     const { data: c } = await supabase.from('clientes').select('*').eq('cpf', cpf).single();
     const { data: cars } = await supabase.from('carros').select('*').eq('cliente_cpf', cpf);
