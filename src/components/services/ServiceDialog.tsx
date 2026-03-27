@@ -321,7 +321,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
 
       const insertOps: Promise<any>[] = [];
       if (validItens.length) {
-        insertOps.push(supabase.from('servicos_itens').insert(validItens.map((i, idx) => ({ servico_id: id, descricao: i.descricao, ordem: idx }))));
+        insertOps.push(supabase.from('servicos_itens').insert(validItens.map((i, idx) => ({ servico_id: id, descricao: i.descricao, ordem: idx }))).select());
       }
       if (validPag.length) {
         insertOps.push(supabase.from('servicos_pagamentos').insert(validPag.map(p => ({
