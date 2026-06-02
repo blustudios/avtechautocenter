@@ -47,7 +47,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
   const [modelosList, setModelosList] = useState<{ id: string; marca_id: string; nome: string }[]>([]);
   const [pneusServico, setPneusServico] = useState<PneuItem[]>([]);
   const [showPneuSelector, setShowPneuSelector] = useState(false);
-  const [showFinalizationError, setShowFinalizationError] = useState<string[] | null>(null);
+  const [showFinalizationError, setShowFinalizationError] = useState<{ title: string; errors: string[] } | null>(null);
   const [showLucroWarning, setShowLucroWarning] = useState(false);
   const [originalData, setOriginalData] = useState<any>(null);
   const [showAssignClient, setShowAssignClient] = useState(false);
