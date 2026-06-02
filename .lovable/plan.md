@@ -1,22 +1,24 @@
-## Plano
+## Plano: corrigir filtros avançados que escondem resultados na paginação
 
-### 1. Botão "Mês Passado" no filtro de período (Serviços)
+### Causa raiz
 
-`src/pages/Servicos.tsx`:
-- Adicionar `'mes_passado'` ao tipo `DatePreset`.
-- Em `getDateRange`, retornar `{ from: startOfMonth(subMonths(today, 1)), to: endOfMonth(subMonths(today, 1)) }` quando `datePreset === 'mes_passado'`.
-- Adicionar `{ label: 'Mês Passado', value: 'mes_passado' }` no array `filterButtons` (logo após "Este Mês").
+Em `src/pages/Servicos.tsx`, os filtros **Data de Pagamento** (`paymentDateFrom/To`) e **Tipo de Pagamento** (`paymentTypeFilter`) são aplicados **client-side, apenas na página atual de 20 itens** (linhas 172-198). Como a paginação acontece no servidor antes desses filtros rodarem, serviços que dariam match podem estar em páginas seguintes e ficam invisíveis até o usuário avançar manualmente.
 
-### 2. Bug — Dashboard contabilizando pagamentos pendentes
+### Correção
 
-Causa: as queries de `servicos_pagamentos` no Dashboard filtram por `data_pagamento` no intervalo, mas **não filtram por `pago = true`**. Pagamentos com data preenchida mas ainda não marcados como pagos entram em Faturamento, Faturamento − Taxas e no gráfico de Faturamento por Dia.
+Mover os dois filtros para a query server-side em `fetchServicos`:
 
-Correção em `src/pages/Dashboard.tsx`:
-- Nas duas queries de `servicos_pagamentos` (período atual `pRes` e anterior `ppRes`), adicionar `.eq('pago', true)`.
-- Manter o cálculo de **Contas a Receber** correto: como agora `pagamentos` só traz pagos, fazer uma **query separada adicional** para contas a receber buscando pagamentos `pago = false` com `data_pagamento` no período (ou sem filtro de data, conforme regra atual de "a receber"). Proposta: buscar pagamentos não pagos cujo `data_pagamento` esteja entre `s` e `e` e `tipo != 'A Definir'`.
-- Ajustar `contasReceber` para usar essa nova lista em vez de filtrar `validPagamentos.filter(p => !p.pago)` (que agora sempre será vazio).
-- O gráfico `barData` e os KPIs Faturamento/Faturamento−Taxas passam a refletir apenas pagamentos efetivamente recebidos.
+1. **`paymentTypeFilter`**: usar inner join no relacionamento, trocando `servicos_pagamentos(...)` por `servicos_pagamentos!inner(...)` e adicionando `query.eq('servicos_pagamentos.tipo', paymentTypeFilter)` quando ativo.
+
+2. **`paymentDateFrom/To`**: aplicar `query.gte('servicos_pagamentos.data_pagamento', ...)` e `.lte(...)` (ou `.eq(...)` para dia único) sobre o mesmo inner join. Quando qualquer um dos dois filtros de pagamento estiver ativo, o select usa `!inner` para que o Postgres filtre os serviços que tenham ao menos um pagamento correspondente.
+
+3. Remover o bloco client-side `filtered = servicos.filter(...)` (linhas 172-198) — passa a usar `servicos` direto. Manter apenas o `sorted` por `data_pagamento` (que ordena a página atual).
+
+4. Garantir que `paymentDateFrom`, `paymentDateTo` e `paymentTypeFilter` entrem nas dependências de `fetchServicos` e no `useEffect` de reset de página (linha 159), para que mudar o filtro recarregue da página 0.
+
+### Resultado esperado
+
+A listagem passa a mostrar apenas serviços que casam com todos os filtros, paginados corretamente — sem "buracos" entre páginas.
 
 ### Arquivos modificados
-- `src/pages/Servicos.tsx` — novo preset "Mês Passado".
-- `src/pages/Dashboard.tsx` — filtrar `pago = true` no faturamento e isolar query de contas a receber.
+- `src/pages/Servicos.tsx`
