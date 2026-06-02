@@ -102,14 +102,30 @@ export default function Servicos() {
   const fetchServicos = useCallback(async () => {
     setLoading(true);
 
-    // Build server-side query with only card-display fields + pagamentos for payment date filtering
+    // Use inner join when filtering by payment date/type so unmatched servicos are excluded
+    const hasPaymentFilter = !!paymentDateFrom || !!paymentDateTo || paymentTypeFilter !== 'all';
+    const pagamentosSelect = hasPaymentFilter
+      ? 'servicos_pagamentos!inner(data_pagamento, pago, tipo)'
+      : 'servicos_pagamentos(data_pagamento, pago, tipo)';
+
     let query = supabase
       .from('servicos')
-      .select('id, status, status_pagamento, cliente_cpf, carro_placa, carro_marca, carro_modelo, carro_marca_livre, carro_modelo_livre, carro_placa_livre, data_entrada, data_encerramento, data_orcamento, valor_total, custo_total, lucro_liquido, is_servico_rapido, clientes(nome), carros(marca, modelo, placa), servicos_pagamentos(data_pagamento, pago, tipo)', { count: 'exact' });
+      .select(`id, status, status_pagamento, cliente_cpf, carro_placa, carro_marca, carro_modelo, carro_marca_livre, carro_modelo_livre, carro_placa_livre, data_entrada, data_encerramento, data_orcamento, valor_total, custo_total, lucro_liquido, is_servico_rapido, clientes(nome), carros(marca, modelo, placa), ${pagamentosSelect}`, { count: 'exact' });
 
     // Server-side filters
     if (statusFilter !== 'all') query = query.eq('status', statusFilter);
     if (paymentFilter !== 'all') query = query.eq('status_pagamento', paymentFilter);
+
+    // Payment type/date filters (server-side via inner join)
+    if (paymentTypeFilter !== 'all') {
+      query = query.eq('servicos_pagamentos.tipo', paymentTypeFilter);
+    }
+    if (paymentDateFrom) {
+      const pFromStr = format(startOfDay(paymentDateFrom), 'yyyy-MM-dd');
+      const pToStr = format(startOfDay(paymentDateTo || paymentDateFrom), 'yyyy-MM-dd');
+      query = query.gte('servicos_pagamentos.data_pagamento', pFromStr)
+                   .lte('servicos_pagamentos.data_pagamento', pToStr);
+    }
 
     // Date range filter on data_entrada (server-side)
     const { from, to } = getDateRange();
