@@ -17,7 +17,7 @@ import { ServiceViewDialog } from '@/components/services/ServiceViewDialog';
 import { ClientDialog } from '@/components/clients/ClientDialog';
 import { EntryTypeDialog } from '@/components/services/EntryTypeDialog';
 import { HistoryDialog } from '@/components/services/HistoryDialog';
-import { format, startOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, isBefore, isAfter } from 'date-fns';
+import { format, startOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, subMonths, isBefore, isAfter } from 'date-fns';
 import { toast } from 'sonner';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
