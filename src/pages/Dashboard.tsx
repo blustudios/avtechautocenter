@@ -87,9 +87,10 @@ export default function Dashboard() {
   const { data: queryData, isLoading: loading } = useQuery({
     queryKey: ['dashboard', s, e, ps, pe],
     queryFn: async () => {
-      const [pRes, sRes, ppRes, cRes] = await Promise.all([
+      const [pRes, sRes, ppRes, cRes, arRes] = await Promise.all([
         supabase.from('servicos_pagamentos')
           .select('tipo, valor, taxa_aplicada, pago, data_pagamento, servico_id, servicos!inner(status)')
+          .eq('pago', true)
           .gte('data_pagamento', s).lte('data_pagamento', e)
           .not('servicos.status', 'in', '("orcamento","cancelado")'),
         supabase.from('servicos')
@@ -98,6 +99,7 @@ export default function Dashboard() {
           .not('status', 'in', '("orcamento","cancelado")'),
         supabase.from('servicos_pagamentos')
           .select('tipo, valor, taxa_aplicada, pago, data_pagamento, servico_id, servicos!inner(status)')
+          .eq('pago', true)
           .gte('data_pagamento', ps).lte('data_pagamento', pe)
           .not('servicos.status', 'in', '("orcamento","cancelado")'),
         supabase.from('servicos_custos')
@@ -105,12 +107,18 @@ export default function Dashboard() {
           .not('data_compra', 'is', null)
           .gte('data_compra', s).lte('data_compra', e)
           .not('servicos.status', 'in', '("orcamento","cancelado")'),
+        supabase.from('servicos_pagamentos')
+          .select('tipo, valor, pago, data_pagamento, servicos!inner(status)')
+          .eq('pago', false)
+          .gte('data_pagamento', s).lte('data_pagamento', e)
+          .not('servicos.status', 'in', '("orcamento","cancelado")'),
       ]);
       return {
         pagamentos: (pRes.data || []) as any as Pagamento[],
         servicos: (sRes.data || []) as Servico[],
         prevPagamentos: (ppRes.data || []) as any as Pagamento[],
         custosData: (cRes.data || []) as any as CustoItem[],
+        contasReceberData: (arRes.data || []) as any as Pagamento[],
       };
     },
     staleTime: 2 * 60 * 1000, // 2 minutes
@@ -120,6 +128,7 @@ export default function Dashboard() {
   const servicos = queryData?.servicos ?? [];
   const prevPagamentos = queryData?.prevPagamentos ?? [];
   const custosData = queryData?.custosData ?? [];
+  const contasReceberData = queryData?.contasReceberData ?? [];
 
   const changeFilter = (type: FilterType) => {
     setFilterType(type);
@@ -152,7 +161,7 @@ export default function Dashboard() {
   const mediaCarrosDia = numServicos / workDays;
   const mediaFatDia = faturamento / totalDays;
 
-  const contasReceber = validPagamentos.filter(p => !p.pago).reduce((s, p) => s + Number(p.valor), 0);
+  const contasReceber = contasReceberData.filter(p => p.tipo !== 'A Definir').reduce((s, p) => s + Number(p.valor), 0);
 
   const prevFat = prevValid.reduce((s, p) => s + Number(p.valor), 0);
   const fatChange = prevFat > 0 ? ((faturamento - prevFat) / prevFat * 100) : 0;

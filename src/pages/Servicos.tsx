@@ -17,7 +17,7 @@ import { ServiceViewDialog } from '@/components/services/ServiceViewDialog';
 import { ClientDialog } from '@/components/clients/ClientDialog';
 import { EntryTypeDialog } from '@/components/services/EntryTypeDialog';
 import { HistoryDialog } from '@/components/services/HistoryDialog';
-import { format, startOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, isBefore, isAfter } from 'date-fns';
+import { format, startOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, subMonths, isBefore, isAfter } from 'date-fns';
 import { toast } from 'sonner';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -47,7 +47,7 @@ interface Servico {
   pagamentos?: { data_pagamento: string | null; pago: boolean; tipo: string }[];
 }
 
-type DatePreset = 'mes' | 'semana' | 'ontem' | 'hoje' | 'custom';
+type DatePreset = 'mes' | 'mes_passado' | 'semana' | 'ontem' | 'hoje' | 'custom';
 type SortField = 'data_entrada' | 'data_pagamento' | 'id';
 type SortDirection = 'asc' | 'desc';
 
@@ -91,6 +91,7 @@ export default function Servicos() {
     if (datePreset === 'ontem') { const y = subDays(today, 1); return { from: y, to: y }; }
     if (datePreset === 'semana') return { from: startOfWeek(today, { weekStartsOn: 1 }), to: endOfWeek(today, { weekStartsOn: 1 }) };
     if (datePreset === 'mes') return { from: startOfMonth(today), to: endOfMonth(today) };
+    if (datePreset === 'mes_passado') { const lm = subMonths(today, 1); return { from: startOfMonth(lm), to: endOfMonth(lm) }; }
     if (datePreset === 'custom') {
       if (dateFrom && !dateTo) return { from: dateFrom, to: dateFrom };
       return { from: dateFrom || null, to: dateTo || null };
@@ -219,6 +220,7 @@ export default function Servicos() {
 
   const datePresets: { label: string; value: DatePreset }[] = [
     { label: 'Este Mês', value: 'mes' },
+    { label: 'Mês Passado', value: 'mes_passado' },
     { label: 'Esta Semana', value: 'semana' },
     { label: 'Ontem', value: 'ontem' },
     { label: 'Hoje', value: 'hoje' },
