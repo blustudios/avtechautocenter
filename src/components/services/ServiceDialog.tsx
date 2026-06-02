@@ -434,6 +434,24 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
     setLoading(false);
   };
 
+  const validatePagamentosPagos = (): string[] => {
+    const errors: string[] = [];
+    pagamentos.forEach((p, i) => {
+      if (!p.pago) return;
+      const missing: string[] = [];
+      if (!p.tipo || p.tipo === 'A Definir') missing.push('Tipo de pagamento');
+      if (!(parseFloat(p.valor) > 0)) missing.push('Valor maior que zero');
+      if (!p.data_pagamento) missing.push('Data');
+      if (needsMaquininha(p.tipo) && !p.maquininha_id) missing.push('Maquininha');
+      if (needsBandeira(p.tipo) && !p.bandeira_id) missing.push('Bandeira');
+      if (p.tipo === 'Crédito Parcelado' && !(parseInt(p.parcelas) >= 1)) missing.push('Parcelas');
+      if (missing.length) {
+        errors.push(`💳 Pagamento #${i + 1} marcado como Pago — preencha: ${missing.join(', ')}.`);
+      }
+    });
+    return errors;
+  };
+
   const attemptFinalize = () => {
     // Step 1: check lucro
     if (lucroLiquido <= 0) {
@@ -455,9 +473,10 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
     if (pagamentos.some(p => !p.pago)) {
       errors.push('💳 Uma ou mais formas de pagamento não foram marcadas como pagas. Marque todos os pagamentos como Pago na seção Pagamentos.');
     }
+    errors.push(...validatePagamentosPagos());
 
     if (errors.length > 0) {
-      setShowFinalizationError(errors);
+      setShowFinalizationError({ title: 'Não foi possível finalizar o serviço', errors });
       return;
     }
 
