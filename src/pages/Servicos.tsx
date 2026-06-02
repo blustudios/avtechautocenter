@@ -163,7 +163,7 @@ export default function Servicos() {
       setTotalCount(count || 0);
     }
     setLoading(false);
-  }, [statusFilter, paymentFilter, debouncedSearch, datePreset, dateFrom, dateTo, sortField, sortDirection, page, getDateRange]);
+  }, [statusFilter, paymentFilter, debouncedSearch, datePreset, dateFrom, dateTo, paymentDateFrom, paymentDateTo, paymentTypeFilter, sortField, sortDirection, page, getDateRange]);
 
   // Debounce search input
   useEffect(() => {
@@ -172,7 +172,7 @@ export default function Servicos() {
   }, [search]);
 
   // Reset page when filters change
-  useEffect(() => { setPage(0); }, [statusFilter, paymentFilter, debouncedSearch, datePreset, dateFrom, dateTo, sortField, sortDirection]);
+  useEffect(() => { setPage(0); }, [statusFilter, paymentFilter, debouncedSearch, datePreset, dateFrom, dateTo, paymentDateFrom, paymentDateTo, paymentTypeFilter, sortField, sortDirection]);
 
   useEffect(() => { fetchServicos(); }, [fetchServicos]);
 
