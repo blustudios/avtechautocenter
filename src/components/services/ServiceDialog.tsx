@@ -831,14 +831,14 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
           </div>
         </div>
 
-        {/* Finalization error dialog */}
+        {/* Validation error dialog */}
         <AlertDialog open={!!showFinalizationError} onOpenChange={() => setShowFinalizationError(null)}>
           <AlertDialogContent className="bg-popover border-border">
             <AlertDialogHeader>
-              <AlertDialogTitle>Não foi possível finalizar o serviço</AlertDialogTitle>
+              <AlertDialogTitle>{showFinalizationError?.title}</AlertDialogTitle>
               <AlertDialogDescription asChild>
                 <div className="space-y-2">
-                  {showFinalizationError?.map((err, i) => (
+                  {showFinalizationError?.errors.map((err, i) => (
                     <p key={i} className="text-sm">{err}</p>
                   ))}
                 </div>
@@ -849,6 +849,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
 
         {/* Lucro warning dialog */}
         <AlertDialog open={showLucroWarning} onOpenChange={setShowLucroWarning}>
