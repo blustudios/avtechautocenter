@@ -161,7 +161,7 @@ export default function Dashboard() {
   const mediaCarrosDia = numServicos / workDays;
   const mediaFatDia = faturamento / totalDays;
 
-  const contasReceber = validPagamentos.filter(p => !p.pago).reduce((s, p) => s + Number(p.valor), 0);
+  const contasReceber = contasReceberData.filter(p => p.tipo !== 'A Definir').reduce((s, p) => s + Number(p.valor), 0);
 
   const prevFat = prevValid.reduce((s, p) => s + Number(p.valor), 0);
   const fatChange = prevFat > 0 ? ((faturamento - prevFat) / prevFat * 100) : 0;
