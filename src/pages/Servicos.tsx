@@ -220,6 +220,7 @@ export default function Servicos() {
 
   const datePresets: { label: string; value: DatePreset }[] = [
     { label: 'Este Mês', value: 'mes' },
+    { label: 'Mês Passado', value: 'mes_passado' },
     { label: 'Esta Semana', value: 'semana' },
     { label: 'Ontem', value: 'ontem' },
     { label: 'Hoje', value: 'hoje' },
