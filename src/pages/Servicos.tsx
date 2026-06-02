@@ -47,7 +47,7 @@ interface Servico {
   pagamentos?: { data_pagamento: string | null; pago: boolean; tipo: string }[];
 }
 
-type DatePreset = 'mes' | 'semana' | 'ontem' | 'hoje' | 'custom';
+type DatePreset = 'mes' | 'mes_passado' | 'semana' | 'ontem' | 'hoje' | 'custom';
 type SortField = 'data_entrada' | 'data_pagamento' | 'id';
 type SortDirection = 'asc' | 'desc';
 
