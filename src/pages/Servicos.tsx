@@ -91,6 +91,7 @@ export default function Servicos() {
     if (datePreset === 'ontem') { const y = subDays(today, 1); return { from: y, to: y }; }
     if (datePreset === 'semana') return { from: startOfWeek(today, { weekStartsOn: 1 }), to: endOfWeek(today, { weekStartsOn: 1 }) };
     if (datePreset === 'mes') return { from: startOfMonth(today), to: endOfMonth(today) };
+    if (datePreset === 'mes_passado') { const lm = subMonths(today, 1); return { from: startOfMonth(lm), to: endOfMonth(lm) }; }
     if (datePreset === 'custom') {
       if (dateFrom && !dateTo) return { from: dateFrom, to: dateFrom };
       return { from: dateFrom || null, to: dateTo || null };
