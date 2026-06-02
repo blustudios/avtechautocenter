@@ -232,6 +232,14 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
   };
 
   const handleSave = async (finalizeAfter = false) => {
+    // Validate payments flagged as Pago (skip for orçamento)
+    if (!isOrcamento && !finalizeAfter) {
+      const pagErrors = validatePagamentosPagos();
+      if (pagErrors.length) {
+        setShowFinalizationError({ title: 'Verifique os pagamentos antes de salvar', errors: pagErrors });
+        return;
+      }
+    }
     setLoading(true);
     try {
       // Ensure session is fresh before saving
