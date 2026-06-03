@@ -1,48 +1,108 @@
-## Plano: Validação de pagamentos marcados como "Pago"
+## Plano: Módulo Relatórios → Custos
 
-### Contexto
+### 1. Navegação
 
-Em `ServiceDialog.tsx` (usado tanto para serviços rápidos quanto completos), o usuário pode marcar a checkbox "Pago" de um pagamento mesmo com campos vazios (tipo "A Definir", sem máquina/bandeira, sem data ou valor zero). Hoje só existem validações ao **finalizar** (`runFinalizationChecks`, linha 446) — não há checagem ao **salvar** nem validação da consistência interna de cada pagamento marcado como Pago.
+- Adicionar item **"Relatórios"** no `AppSidebar.tsx` (ícone `FileBarChart` do lucide), rota base `/relatorios`.
+- Como teremos sub-categorias futuramente, criar uma página índice `/relatorios` com cards/atalhos para cada categoria (começando com "Custos"), e a primeira sub-rota `/relatorios/custos`.
+- Estrutura de arquivos:
+  - `src/pages/Relatorios.tsx` (índice com cards)
+  - `src/pages/relatorios/Custos.tsx` (relatório de custos)
+- Registrar rotas em `src/App.tsx`.
 
-### Regra de conferência proposta
+### 2. Página `Relatórios → Custos`
 
-Para cada pagamento com `pago = true`, validar:
+#### Layout
+- Cabeçalho com título "Relatórios de Custos" e breadcrumb (Relatórios / Custos).
+- **Card de Resumo** no topo (sticky em mobile): 
+  - Total de itens filtrados
+  - **Soma total dos custos filtrados** (destaque em vermelho, padrão de cor de custo)
+  - Quantidade total de itens (soma do campo `quantidade`)
+  - Número de serviços distintos envolvidos
+- Barra de filtros (mesmo padrão visual da página de Serviços).
+- Lista paginada (server-side, mesmo padrão de paginação existente).
 
-1. **Tipo de pagamento** ≠ vazio e ≠ "A Definir"
-2. **Valor** > 0
-3. **Data de pagamento** preenchida
-4. **Maquininha** preenchida — somente quando `needsMaquininha(tipo)` (ou seja, exceto Pix CNPJ, Dinheiro, A Definir)
-5. **Bandeira** preenchida — somente quando `needsBandeira(tipo)` (exceto Pix CNPJ, Dinheiro, Pix Máquina, A Definir)
-6. **Parcelas** ≥ 1 — somente quando tipo for "Crédito Parcelado"
+#### Filtros
+1. **Período (presets rápidos)** — reaproveitar exatamente o conjunto da página Serviços: Hoje, Ontem, Esta Semana, Este Mês, Mês Passado, Custom. Filtro aplicado sobre `servicos_custos.data_compra`.
+2. **Datas customizadas** (from/to) quando preset = custom.
+3. **Fornecedor** — Select populado de `fornecedores` (com opção "Todos" e "Sem fornecedor").
+4. **Busca por nome do item** — input com debounce (300ms), usa `ilike` em `servicos_custos.item`.
+5. **ID do serviço** (sugestão extra) — campo de busca rápida por ID.
+6. Botão "Limpar filtros".
 
-### Implementação
+#### Listagem (colunas sugeridas)
+Cada linha = 1 registro de `servicos_custos` enriquecido:
 
-**Arquivo:** `src/components/services/ServiceDialog.tsx`
+| Coluna | Fonte |
+|---|---|
+| Data compra | `servicos_custos.data_compra` |
+| Item | `servicos_custos.item` |
+| Qtd | `servicos_custos.quantidade` |
+| Valor unitário | calculado (`valor / quantidade`) |
+| Valor total | `servicos_custos.valor` |
+| Fornecedor | join `fornecedores.nome` |
+| ID Serviço | `servicos.id` (clicável → abre `ServiceViewDialog`) |
+| Status serviço | badge usando `StatusBadge` |
+| Cliente | `clientes.nome` (ou "—") |
+| Veículo | `marca + modelo + placa` (livre ou cadastrado) |
+| Data entrada serviço | `servicos.data_entrada` |
 
-1. **Criar função `validatePagamentosPagos()`** (próximo às outras validações, antes de `attemptFinalize`):
-   - Itera sobre `pagamentos`, filtra `p.pago === true`.
-   - Para cada um, monta lista de campos faltantes usando os helpers já existentes `needsMaquininha` / `needsBandeira`.
-   - Retorna array de strings no formato `"Pagamento #1: faltam Tipo, Data, Valor maior que zero"`.
+**Mobile:** cards empilhados com as principais infos (Item, Valor, Data, Fornecedor, Serviço + Cliente/Veículo). Desktop: tabela.
 
-2. **Acionar a validação em dois pontos:**
-   - **`handleSave`** (linha 234): logo após o check de sessão, antes de gerar o ID. Se houver erros, exibir popup e abortar (`setLoading(false); return;`).
-   - **`runFinalizationChecks`** (linha 446): adicionar os erros retornados ao array `errors` existente, junto com o atual check de "marcar todos como Pago".
+#### Ordenação
+- Padrão: `data_compra DESC`.
+- Colunas ordenáveis: Data compra, Valor, Item, Fornecedor.
 
-3. **Popup de erro:**
-   - Reaproveitar o mesmo `AlertDialog` já usado para `showFinalizationError` (estado `showFinalizationError: string[] | null`). Renomear conceitualmente para suportar erros de salvamento também, ou criar um segundo estado `showPaymentErrors`. Recomendado: reutilizar `showFinalizationError` por simplicidade — o componente já lista erros com bullets e título "Não é possível concluir".
-   - Para o caso `handleSave` (não finalização), usar um título adaptado tipo "Verifique os pagamentos antes de salvar". A forma mais limpa é introduzir um único estado `validationErrors: { title: string; errors: string[] } | null` que substitui `showFinalizationError`.
+#### Paginação
+- Server-side, 25 itens por página (mesmo padrão de Serviços).
+- Footer com `Pagination` e contador "Mostrando X–Y de Z".
 
-4. **Mensagem do popup (exemplo):**
-   ```
-   Não foi possível salvar. Os seguintes pagamentos marcados como
-   "Pago" estão incompletos:
-   • Pagamento #1: preencha Maquininha, Bandeira e Data
-   • Pagamento #2: o valor deve ser maior que zero
-   ```
+### 3. Cálculo do total filtrado
 
-### Resultado esperado
+Importante: a paginação retorna apenas a página atual, então o "Total filtrado" **não** pode ser somado no client.
 
-- Impossível salvar/finalizar com pagamento marcado como Pago e dados incompletos.
-- Mensagem clara apontando qual pagamento e quais campos faltam.
-- Mesma regra aplicada para serviços rápidos e completos (ambos passam pelo mesmo dialog).
-- Pagamentos com `pago = false` continuam permitidos com campos vazios (não quebra o fluxo de "A Definir").
+**Solução:** rodar uma segunda query agregada em paralelo à query paginada, aplicando exatamente os mesmos filtros, retornando `sum(valor)` e `count(*)`. Opções:
+- (a) RPC Postgres `relatorio_custos_resumo(filtros...)` — mais limpo e performático.
+- (b) Query `.select('valor.sum(), id.count()')` via PostgREST aggregate — funciona sem migration.
+
+**Recomendação:** opção (a) via `supabase--migration` criando função `public.relatorio_custos_resumo(...)` que recebe os filtros e devolve `{ total_valor numeric, total_itens int, total_quantidade numeric, total_servicos int }`. Garante consistência e evita problemas com limite de 1000 linhas.
+
+### 4. Performance e Cache
+
+- React Query com `staleTime: 2 min` (padrão Dashboard).
+- Query keys: `['relatorio-custos', filtros, page]` e `['relatorio-custos-resumo', filtros]`.
+- Lista de fornecedores em cache infinito (`['fornecedores-lista']`).
+
+### 5. Sugestões extras de melhoria
+
+1. **Exportar CSV** dos custos filtrados (botão no canto superior). Útil para contabilidade — usa o mesmo conjunto filtrado (sem paginação, com `limit` de segurança ex. 5.000).
+2. **Agrupamento por fornecedor** (toggle): segunda visualização que agrupa e mostra subtotal por fornecedor — ajuda a entender concentração de compras.
+3. **Comparativo período anterior**: pequeno indicador no card de resumo ("vs período anterior: +12%") — opcional, baseado no preset selecionado.
+4. **Click no ID do serviço** abre o `ServiceViewDialog` em modo read-only (já existe), permitindo navegar para o serviço sem sair do relatório.
+5. **Estrutura preparada para próximos relatórios** — criar `src/components/relatorios/ReportLayout.tsx` reutilizável (cabeçalho + breadcrumb + slot de filtros + slot de resumo + slot de conteúdo) para padronizar futuros relatórios (Faturamento, Pneus mais vendidos, Clientes top, Lucratividade por serviço, etc.).
+
+### 6. Detalhes técnicos
+
+- Query principal (paginada):
+  ```ts
+  supabase
+    .from('servicos_custos')
+    .select(`
+      id, data_compra, item, quantidade, valor, fornecedor_id, servico_id,
+      fornecedores(nome),
+      servicos!inner(id, status, data_entrada, cliente_cpf, carro_placa, carro_marca, carro_modelo,
+                    carro_placa_livre, carro_marca_livre, carro_modelo_livre,
+                    clientes(nome))
+    `, { count: 'exact' })
+    .range(from, to)
+    .order('data_compra', { ascending: false })
+  ```
+- Filtros aplicados com `.gte/.lte` (data), `.eq` (fornecedor), `.ilike` (item), `.eq` (servico_id).
+- Função RPC para resumo (mesmos parâmetros).
+
+### Entregáveis
+
+1. Migration: função `relatorio_custos_resumo`.
+2. `src/pages/Relatorios.tsx` — índice com card "Custos".
+3. `src/pages/relatorios/Custos.tsx` — relatório completo.
+4. `src/components/relatorios/ReportLayout.tsx` — layout reutilizável.
+5. Atualização de `AppSidebar.tsx` e `App.tsx` (rotas).
