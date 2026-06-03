@@ -570,6 +570,22 @@ export type Database = {
     }
     Functions: {
       generate_service_id: { Args: never; Returns: string }
+      relatorio_custos_resumo: {
+        Args: {
+          p_data_from?: string
+          p_data_to?: string
+          p_fornecedor_id?: string
+          p_item?: string
+          p_sem_fornecedor?: boolean
+          p_servico_id?: string
+        }
+        Returns: {
+          total_itens: number
+          total_quantidade: number
+          total_servicos: number
+          total_valor: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

@@ -1,4 +1,4 @@
-import { Wrench, Home, Users, Truck, Package, BarChart3, Settings, LogOut } from 'lucide-react';
+import { Wrench, Home, Users, Truck, Package, BarChart3, Settings, LogOut, FileBarChart } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useAuth } from '@/hooks/useAuth';
 import {
@@ -19,6 +19,7 @@ const items = [
   { title: 'Fornecedores', url: '/fornecedores', icon: Truck },
   { title: 'Estoque', url: '/estoque', icon: Package },
   { title: 'Dashboard', url: '/dashboard', icon: BarChart3 },
+  { title: 'Relatórios', url: '/relatorios', icon: FileBarChart },
   { title: 'Configurações', url: '/configuracoes', icon: Settings },
 ];
 
