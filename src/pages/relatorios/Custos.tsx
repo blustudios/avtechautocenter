@@ -500,7 +500,7 @@ export default function RelatorioCustos() {
         </>
       )}
 
-      <ServiceViewDialog serviceId={viewService} open={!!viewService} onClose={() => setViewService(null)} />
+      <ServiceViewDialog serviceId={viewService} open={!!viewService} onClose={() => setViewService(null)} onEdit={() => {}} />
     </div>
   );
 }
