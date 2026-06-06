@@ -12,6 +12,7 @@ import Estoque from "@/pages/Estoque";
 import Dashboard from "@/pages/Dashboard";
 import Relatorios from "@/pages/Relatorios";
 import RelatorioCustos from "@/pages/relatorios/Custos";
+import RelatorioPagamentos from "@/pages/relatorios/Pagamentos";
 import Configuracoes from "@/pages/Configuracoes";
 
 const queryClient = new QueryClient();
