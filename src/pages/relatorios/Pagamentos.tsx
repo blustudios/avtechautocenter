@@ -360,11 +360,20 @@ export default function RelatorioPagamentos() {
             <p className="text-xs text-muted-foreground">Pagamentos registrados nos serviços.</p>
           </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => { fetchData(); fetchResumo(); }} disabled={loading}>
-            <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={refreshAll} disabled={loading || auditLoading}>
+            <RefreshCw className={cn('w-4 h-4', (loading || auditLoading) && 'animate-spin')} />
           </Button>
-          <Button variant="outline" size="sm" onClick={exportCsv} disabled={exporting || resumo.total_itens === 0}>
+          {auditMode ? (
+            <Button variant="outline" size="sm" onClick={exitAudit}>
+              <X className="w-4 h-4 mr-1" /> Sair da auditoria
+            </Button>
+          ) : (
+            <Button variant="outline" size="sm" onClick={runAudit} disabled={auditLoading}>
+              <AlertTriangle className="w-4 h-4 mr-1 text-primary" /> Buscar erros
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={exportCsv} disabled={exporting || resumo.total_itens === 0 || auditMode}>
             <Download className="w-4 h-4 mr-1" /> CSV
           </Button>
         </div>
