@@ -1,116 +1,118 @@
-## Plano: Relatórios → Pagamentos
+# Plano: Melhorias no Relatório de Pagamentos
 
-Adicionar um segundo relatório seguindo exatamente o mesmo padrão de UX/arquitetura do "Relatório de Custos" já implementado.
+Duas funcionalidades novas na página `/relatorios/pagamentos`, mantendo o padrão visual já existente.
 
-### 1. Navegação
+---
 
-- Adicionar segundo card na página índice `src/pages/Relatorios.tsx` (ícone `Wallet` ou `CreditCard` do lucide).
-- Nova rota `/relatorios/pagamentos` em `src/App.tsx`.
-- Novo arquivo: `src/pages/relatorios/Pagamentos.tsx`.
+## 1. Botão "Buscar erros"
 
-### 2. Fonte de dados
+**Objetivo:** identificar pagamentos com dados inconsistentes — tipo de pagamento que exige Maquininha/Bandeira mas o campo está vazio.
 
-Tabela `servicos_pagamentos` (já existe) com joins:
-- `maquininhas(nome)`
-- `bandeiras(nome)`
-- `servicos!inner(id, status, status_pagamento, data_entrada, carro_placa/_livre, carro_marca/_livre, carro_modelo/_livre, cliente_cpf, clientes(nome))`
+### Regras (mesmas do `ServiceDialog`)
 
-### 3. Filtros (mesmo padrão de Custos)
+- `needsMaquininha`: tipo ≠ `Pix CNPJ`, `Dinheiro`, `A Definir` → exige `maquininha_id`.
+- `needsBandeira`: tipo ≠ `Pix CNPJ`, `Dinheiro`, `Pix Máquina`, `A Definir` → exige `bandeira_id`.
+- Também sinaliza: `Crédito Parcelado` sem `parcelas`, `tipo = A Definir` em pagamentos já marcados como `pago`.
 
-1. **Período** — presets Hoje, Ontem, Semana, Mês, Mês Passado, Personalizado. Aplicado sobre `data_pagamento`.
-2. **Status do pagamento** — Select: Todos / Pagos / Pendentes (`pago = true/false`). Default: Todos.
-3. **Tipo de pagamento** — Select com a lista `tiposPagamento` de `src/lib/format.ts` (A Definir, Pix CNPJ, Pix Máquina, Débito, Crédito à vista, Crédito Parcelado, Dinheiro) + "Todos".
-4. **Maquininha** — Select populado de `maquininhas` (Todas / Sem maquininha / lista).
-5. **Bandeira** — Select dependente de maquininha (Todas / lista de `bandeiras` filtradas).
-6. **ID do serviço** — input com debounce 350ms (`ilike`).
-7. **Busca cliente** — input com debounce buscando por nome (via join `clientes.nome`) — opcional, posso omitir se preferir manter enxuto.
-8. Botão "Limpar filtros".
+### UX
 
-### 4. Card de Resumo (sticky em mobile)
+- Botão novo no header (ao lado de Exportar/Atualizar), ícone `AlertTriangle`, label **"Buscar erros"**.
+- Ao clicar: ativa **modo de auditoria** — substitui os filtros normais por um banner laranja "Mostrando X pagamentos com inconsistências" e um botão "Limpar auditoria".
+- Aplica filtro client-side adicional após o fetch normal? Não — para garantir cobertura, **roda uma query dedicada** ignorando os filtros de período/maquininha/bandeira (ou opcional: aplica respeitando filtros — ver pergunta abaixo).
+- Cada linha mostra um chip vermelho com o(s) campo(s) faltantes (ex.: "Sem Maquininha", "Sem Bandeira").
+- Resumo de KPIs é substituído por: "Total com erro", "Sem Maquininha", "Sem Bandeira", "Outros".
 
-Quatro KPIs:
-- **Total Recebido** (apenas `pago=true`) — destaque verde (`text-status-pago`).
-- **Total Pendente** (apenas `pago=false`) — destaque laranja.
-- **Total de Taxas** — soma de `valor * taxa_aplicada / 100` no período (custo financeiro com maquininhas).
-- **Nº de pagamentos** e **Nº de serviços distintos**.
+### Implementação técnica
 
-Implementado via nova **RPC** `relatorio_pagamentos_resumo(...)` (migration) com os mesmos filtros, retornando `{ total_pago, total_pendente, total_taxas, total_itens, total_servicos }`. Mesma justificativa do relatório de Custos (evita limite de 1000 linhas e mantém consistência).
+- Query Supabase com `.or(...)` direto no PostgREST:
+  ```
+  .not('tipo','in','("Pix CNPJ","Dinheiro","A Definir")')
+  .is('maquininha_id', null)
+  ```
+  Combinado com segunda query para `bandeira_id` nulo (filtrando os tipos que exigem) — fazemos duas queries em paralelo e unimos por `id`, ou uma única query trazendo um conjunto maior e filtrando os tipos no client (mais simples, dado o volume pequeno esperado).
+- Paginação mantida (25/página); count exato.
+- Sem necessidade de migration nova — toda a lógica é client-side + queries simples.
 
-### 5. Listagem (paginada server-side, 25/página)
+---
 
-Colunas (desktop tabela / mobile cards):
+## 2. Edição inline de pagamento
 
-| Coluna | Fonte |
-|---|---|
-| Data Pagamento | `data_pagamento` (ou "—" se não pago) |
-| Tipo | `tipo` |
-| Maquininha / Bandeira | `maquininhas.nome` + `bandeiras.nome` |
-| Parcelas | `parcelas` (quando aplicável) |
-| Valor Bruto | `valor` |
-| Taxa | `taxa_aplicada%` + valor da taxa em R$ |
-| Valor Líquido | `valor * (1 - taxa/100)` |
-| Status | badge: Pago (verde) / Pendente (cinza) |
-| ID Serviço | clicável → abre `ServiceViewDialog` (mesmo padrão do relatório de Custos) |
-| Cliente | `clientes.nome` (ou "—") |
-| Veículo | marca + modelo + placa |
+**Objetivo:** abrir um dialog para editar um pagamento direto do relatório, com a mesma UI da seção de pagamentos do `ServiceDialog`.
 
-Ordenação padrão: `data_pagamento DESC`, fallback `id DESC`. Pagamentos sem `data_pagamento` aparecem por último.
+### UX
 
-### 6. Funcionalidades extras
+- Novo ícone `Pencil` em cada linha (desktop tabela + cards mobile), ao lado do "Ver serviço".
+- Abre um `**Dialog**` com título "Editar pagamento — Serviço {id}".
+- Layout idêntico à linha de pagamento em `ServiceDialog.tsx` (linhas 725–770):
+  - Select Tipo (lista `tiposPagamento`)
+  - Select Maquininha (condicional `needsMaquininha`)
+  - Select Bandeira (condicional `needsBandeira`, dependente da maquininha)
+  - Input Parcelas (apenas Crédito Parcelado)
+  - `CurrencyInput` Valor
+  - Input Data
+  - Checkbox "Pago"
+- Mostra **Taxa aplicada** recalculada em tempo real (usando a mesma função `getTaxRate` extraída para um helper reutilizável `src/lib/payments.ts`).
+- Botões: **Cancelar** / **Salvar**.
 
-- **Exportar CSV** (até 5.000 linhas) — mesmo padrão de Custos, com todas as colunas + Valor Líquido e Taxa em R$.
-- **Botão refresh** no header.
-- **Link "Ver serviço"** abrindo `ServiceViewDialog` em modo read-only.
-- **Toggle "Apenas pagos"** como atalho rápido (opcional, alternativa ao select de status).
+### Persistência e efeitos colaterais
 
-### 7. Sugestões adicionais de valor
+Atualizar um pagamento muda o status de pagamento do serviço pai. Para manter consistência com o `ServiceDialog`:
 
-1. **Subtotais por tipo de pagamento** no rodapé do resumo (mini-tabela colapsável: Pix R$ X / Crédito R$ Y / Débito R$ Z / Dinheiro R$ W) — ajuda a entender o mix de recebimentos. Pode vir de RPC adicional ou de query agregada PostgREST.
-2. **Indicador de taxa média** no card de resumo (% médio ponderado pelo valor).
-3. **Comparativo período anterior** (futuro, opcional).
+1. `UPDATE servicos_pagamentos` com os novos campos + `taxa_aplicada` recalculada.
+2. Recarregar todos os pagamentos daquele `servico_id` e recalcular `status_pagamento` (mesma função `calcPaymentStatus` — extrair para `src/lib/payments.ts`):
+  - todos pagos → `pago`
+  - algum em atraso (não pago e `data_pagamento < hoje`) → `em_atraso`
+  - misto → `pendente_parcial`
+  - default → `pendente`
+3. `UPDATE servicos SET status_pagamento` se mudou.
+4. Registrar entrada em `servicos_historico` ("Pagamento editado via Relatório") — mantém auditoria.
+5. Invalidar queries: `['relatorio-pagamentos', ...]`, `['relatorio-pagamentos-resumo', ...]`, e (se aberta em outra aba) `['servicos']`.
 
-### 8. Detalhes técnicos
+**Validações no submit** (toast de erro, sem fechar dialog):
 
-**Migration** — nova função:
-```sql
-CREATE OR REPLACE FUNCTION public.relatorio_pagamentos_resumo(
-  p_data_from date, p_data_to date,
-  p_status text,           -- 'todos' | 'pago' | 'pendente'
-  p_tipo text,
-  p_maquininha_id uuid, p_sem_maquininha boolean,
-  p_bandeira_id uuid,
-  p_servico_id text
-) RETURNS TABLE (
-  total_pago numeric, total_pendente numeric, total_taxas numeric,
-  total_itens bigint, total_servicos bigint
-) ...
-```
-Filtra `servicos_pagamentos` aplicando todos os parâmetros (com `IS NULL` para opcionais) e retorna agregados. `SECURITY DEFINER`, `GRANT EXECUTE ... TO authenticated`.
+- Tipo obrigatório.
+- Valor > 0.
+- `needsMaquininha` → maquininha obrigatória.
+- `needsBandeira` → bandeira obrigatória.
+- `Crédito Parcelado` → parcelas ≥ 1.
+- Se `pago = true` → data obrigatória.
 
-**Query principal**:
+---
+
+## Extração de helpers (`src/lib/payments.ts`)
+
+Para evitar duplicação entre `ServiceDialog` e o novo dialog:
+
 ```ts
-supabase.from('servicos_pagamentos')
-  .select(`id, data_pagamento, tipo, valor, taxa_aplicada, parcelas, pago,
-           maquininha:maquininhas(nome), bandeira:bandeiras(nome),
-           servico:servicos!inner(id, status, status_pagamento, data_entrada,
-             carro_placa, carro_marca, carro_modelo,
-             carro_placa_livre, carro_marca_livre, carro_modelo_livre,
-             cliente:clientes(nome))`, { count: 'exact' })
-  .range(from, to)
-  .order('data_pagamento', { ascending: false, nullsFirst: false })
+export const needsMaquininha = (tipo) => ...
+export const needsBandeira = (tipo) => ...
+export const getTaxRate = (tipo, maquininha_id, bandeira_id, parcelas, maquininhas, taxas) => ...
+export const calcPaymentStatus = (pagamentos) => ...
+export const validatePagamento = (p) => string[]  // mensagens de erro
 ```
 
-**React Query keys**: `['relatorio-pagamentos', filtros, page]`, `['relatorio-pagamentos-resumo', filtros]`, `['maquininhas-lista']`, `['bandeiras-lista']`. `staleTime: 2 min`.
+`ServiceDialog.tsx` passa a importar daí (substituição mínima, sem mudar comportamento).
 
-### Entregáveis
+---
 
-1. Migration `relatorio_pagamentos_resumo` (RPC com GRANT).
-2. `src/pages/relatorios/Pagamentos.tsx` — novo relatório completo.
-3. `src/pages/Relatorios.tsx` — adicionar card "Pagamentos".
-4. `src/App.tsx` — registrar rota `/relatorios/pagamentos`.
+## Arquivos
 
-### Confirmações antes de implementar
+**Novos**
 
-- Mantém **busca por cliente** ou prefere relatório só com filtros transacionais (ID serviço + maquininha)?
-- Inclui o card extra de **subtotais por tipo de pagamento**?
-- O **Valor Líquido** deve descontar apenas a taxa, ou também algo relacionado a parcelas? (atualmente o sistema já guarda `taxa_aplicada` final — usaria isso direto.)
+- `src/lib/payments.ts` — helpers compartilhados.
+- `src/components/relatorios/EditPagamentoDialog.tsx` — dialog de edição.
+
+**Editados**
+
+- `src/pages/relatorios/Pagamentos.tsx` — botão "Buscar erros", coluna de ações com ícone editar, integração do dialog, modo auditoria.
+- `src/components/services/ServiceDialog.tsx` — usar helpers do novo módulo (refactor sem mudança de comportamento).
+
+**Sem migration.** RPC `relatorio_pagamentos_resumo` permanece como está.
+
+---
+
+## Confirmações:
+
+1. O **"Buscar erros"** deve varrer **todos os pagamentos** independente dos filtros.
+2. Quando salvar a edição, devo **recalcular o `status_pagamento` do serviço** automaticamente (como o `ServiceDialog` faz).
+3. Registrar a edição no `servicos_historico` *com campo* `"pagamento_editado_relatorio"`*.*
