@@ -302,6 +302,46 @@ export default function RelatorioPagamentos() {
 
   const taxaMedia = resumo.total_pago > 0 ? (resumo.total_taxas / resumo.total_pago) * 100 : 0;
 
+  const runAudit = useCallback(async () => {
+    setAuditMode(true);
+    setAuditLoading(true);
+    try {
+      // Busca todos pagamentos potencialmente problemáticos (maquininha ou bandeira nulos
+      // ou crédito parcelado sem parcelas). Filtra client-side pelas regras de tipo.
+      const { data, error } = await supabase
+        .from('servicos_pagamentos')
+        .select(`id, data_pagamento, tipo, valor, taxa_aplicada, parcelas, pago, maquininha_id, bandeira_id, servico_id,
+                 maquininha:maquininhas(nome), bandeira:bandeiras(nome),
+                 servico:servicos!inner(id, status, status_pagamento, data_entrada, carro_placa, carro_marca, carro_modelo,
+                                       carro_placa_livre, carro_marca_livre, carro_modelo_livre,
+                                       cliente:clientes(nome))`)
+        .or('maquininha_id.is.null,bandeira_id.is.null,parcelas.is.null')
+        .limit(2000);
+      if (error) throw error;
+      const enriched = ((data as any[]) || [])
+        .map(r => ({ ...r, _errors: findPagamentoErrors({
+          tipo: r.tipo, maquininha_id: r.maquininha_id, bandeira_id: r.bandeira_id,
+          parcelas: r.parcelas, pago: r.pago,
+        }) }))
+        .filter(r => r._errors.length > 0);
+      setAuditRows(enriched);
+      if (enriched.length === 0) toast.success('Nenhuma inconsistência encontrada!');
+      else toast.info(`${enriched.length} pagamento(s) com inconsistências`);
+    } catch (e: any) {
+      console.error(e);
+      toast.error('Erro ao buscar inconsistências');
+    } finally {
+      setAuditLoading(false);
+    }
+  }, []);
+
+  const exitAudit = () => { setAuditMode(false); setAuditRows([]); };
+
+  const refreshAll = () => {
+    if (auditMode) runAudit();
+    else { fetchData(); fetchResumo(); }
+  };
+
   return (
     <div className="container mx-auto p-4 sm:p-6 max-w-7xl">
       <nav className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
