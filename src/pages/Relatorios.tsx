@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardTitle } from '@/components/ui/card';
-import { Receipt, ChevronRight } from 'lucide-react';
+import { Receipt, Wallet, ChevronRight } from 'lucide-react';
 
 const categorias = [
   {
@@ -8,6 +8,12 @@ const categorias = [
     icon: Receipt,
     title: 'Custos',
     description: 'Lista detalhada de todos os custos lançados nos serviços, com filtros e somatório.',
+  },
+  {
+    to: '/relatorios/pagamentos',
+    icon: Wallet,
+    title: 'Pagamentos',
+    description: 'Todos os pagamentos registrados com totais recebidos, pendentes e taxas das maquininhas.',
   },
 ];
 
