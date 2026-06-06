@@ -40,6 +40,7 @@ function ProtectedRoutes() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/relatorios" element={<Relatorios />} />
         <Route path="/relatorios/custos" element={<RelatorioCustos />} />
+        <Route path="/relatorios/pagamentos" element={<RelatorioPagamentos />} />
         <Route path="/configuracoes" element={<Configuracoes />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
