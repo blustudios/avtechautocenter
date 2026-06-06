@@ -13,9 +13,11 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { formatCurrency, tiposPagamento } from '@/lib/format';
 import { format, startOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronRight, CalendarIcon, Search, Download, RefreshCw, Wallet, ExternalLink } from 'lucide-react';
+import { ChevronRight, CalendarIcon, Search, Download, RefreshCw, Wallet, ExternalLink, AlertTriangle, Pencil, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { findPagamentoErrors } from '@/lib/payments';
+import { EditPagamentoDialog } from '@/components/relatorios/EditPagamentoDialog';
 
 type DatePreset = 'mes' | 'mes_passado' | 'semana' | 'ontem' | 'hoje' | 'custom';
 
