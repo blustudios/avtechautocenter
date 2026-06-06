@@ -379,193 +379,56 @@ export default function RelatorioPagamentos() {
         </div>
       </header>
 
-      {/* Resumo */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Total Recebido</p>
-            {resumoLoading ? <Skeleton className="h-7 w-32 mt-1" /> : (
-              <p className="text-xl sm:text-2xl font-bold text-status-pago">{formatCurrency(resumo.total_pago)}</p>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Total Pendente</p>
-            {resumoLoading ? <Skeleton className="h-7 w-32 mt-1" /> : (
-              <p className="text-xl sm:text-2xl font-bold text-primary">{formatCurrency(resumo.total_pendente)}</p>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Taxas (Pagos)</p>
-            {resumoLoading ? <Skeleton className="h-7 w-32 mt-1" /> : (
-              <>
-                <p className="text-xl sm:text-2xl font-bold text-destructive">{formatCurrency(resumo.total_taxas)}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">Taxa média: {taxaMedia.toFixed(2)}%</p>
-              </>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Pagamentos</p>
-            {resumoLoading ? <Skeleton className="h-7 w-16 mt-1" /> : (
-              <p className="text-xl sm:text-2xl font-bold">{resumo.total_itens}</p>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-muted-foreground">Serviços envolvidos</p>
-            {resumoLoading ? <Skeleton className="h-7 w-16 mt-1" /> : (
-              <p className="text-xl sm:text-2xl font-bold">{resumo.total_servicos}</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filtros */}
-      <Card className="mb-4">
-        <CardContent className="p-4 space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {datePresets.map(p => (
-              <Button key={p.value} variant={datePreset === p.value ? 'default' : 'outline'} size="sm"
-                onClick={() => { setDatePreset(p.value); if (p.value !== 'custom') { setDateFrom(undefined); setDateTo(undefined); } }}>
-                {p.label}
-              </Button>
-            ))}
-          </div>
-
-          {datePreset === 'custom' && (
-            <div className="flex flex-wrap gap-2">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="justify-start font-normal">
-                    <CalendarIcon className="w-4 h-4 mr-2" />
-                    {dateFrom ? format(dateFrom, 'dd/MM/yyyy') : 'De'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} locale={ptBR} className={cn('p-3 pointer-events-auto')} />
-                </PopoverContent>
-              </Popover>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="justify-start font-normal">
-                    <CalendarIcon className="w-4 h-4 mr-2" />
-                    {dateTo ? format(dateTo, 'dd/MM/yyyy') : 'Até'}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar mode="single" selected={dateTo} onSelect={setDateTo} locale={ptBR} className={cn('p-3 pointer-events-auto')} />
-                </PopoverContent>
-              </Popover>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
-            <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
-              <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todos">Todos os status</SelectItem>
-                <SelectItem value="pago">Pagos</SelectItem>
-                <SelectItem value="pendente">Pendentes</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={tipoFilter} onValueChange={setTipoFilter}>
-              <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os tipos</SelectItem>
-                {tiposPagamento.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-              </SelectContent>
-            </Select>
-
-            <Select value={maquininhaFilter} onValueChange={setMaquininhaFilter}>
-              <SelectTrigger><SelectValue placeholder="Maquininha" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as maquininhas</SelectItem>
-                <SelectItem value={SEM_MAQUININHA}>Sem maquininha</SelectItem>
-                {maquininhas.map(m => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}
-              </SelectContent>
-            </Select>
-
-            <Select value={bandeiraFilter} onValueChange={setBandeiraFilter}>
-              <SelectTrigger><SelectValue placeholder="Bandeira" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as bandeiras</SelectItem>
-                {bandeirasFiltradas.map(b => <SelectItem key={b.id} value={b.id}>{b.nome}</SelectItem>)}
-              </SelectContent>
-            </Select>
-
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="ID do serviço..." value={servicoIdSearch} onChange={e => setServicoIdSearch(e.target.value)} className="pl-9" />
-            </div>
-          </div>
-
-          <div className="flex justify-end">
-            <Button variant="ghost" size="sm" onClick={clearFilters}>Limpar filtros</Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Lista */}
-      {loading ? (
-        <div className="space-y-2">
-          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}
-        </div>
-      ) : rows.length === 0 ? (
-        <Card><CardContent className="p-10 text-center text-muted-foreground">Nenhum pagamento encontrado para os filtros.</CardContent></Card>
-      ) : (
+      {auditMode ? (
         <>
-          {/* Desktop */}
-          <div className="hidden lg:block">
+          <div className="mb-4 p-3 rounded-lg border border-primary/40 bg-primary/5 flex items-start gap-3">
+            <AlertTriangle className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+            <div className="flex-1 text-sm">
+              <p className="font-medium">Modo auditoria de pagamentos</p>
+              <p className="text-xs text-muted-foreground">
+                {auditLoading ? 'Procurando inconsistências...' : `${auditRows.length} pagamento(s) com campos faltantes (Maquininha, Bandeira ou Parcelas exigidos pelo tipo).`}
+              </p>
+            </div>
+          </div>
+
+          {auditLoading ? (
+            <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}</div>
+          ) : auditRows.length === 0 ? (
+            <Card><CardContent className="p-10 text-center text-muted-foreground">Nenhuma inconsistência encontrada. 🎉</CardContent></Card>
+          ) : (
             <Card>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted/40 text-xs text-muted-foreground">
                     <tr>
-                      <th className="text-left p-3 font-medium">Data</th>
+                      <th className="text-left p-3 font-medium">Erros</th>
                       <th className="text-left p-3 font-medium">Tipo</th>
                       <th className="text-left p-3 font-medium">Maquininha / Bandeira</th>
                       <th className="text-right p-3 font-medium">Valor</th>
-                      <th className="text-right p-3 font-medium">Taxa</th>
-                      <th className="text-right p-3 font-medium">Líquido</th>
-                      <th className="text-center p-3 font-medium">Status</th>
+                      <th className="text-left p-3 font-medium">Data</th>
                       <th className="text-left p-3 font-medium">Serviço</th>
                       <th className="text-left p-3 font-medium">Cliente / Veículo</th>
+                      <th className="text-center p-3 font-medium w-20">Ações</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map(r => (
+                    {auditRows.map(r => (
                       <tr key={r.id} className="border-t border-border hover:bg-muted/30">
-                        <td className="p-3 whitespace-nowrap">
-                          {r.data_pagamento ? format(new Date(r.data_pagamento + 'T00:00:00'), 'dd/MM/yyyy') : <span className="text-muted-foreground">—</span>}
-                        </td>
                         <td className="p-3">
-                          {r.tipo}
-                          {r.parcelas && r.parcelas > 1 && <span className="text-xs text-muted-foreground ml-1">({r.parcelas}x)</span>}
+                          <div className="flex flex-wrap gap-1">
+                            {r._errors.map(err => (
+                              <span key={err} className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-destructive/15 text-destructive whitespace-nowrap">{err}</span>
+                            ))}
+                          </div>
                         </td>
+                        <td className="p-3">{r.tipo}</td>
                         <td className="p-3 text-xs">
-                          {r.maquininha?.nome || <span className="text-muted-foreground">—</span>}
-                          {r.bandeira?.nome && <div className="text-muted-foreground">{r.bandeira.nome}</div>}
+                          {r.maquininha?.nome || <span className="text-destructive">—</span>}
+                          {r.bandeira?.nome ? <div className="text-muted-foreground">{r.bandeira.nome}</div> : (r.bandeira_id ? null : <div className="text-destructive">—</div>)}
                         </td>
                         <td className="p-3 text-right whitespace-nowrap font-medium">{formatCurrency(Number(r.valor))}</td>
-                        <td className="p-3 text-right whitespace-nowrap text-xs text-muted-foreground">
-                          {Number(r.taxa_aplicada).toFixed(2)}%
-                          <div className="text-destructive">-{formatCurrency(taxaValor(r))}</div>
-                        </td>
-                        <td className="p-3 text-right whitespace-nowrap font-medium text-status-pago">{formatCurrency(liquido(r))}</td>
-                        <td className="p-3 text-center">
-                          <span className={cn(
-                            'px-2 py-0.5 rounded-full text-xs font-medium',
-                            r.pago ? 'bg-status-entregue-bg text-status-pago' : 'bg-status-aguardando-bg text-status-pendente'
-                          )}>
-                            {r.pago ? 'Pago' : 'Pendente'}
-                          </span>
+                        <td className="p-3 whitespace-nowrap text-xs">
+                          {r.data_pagamento ? format(new Date(r.data_pagamento + 'T00:00:00'), 'dd/MM/yyyy') : <span className="text-muted-foreground">—</span>}
                         </td>
                         <td className="p-3">
                           <button onClick={() => setViewService(r.servico_id)} className="text-primary hover:underline inline-flex items-center gap-1 text-xs font-mono">
@@ -576,84 +439,317 @@ export default function RelatorioPagamentos() {
                           <div>{r.servico?.cliente?.nome || <span className="text-muted-foreground">—</span>}</div>
                           <div className="text-muted-foreground">{veiculoLabel(r.servico)}</div>
                         </td>
+                        <td className="p-3 text-center">
+                          <Button variant="ghost" size="sm" onClick={() => setEditPagamentoId(r.id)} title="Editar pagamento">
+                            <Pencil className="w-4 h-4" />
+                          </Button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
             </Card>
+          )}
+        </>
+      ) : (
+        <>
+          {/* Resumo */}
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Total Recebido</p>
+                {resumoLoading ? <Skeleton className="h-7 w-32 mt-1" /> : (
+                  <p className="text-xl sm:text-2xl font-bold text-status-pago">{formatCurrency(resumo.total_pago)}</p>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Total Pendente</p>
+                {resumoLoading ? <Skeleton className="h-7 w-32 mt-1" /> : (
+                  <p className="text-xl sm:text-2xl font-bold text-primary">{formatCurrency(resumo.total_pendente)}</p>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Taxas (Pagos)</p>
+                {resumoLoading ? <Skeleton className="h-7 w-32 mt-1" /> : (
+                  <>
+                    <p className="text-xl sm:text-2xl font-bold text-destructive">{formatCurrency(resumo.total_taxas)}</p>
+                    <p className="text-[10px] text-muted-foreground mt-0.5">Taxa média: {taxaMedia.toFixed(2)}%</p>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Pagamentos</p>
+                {resumoLoading ? <Skeleton className="h-7 w-16 mt-1" /> : (
+                  <p className="text-xl sm:text-2xl font-bold">{resumo.total_itens}</p>
+                )}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-4">
+                <p className="text-xs text-muted-foreground">Serviços envolvidos</p>
+                {resumoLoading ? <Skeleton className="h-7 w-16 mt-1" /> : (
+                  <p className="text-xl sm:text-2xl font-bold">{resumo.total_servicos}</p>
+                )}
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Mobile */}
-          <div className="lg:hidden space-y-2">
-            {rows.map(r => (
-              <Card key={r.id}>
-                <CardContent className="p-3 space-y-2">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <div className="text-sm font-medium">{r.tipo}{r.parcelas && r.parcelas > 1 ? ` (${r.parcelas}x)` : ''}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {r.data_pagamento ? format(new Date(r.data_pagamento + 'T00:00:00'), 'dd/MM/yyyy') : 'Sem data'}
+          {/* Filtros */}
+          <Card className="mb-4">
+            <CardContent className="p-4 space-y-3">
+              <div className="flex flex-wrap gap-2">
+                {datePresets.map(p => (
+                  <Button key={p.value} variant={datePreset === p.value ? 'default' : 'outline'} size="sm"
+                    onClick={() => { setDatePreset(p.value); if (p.value !== 'custom') { setDateFrom(undefined); setDateTo(undefined); } }}>
+                    {p.label}
+                  </Button>
+                ))}
+              </div>
+
+              {datePreset === 'custom' && (
+                <div className="flex flex-wrap gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="justify-start font-normal">
+                        <CalendarIcon className="w-4 h-4 mr-2" />
+                        {dateFrom ? format(dateFrom, 'dd/MM/yyyy') : 'De'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={dateFrom} onSelect={setDateFrom} locale={ptBR} className={cn('p-3 pointer-events-auto')} />
+                    </PopoverContent>
+                  </Popover>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="justify-start font-normal">
+                        <CalendarIcon className="w-4 h-4 mr-2" />
+                        {dateTo ? format(dateTo, 'dd/MM/yyyy') : 'Até'}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <Calendar mode="single" selected={dateTo} onSelect={setDateTo} locale={ptBR} className={cn('p-3 pointer-events-auto')} />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
+                <Select value={statusFilter} onValueChange={(v: any) => setStatusFilter(v)}>
+                  <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="todos">Todos os status</SelectItem>
+                    <SelectItem value="pago">Pagos</SelectItem>
+                    <SelectItem value="pendente">Pendentes</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <Select value={tipoFilter} onValueChange={setTipoFilter}>
+                  <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os tipos</SelectItem>
+                    {tiposPagamento.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+
+                <Select value={maquininhaFilter} onValueChange={setMaquininhaFilter}>
+                  <SelectTrigger><SelectValue placeholder="Maquininha" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as maquininhas</SelectItem>
+                    <SelectItem value={SEM_MAQUININHA}>Sem maquininha</SelectItem>
+                    {maquininhas.map(m => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+
+                <Select value={bandeiraFilter} onValueChange={setBandeiraFilter}>
+                  <SelectTrigger><SelectValue placeholder="Bandeira" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todas as bandeiras</SelectItem>
+                    {bandeirasFiltradas.map(b => <SelectItem key={b.id} value={b.id}>{b.nome}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input placeholder="ID do serviço..." value={servicoIdSearch} onChange={e => setServicoIdSearch(e.target.value)} className="pl-9" />
+                </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Button variant="ghost" size="sm" onClick={clearFilters}>Limpar filtros</Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Lista */}
+          {loading ? (
+            <div className="space-y-2">
+              {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-20 w-full" />)}
+            </div>
+          ) : rows.length === 0 ? (
+            <Card><CardContent className="p-10 text-center text-muted-foreground">Nenhum pagamento encontrado para os filtros.</CardContent></Card>
+          ) : (
+            <>
+              {/* Desktop */}
+              <div className="hidden lg:block">
+                <Card>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted/40 text-xs text-muted-foreground">
+                        <tr>
+                          <th className="text-left p-3 font-medium">Data</th>
+                          <th className="text-left p-3 font-medium">Tipo</th>
+                          <th className="text-left p-3 font-medium">Maquininha / Bandeira</th>
+                          <th className="text-right p-3 font-medium">Valor</th>
+                          <th className="text-right p-3 font-medium">Taxa</th>
+                          <th className="text-right p-3 font-medium">Líquido</th>
+                          <th className="text-center p-3 font-medium">Status</th>
+                          <th className="text-left p-3 font-medium">Serviço</th>
+                          <th className="text-left p-3 font-medium">Cliente / Veículo</th>
+                          <th className="text-center p-3 font-medium w-20">Ações</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rows.map(r => (
+                          <tr key={r.id} className="border-t border-border hover:bg-muted/30">
+                            <td className="p-3 whitespace-nowrap">
+                              {r.data_pagamento ? format(new Date(r.data_pagamento + 'T00:00:00'), 'dd/MM/yyyy') : <span className="text-muted-foreground">—</span>}
+                            </td>
+                            <td className="p-3">
+                              {r.tipo}
+                              {r.parcelas && r.parcelas > 1 && <span className="text-xs text-muted-foreground ml-1">({r.parcelas}x)</span>}
+                            </td>
+                            <td className="p-3 text-xs">
+                              {r.maquininha?.nome || <span className="text-muted-foreground">—</span>}
+                              {r.bandeira?.nome && <div className="text-muted-foreground">{r.bandeira.nome}</div>}
+                            </td>
+                            <td className="p-3 text-right whitespace-nowrap font-medium">{formatCurrency(Number(r.valor))}</td>
+                            <td className="p-3 text-right whitespace-nowrap text-xs text-muted-foreground">
+                              {Number(r.taxa_aplicada).toFixed(2)}%
+                              <div className="text-destructive">-{formatCurrency(taxaValor(r))}</div>
+                            </td>
+                            <td className="p-3 text-right whitespace-nowrap font-medium text-status-pago">{formatCurrency(liquido(r))}</td>
+                            <td className="p-3 text-center">
+                              <span className={cn(
+                                'px-2 py-0.5 rounded-full text-xs font-medium',
+                                r.pago ? 'bg-status-entregue-bg text-status-pago' : 'bg-status-aguardando-bg text-status-pendente'
+                              )}>
+                                {r.pago ? 'Pago' : 'Pendente'}
+                              </span>
+                            </td>
+                            <td className="p-3">
+                              <button onClick={() => setViewService(r.servico_id)} className="text-primary hover:underline inline-flex items-center gap-1 text-xs font-mono">
+                                {r.servico_id} <ExternalLink className="w-3 h-3" />
+                              </button>
+                            </td>
+                            <td className="p-3 text-xs">
+                              <div>{r.servico?.cliente?.nome || <span className="text-muted-foreground">—</span>}</div>
+                              <div className="text-muted-foreground">{veiculoLabel(r.servico)}</div>
+                            </td>
+                            <td className="p-3 text-center">
+                              <Button variant="ghost" size="sm" onClick={() => setEditPagamentoId(r.id)} title="Editar pagamento">
+                                <Pencil className="w-4 h-4" />
+                              </Button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </Card>
+              </div>
+
+              {/* Mobile */}
+              <div className="lg:hidden space-y-2">
+                {rows.map(r => (
+                  <Card key={r.id}>
+                    <CardContent className="p-3 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="text-sm font-medium">{r.tipo}{r.parcelas && r.parcelas > 1 ? ` (${r.parcelas}x)` : ''}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {r.data_pagamento ? format(new Date(r.data_pagamento + 'T00:00:00'), 'dd/MM/yyyy') : 'Sem data'}
+                          </div>
+                        </div>
+                        <span className={cn(
+                          'px-2 py-0.5 rounded-full text-xs font-medium shrink-0',
+                          r.pago ? 'bg-status-entregue-bg text-status-pago' : 'bg-status-aguardando-bg text-status-pendente'
+                        )}>
+                          {r.pago ? 'Pago' : 'Pendente'}
+                        </span>
                       </div>
-                    </div>
-                    <span className={cn(
-                      'px-2 py-0.5 rounded-full text-xs font-medium shrink-0',
-                      r.pago ? 'bg-status-entregue-bg text-status-pago' : 'bg-status-aguardando-bg text-status-pendente'
-                    )}>
-                      {r.pago ? 'Pago' : 'Pendente'}
-                    </span>
-                  </div>
 
-                  <div className="flex items-end justify-between">
-                    <div className="text-xs text-muted-foreground">
-                      {r.maquininha?.nome && <div>{r.maquininha.nome}{r.bandeira?.nome ? ` • ${r.bandeira.nome}` : ''}</div>}
-                      {Number(r.taxa_aplicada) > 0 && <div>Taxa {Number(r.taxa_aplicada).toFixed(2)}% • Líq. {formatCurrency(liquido(r))}</div>}
-                    </div>
-                    <div className="text-lg font-bold">{formatCurrency(Number(r.valor))}</div>
-                  </div>
+                      <div className="flex items-end justify-between">
+                        <div className="text-xs text-muted-foreground">
+                          {r.maquininha?.nome && <div>{r.maquininha.nome}{r.bandeira?.nome ? ` • ${r.bandeira.nome}` : ''}</div>}
+                          {Number(r.taxa_aplicada) > 0 && <div>Taxa {Number(r.taxa_aplicada).toFixed(2)}% • Líq. {formatCurrency(liquido(r))}</div>}
+                        </div>
+                        <div className="text-lg font-bold">{formatCurrency(Number(r.valor))}</div>
+                      </div>
 
-                  <div className="flex items-center justify-between pt-2 border-t border-border text-xs">
-                    <button onClick={() => setViewService(r.servico_id)} className="text-primary inline-flex items-center gap-1 font-mono">
-                      {r.servico_id} <ExternalLink className="w-3 h-3" />
-                    </button>
-                    <div className="text-right text-muted-foreground">
-                      <div>{r.servico?.cliente?.nome || '—'}</div>
-                      <div>{veiculoLabel(r.servico)}</div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+                      <div className="flex items-center justify-between pt-2 border-t border-border text-xs gap-2">
+                        <button onClick={() => setViewService(r.servico_id)} className="text-primary inline-flex items-center gap-1 font-mono">
+                          {r.servico_id} <ExternalLink className="w-3 h-3" />
+                        </button>
+                        <div className="flex-1 text-right text-muted-foreground">
+                          <div>{r.servico?.cliente?.nome || '—'}</div>
+                          <div>{veiculoLabel(r.servico)}</div>
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={() => setEditPagamentoId(r.id)} className="h-8 px-2">
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
 
-          {/* Paginação */}
-          <div className="flex items-center justify-between mt-4 flex-wrap gap-2">
-            <p className="text-xs text-muted-foreground">
-              Mostrando {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} de {totalCount}
-            </p>
-            <Pagination className="mx-0 w-auto">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (page > 0) setPage(page - 1); }} className={cn(page === 0 && 'pointer-events-none opacity-50')} />
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationLink href="#" isActive>{page + 1}</PaginationLink>
-                </PaginationItem>
-                <PaginationItem>
-                  <span className="px-2 text-xs text-muted-foreground">de {totalPages}</span>
-                </PaginationItem>
-                <PaginationItem>
-                  <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (page < totalPages - 1) setPage(page + 1); }} className={cn(page >= totalPages - 1 && 'pointer-events-none opacity-50')} />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          </div>
+              {/* Paginação */}
+              <div className="flex items-center justify-between mt-4 flex-wrap gap-2">
+                <p className="text-xs text-muted-foreground">
+                  Mostrando {page * PAGE_SIZE + 1}–{Math.min((page + 1) * PAGE_SIZE, totalCount)} de {totalCount}
+                </p>
+                <Pagination className="mx-0 w-auto">
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (page > 0) setPage(page - 1); }} className={cn(page === 0 && 'pointer-events-none opacity-50')} />
+                    </PaginationItem>
+                    <PaginationItem>
+                      <PaginationLink href="#" isActive>{page + 1}</PaginationLink>
+                    </PaginationItem>
+                    <PaginationItem>
+                      <span className="px-2 text-xs text-muted-foreground">de {totalPages}</span>
+                    </PaginationItem>
+                    <PaginationItem>
+                      <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (page < totalPages - 1) setPage(page + 1); }} className={cn(page >= totalPages - 1 && 'pointer-events-none opacity-50')} />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            </>
+          )}
         </>
       )}
 
       {viewService && (
         <ServiceViewDialog serviceId={viewService} open={!!viewService} onClose={() => setViewService(null)} onEdit={() => {}} />
       )}
+
+      <EditPagamentoDialog
+        pagamentoId={editPagamentoId}
+        open={!!editPagamentoId}
+        onClose={() => setEditPagamentoId(null)}
+        onSaved={() => {
+          if (auditMode) runAudit();
+          else { fetchData(); fetchResumo(); }
+        }}
+      />
     </div>
   );
 }
