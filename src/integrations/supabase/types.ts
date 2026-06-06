@@ -586,6 +586,25 @@ export type Database = {
           total_valor: number
         }[]
       }
+      relatorio_pagamentos_resumo: {
+        Args: {
+          p_bandeira_id?: string
+          p_data_from?: string
+          p_data_to?: string
+          p_maquininha_id?: string
+          p_sem_maquininha?: boolean
+          p_servico_id?: string
+          p_status?: string
+          p_tipo?: string
+        }
+        Returns: {
+          total_itens: number
+          total_pago: number
+          total_pendente: number
+          total_servicos: number
+          total_taxas: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
