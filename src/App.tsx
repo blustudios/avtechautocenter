@@ -12,6 +12,7 @@ import Estoque from "@/pages/Estoque";
 import Dashboard from "@/pages/Dashboard";
 import Relatorios from "@/pages/Relatorios";
 import RelatorioCustos from "@/pages/relatorios/Custos";
+import RelatorioPagamentos from "@/pages/relatorios/Pagamentos";
 import Configuracoes from "@/pages/Configuracoes";
 
 const queryClient = new QueryClient();
@@ -39,6 +40,7 @@ function ProtectedRoutes() {
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/relatorios" element={<Relatorios />} />
         <Route path="/relatorios/custos" element={<RelatorioCustos />} />
+        <Route path="/relatorios/pagamentos" element={<RelatorioPagamentos />} />
         <Route path="/configuracoes" element={<Configuracoes />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
