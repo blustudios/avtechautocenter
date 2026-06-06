@@ -595,7 +595,7 @@ export default function RelatorioPagamentos() {
       )}
 
       {viewService && (
-        <ServiceViewDialog serviceId={viewService} open={!!viewService} onOpenChange={(o) => !o && setViewService(null)} />
+        <ServiceViewDialog serviceId={viewService} open={!!viewService} onClose={() => setViewService(null)} />
       )}
     </div>
   );
