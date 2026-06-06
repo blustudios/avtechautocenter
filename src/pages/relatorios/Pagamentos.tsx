@@ -81,6 +81,12 @@ export default function RelatorioPagamentos() {
 
   const [viewService, setViewService] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [editPagamentoId, setEditPagamentoId] = useState<string | null>(null);
+
+  // Modo auditoria ("Buscar erros")
+  const [auditMode, setAuditMode] = useState(false);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditRows, setAuditRows] = useState<(PagamentoRow & { _errors: string[] })[]>([]);
 
   useEffect(() => {
     supabase.from('maquininhas').select('id, nome').order('nome').then(({ data }) => {
