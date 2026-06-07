@@ -476,7 +476,12 @@ export default function RelatorioCustos() {
                       <button onClick={() => setViewService(r.servico_id)} className="text-primary hover:underline font-mono text-xs">
                         {r.servico_id}
                       </button>
-                      <StatusBadge status={r.servico?.status || ''} />
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={r.servico?.status || ''} />
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditCustoId(r.id)} title="Editar custo">
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
