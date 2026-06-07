@@ -514,6 +514,7 @@ export default function RelatorioCustos() {
       )}
 
       <ServiceViewDialog serviceId={viewService} open={!!viewService} onClose={() => setViewService(null)} onEdit={() => {}} />
+      <EditCustoDialog custoId={editCustoId} open={!!editCustoId} onClose={() => setEditCustoId(null)} onSaved={() => { fetchData(); fetchResumo(); }} />
     </div>
   );
 }
