@@ -410,6 +410,7 @@ export default function RelatorioCustos() {
                       <th className="text-left p-3">Fornecedor</th>
                       <th className="text-left p-3">Serviço</th>
                       <th className="text-left p-3">Cliente / Veículo</th>
+                      <th className="text-right p-3 w-12"></th>
                     </tr>
                   </thead>
                   <tbody>
