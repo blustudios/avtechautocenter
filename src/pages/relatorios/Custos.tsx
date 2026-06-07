@@ -436,6 +436,11 @@ export default function RelatorioCustos() {
                             <div>{r.servico?.cliente?.nome || <span className="text-muted-foreground">—</span>}</div>
                             <div className="text-xs text-muted-foreground">{veiculoLabel(r.servico)}</div>
                           </td>
+                          <td className="p-3 text-right">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditCustoId(r.id)} title="Editar custo">
+                              <Pencil className="w-4 h-4" />
+                            </Button>
+                          </td>
                         </tr>
                       );
                     })}
