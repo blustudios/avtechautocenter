@@ -14,7 +14,8 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { formatCurrency } from '@/lib/format';
 import { format, startOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronRight, CalendarIcon, Search, Download, RefreshCw, Receipt } from 'lucide-react';
+import { ChevronRight, CalendarIcon, Search, Download, RefreshCw, Receipt, Pencil } from 'lucide-react';
+import { EditCustoDialog } from '@/components/relatorios/EditCustoDialog';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
@@ -71,6 +72,7 @@ export default function RelatorioCustos() {
   const [dateTo, setDateTo] = useState<Date | undefined>();
 
   const [viewService, setViewService] = useState<string | null>(null);
+  const [editCustoId, setEditCustoId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
 
   // Load fornecedores once
@@ -408,6 +410,7 @@ export default function RelatorioCustos() {
                       <th className="text-left p-3">Fornecedor</th>
                       <th className="text-left p-3">Serviço</th>
                       <th className="text-left p-3">Cliente / Veículo</th>
+                      <th className="text-right p-3 w-12"></th>
                     </tr>
                   </thead>
                   <tbody>
@@ -432,6 +435,11 @@ export default function RelatorioCustos() {
                           <td className="p-3">
                             <div>{r.servico?.cliente?.nome || <span className="text-muted-foreground">—</span>}</div>
                             <div className="text-xs text-muted-foreground">{veiculoLabel(r.servico)}</div>
+                          </td>
+                          <td className="p-3 text-right">
+                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditCustoId(r.id)} title="Editar custo">
+                              <Pencil className="w-4 h-4" />
+                            </Button>
                           </td>
                         </tr>
                       );
@@ -468,7 +476,12 @@ export default function RelatorioCustos() {
                       <button onClick={() => setViewService(r.servico_id)} className="text-primary hover:underline font-mono text-xs">
                         {r.servico_id}
                       </button>
-                      <StatusBadge status={r.servico?.status || ''} />
+                      <div className="flex items-center gap-2">
+                        <StatusBadge status={r.servico?.status || ''} />
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setEditCustoId(r.id)} title="Editar custo">
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -501,6 +514,7 @@ export default function RelatorioCustos() {
       )}
 
       <ServiceViewDialog serviceId={viewService} open={!!viewService} onClose={() => setViewService(null)} onEdit={() => {}} />
+      <EditCustoDialog custoId={editCustoId} open={!!editCustoId} onClose={() => setEditCustoId(null)} onSaved={() => { fetchData(); fetchResumo(); }} />
     </div>
   );
 }
