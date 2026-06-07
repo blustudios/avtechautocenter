@@ -14,7 +14,8 @@ import { Pagination, PaginationContent, PaginationItem, PaginationLink, Paginati
 import { formatCurrency } from '@/lib/format';
 import { format, startOfDay, startOfMonth, endOfMonth, startOfWeek, endOfWeek, subDays, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { ChevronRight, CalendarIcon, Search, Download, RefreshCw, Receipt } from 'lucide-react';
+import { ChevronRight, CalendarIcon, Search, Download, RefreshCw, Receipt, Pencil } from 'lucide-react';
+import { EditCustoDialog } from '@/components/relatorios/EditCustoDialog';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
