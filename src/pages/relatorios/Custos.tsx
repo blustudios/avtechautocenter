@@ -72,6 +72,7 @@ export default function RelatorioCustos() {
   const [dateTo, setDateTo] = useState<Date | undefined>();
 
   const [viewService, setViewService] = useState<string | null>(null);
+  const [editCustoId, setEditCustoId] = useState<string | null>(null);
   const [exporting, setExporting] = useState(false);
 
   // Load fornecedores once
