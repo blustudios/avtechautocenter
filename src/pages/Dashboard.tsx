@@ -96,7 +96,7 @@ export default function Dashboard() {
   const [dirty, setDirty] = useState(false);
 
   const [startDate, endDate] = useMemo(() => getDateRange(filterType, customStart, customEnd), [filterType, customStart, customEnd]);
-  const [prevStart, prevEnd] = useMemo(() => getPrevRange(startDate, endDate), [startDate, endDate]);
+  const [prevStart, prevEnd] = useMemo(() => getPrevRange(filterType, startDate, endDate), [filterType, startDate, endDate]);
 
   const s = toDateStr(startDate);
   const e = toDateStr(endDate);
