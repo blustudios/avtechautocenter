@@ -7,12 +7,12 @@ import { TrendingUp, TrendingDown, DollarSign, Wrench, Car, Calculator, CreditCa
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, differenceInCalendarDays, eachDayOfInterval } from 'date-fns';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, subDays, differenceInCalendarDays, eachDayOfInterval } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-type FilterType = 'hoje' | 'semana' | 'mes' | 'custom';
+type FilterType = 'hoje' | 'ontem' | 'semana' | 'mes' | 'mes_passado' | 'custom';
 
 interface SavedFilter {
   type: FilterType;
@@ -48,14 +48,33 @@ function getDateRange(type: FilterType, customStart?: Date, customEnd?: Date): [
   const today = new Date();
   switch (type) {
     case 'hoje': return [today, today];
+    case 'ontem': { const y = subDays(today, 1); return [y, y]; }
     case 'semana': return [startOfWeek(today, { weekStartsOn: 1 }), endOfWeek(today, { weekStartsOn: 1 })];
     case 'mes': return [startOfMonth(today), endOfMonth(today)];
+    case 'mes_passado': { const m = subMonths(today, 1); return [startOfMonth(m), endOfMonth(m)]; }
     case 'custom': return [customStart || today, customEnd || today];
   }
 }
 
-function getPrevRange(start: Date, end: Date): [Date, Date] {
-  return [subMonths(start, 1), subMonths(end, 1)];
+function getPrevRange(type: FilterType, start: Date, end: Date): [Date, Date] {
+  const today = new Date();
+  switch (type) {
+    case 'hoje': { const y = subDays(today, 1); return [y, y]; }
+    case 'ontem': { const a = subDays(today, 2); return [a, a]; }
+    case 'semana': return [subDays(start, 7), subDays(end, 7)];
+    case 'mes': {
+      const prevMonth = subMonths(today, 1);
+      return [startOfMonth(prevMonth), prevMonth];
+    }
+    case 'mes_passado': {
+      const m = subMonths(today, 2);
+      return [startOfMonth(m), endOfMonth(m)];
+    }
+    case 'custom': {
+      const days = differenceInCalendarDays(end, start) + 1;
+      return [subDays(start, days), subDays(start, 1)];
+    }
+  }
 }
 
 function toDateStr(d: Date): string {
@@ -77,7 +96,7 @@ export default function Dashboard() {
   const [dirty, setDirty] = useState(false);
 
   const [startDate, endDate] = useMemo(() => getDateRange(filterType, customStart, customEnd), [filterType, customStart, customEnd]);
-  const [prevStart, prevEnd] = useMemo(() => getPrevRange(startDate, endDate), [startDate, endDate]);
+  const [prevStart, prevEnd] = useMemo(() => getPrevRange(filterType, startDate, endDate), [filterType, startDate, endDate]);
 
   const s = toDateStr(startDate);
   const e = toDateStr(endDate);
@@ -206,8 +225,10 @@ export default function Dashboard() {
 
   const filterButtons: { label: string; value: FilterType }[] = [
     { label: 'Hoje', value: 'hoje' },
+    { label: 'Ontem', value: 'ontem' },
     { label: 'Esta Semana', value: 'semana' },
     { label: 'Este Mês', value: 'mes' },
+    { label: 'Mês Passado', value: 'mes_passado' },
   ];
 
   return (
