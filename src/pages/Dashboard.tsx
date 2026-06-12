@@ -91,6 +91,21 @@ function countWorkingDays(start: Date, end: Date): number {
   return days.filter(d => { const dow = d.getDay(); return dow >= 1 && dow <= 6; }).length;
 }
 
+const toMonthKey = (d: Date) => format(d, 'yyyy-MM');
+const parseMonthKey = (k: string) => { const [y, m] = k.split('-').map(Number); return new Date(y, m - 1, 1); };
+const formatMonthLabel = (d: Date) => {
+  const s = format(d, 'MMMM/yyyy', { locale: ptBR });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+
+const SLOT_COLORS = ['hsl(217 91% 60%)', 'hsl(280 70% 60%)', 'hsl(160 70% 45%)'];
+const CURRENT_COLOR = 'hsl(var(--primary))';
+const GOAL_VALUES: { key: 'g55' | 'g65' | 'g75'; label: string; value: number }[] = [
+  { key: 'g55', label: 'R$ 55k', value: 55000 },
+  { key: 'g65', label: 'R$ 65k', value: 65000 },
+  { key: 'g75', label: 'R$ 75k', value: 75000 },
+];
+
 export default function Dashboard() {
   const saved = localStorage.getItem('dashboard_filter');
   const initial: SavedFilter = saved ? JSON.parse(saved) : { type: 'mes' };
