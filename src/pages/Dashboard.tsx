@@ -445,7 +445,7 @@ export default function Dashboard() {
 
             {/* Gráfico acumulado mensal */}
             <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-semibold text-muted-foreground">Faturamento Acumulado do Mês</h3>
                   <Tooltip>
@@ -459,37 +459,99 @@ export default function Dashboard() {
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="cmp-month" className="text-xs text-muted-foreground cursor-pointer">Comparar com mês anterior</Label>
-                  <Switch id="cmp-month" checked={compareMonth} onCheckedChange={setCompareMonth} />
+                <div className="flex items-center gap-4 flex-wrap">
+                  {GOAL_VALUES.map(g => (
+                    <label key={g.key} className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+                      <Checkbox checked={goals[g.key]} onCheckedChange={(c) => setGoals(prev => ({ ...prev, [g.key]: !!c }))} />
+                      Meta {g.label}
+                    </label>
+                  ))}
                 </div>
               </div>
+
+              <div className="flex flex-wrap gap-2 mb-3">
+                {[0, 1, 2].map(slot => (
+                  <div key={slot} className="flex items-center gap-1.5">
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Comparar {slot + 1}</span>
+                    <Select
+                      value={compareMonths[slot] ?? 'none'}
+                      onValueChange={(v) => setCompareMonths(prev => { const next = [...prev]; next[slot] = v === 'none' ? null : v; return next; })}
+                    >
+                      <SelectTrigger className="h-8 w-[150px] text-xs">
+                        <SelectValue placeholder="Nenhum" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhum</SelectItem>
+                        {monthOptions.map(o => (
+                          <SelectItem key={o.key} value={o.key} disabled={compareMonths.some((k, i) => i !== slot && k === o.key)}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+
               <ResponsiveContainer width="100%" height={280}>
                 <AreaChart data={cumulativeSeries}>
                   <defs>
-                    <linearGradient id="fillAtual" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.5} />
-                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
-                    </linearGradient>
-                    <linearGradient id="fillAnterior" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.02} />
-                    </linearGradient>
+                    {activeMonthKeys.map((k, idx) => (
+                      <linearGradient key={k} id={`fillMonth-${k}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={monthColorMap[k]} stopOpacity={idx === 0 ? 0.45 : 0.25} />
+                        <stop offset="100%" stopColor={monthColorMap[k]} stopOpacity={0.03} />
+                      </linearGradient>
+                    ))}
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
                   <XAxis dataKey="dia" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
                   <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} tickFormatter={(v) => `R$ ${(v/1000).toFixed(0)}k`} />
                   <RTooltip
                     contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, color: 'hsl(var(--foreground))' }}
-                    formatter={(v: number, name: string) => [formatCurrency(v), name === 'atual' ? 'Mês atual' : 'Mês anterior']}
+                    formatter={(v: number, name: string) => {
+                      const label = name === curMonthKey
+                        ? `${formatMonthLabel(parseMonthKey(name))} (Atual)`
+                        : formatMonthLabel(parseMonthKey(name));
+                      return [formatCurrency(v), label];
+                    }}
                     labelFormatter={(d) => `Dia ${d}`}
                   />
-                  {compareMonth && (
-                    <Area type="monotone" dataKey="anterior" stroke="hsl(var(--muted-foreground))" strokeWidth={2} strokeDasharray="4 4" fill="url(#fillAnterior)" connectNulls />
-                  )}
-                  <Area type="monotone" dataKey="atual" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#fillAtual)" connectNulls />
+                  {activeMonthKeys.slice().reverse().map(k => (
+                    <Area
+                      key={k}
+                      type="monotone"
+                      dataKey={k}
+                      stroke={monthColorMap[k]}
+                      strokeWidth={2}
+                      strokeDasharray={k === curMonthKey ? undefined : '4 4'}
+                      fill={`url(#fillMonth-${k})`}
+                      connectNulls
+                    />
+                  ))}
+                  {GOAL_VALUES.filter(g => goals[g.key]).map(g => (
+                    <ReferenceLine
+                      key={g.key}
+                      y={g.value}
+                      stroke="hsl(var(--muted-foreground))"
+                      strokeDasharray="6 4"
+                      strokeOpacity={0.7}
+                      label={{ value: `Meta ${g.label}`, position: 'right', fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                    />
+                  ))}
                 </AreaChart>
               </ResponsiveContainer>
+
+              {/* Legenda customizada */}
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 pt-3 border-t border-border">
+                {activeMonthKeys.map(k => (
+                  <div key={k} className="flex items-center gap-1.5 text-xs">
+                    <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: monthColorMap[k] }} />
+                    <span className="text-muted-foreground">
+                      {formatMonthLabel(parseMonthKey(k))}{k === curMonthKey ? ' (Atual)' : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
