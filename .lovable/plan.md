@@ -1,97 +1,103 @@
 ## Objetivo
 
-Quatro melhorias no `src/pages/Dashboard.tsx`:
+Melhorar o gráfico **"Faturamento Acumulado do Mês"** no Dashboard para:
 
-1. Corrigir **Média Carros/Dia** e **Média Fat./Dia** quando "Este Mês" estiver ativo.
-2. Novo card **Previsão de Recebimentos**.
-3. Ícone **?** em cada card com explicação curta da métrica.
-4. Novo gráfico de **área acumulada** do faturamento do mês, com toggle on/off para sobrepor o mês anterior.
+1. Comparar o mês atual com **até 3 meses passados** (selecionáveis pelo usuário).
+2. Cada mês com **cor distinta** e **legenda** (mês/cor) abaixo do gráfico.
+3. Três checkboxes **show/hide** para exibir **linhas tracejadas horizontais de metas**: R$ 55k, R$ 65k e R$ 75k.
+
+Arquivo afetado: `**src/pages/Dashboard.tsx**` (único).
 
 ---
 
-### 1. Correção das médias proporcionais ("Este Mês")
+### 1. Seleção de meses comparativos (até 3)
 
-**Problema atual**: `totalDays` e `workDays` usam `startDate..endDate` que, para `mes`, vai do dia 1 até o fim do mês (ex.: 30/06). Hoje é 12/06 → divisor = 30 dias, subestimando a média.
+Substituir o `Switch` "Comparar com mês anterior" por um controle de seleção múltipla:
 
-**Solução**: para filtros que se estendem para o futuro (`mes`), o divisor deve considerar apenas até **hoje**.
+- 3 dropdowns (`Select` shadcn) lado a lado no header do card, rotulados **"Comparar 1"**, **"Comparar 2"**, **"Comparar 3"**, cada um com opção `Nenhum` + lista dos **últimos 12 meses** anteriores ao atual (ex.: "Maio/2026", "Abril/2026", …).
+- Estado: `const [compareMonths, setCompareMonths] = useState<(string|null)[]>([toMonthKey(subMonths(today,1)), null, null])` (default: mês anterior já selecionado no slot 1, para preservar comportamento atual).
+- Slots não preenchidos ou repetidos são ignorados.
+
+**Cores fixas por slot** (semânticas, dark-mode safe):
+
+- Mês atual: `hsl(var(--primary))` (laranja)
+- Slot 1: `hsl(217 91% 60%)` (azul)
+- Slot 2: `hsl(280 70% 60%)` (roxo)
+- Slot 3: `hsl(160 70% 45%)` (verde-água)
+
+---
+
+### 2. Query e série de dados
+
+Refatorar `useQuery` `dashboard-cumulative` para buscar **N+1 meses** dinamicamente:
 
 ```ts
-const effectiveEnd = endDate > today ? today : endDate;
-const totalDays  = differenceInCalendarDays(effectiveEnd, startDate) + 1;
-const workDays   = countWorkingDays(startDate, effectiveEnd);
+const monthsToFetch = [today, ...compareMonths.filter(Boolean).map(parseMonthKey)];
+// Promise.all sobre cada mês -> Record<monthKey, rows[]>
 ```
 
-Aplica-se a `mes` (e a qualquer custom que termine no futuro). `hoje`, `ontem`, `mes_passado`, `semana` (passada) ficam corretos automaticamente.
+`cumulativeSeries` passa a produzir objetos com chaves dinâmicas por mês:
+
+```ts
+{ dia: 1, atual: 1200, '2026-05': 980, '2026-04': 1500 }
+```
+
+Regras mantidas:
+
+- Mês atual corta em `todayDay` (não projeta).
+- Meses passados sempre completos.
+- Alinhamento por dia do mês (1→1, 2→2…); dias extras (ex.: 31 em fev) ficam `null`.
+- Eixo X = 1..max(diasDosMesesSelecionados).
 
 ---
 
-### 2. Card "Previsão de Recebimentos"
+### 3. Renderização do `AreaChart`
 
-Adicionar nova métrica ao grid principal:
+- Renderizar um `<Area>` para o mês atual + um para cada slot ativo, usando a cor correspondente, `strokeWidth=2`, `fill=url(#fillX)` com `opacity` ~0.25 para passados e ~0.4 para o atual.
+- Gradients definidos dinamicamente em `<defs>` (um `linearGradient` por mês selecionado).
+- `connectNulls` ativo.
 
-- **Fonte**: serviços com `status = 'em_progresso'` que **não tenham nenhum registro em `servicos_pagamentos**`.
-- **Valor**: soma de `valor_total` desses serviços.
-- **Não é afetado pelos filtros de período** (é uma fotografia atual do que está na oficina).
-- Query separada (sem date filter):
-  ```ts
-  supabase.from('servicos')
-    .select('id, valor_total, servicos_pagamentos(id)')
-    .eq('status', 'em_progresso')
-  // filtrar client-side: pagamentos.length === 0
-  ```
-- Ícone: `Clock` ou `Hourglass`.
+**Legenda customizada** (abaixo do gráfico, dentro do card):
+
+- Lista horizontal de chips: `[bolinha colorida] Junho/2026 (Atual)`, `Maio/2026`, etc.
+- Renderizada manualmente (não o `<Legend>` do recharts) para controle visual e consistência com o resto do app.
 
 ---
 
-### 3. Tooltip "?" em cada card
+### 4. Metas (linhas tracejadas)
 
-- Estender `metrics[]` adicionando `help: string`.
-- Renderizar `HelpCircle` (lucide) ao lado do label, dentro de `Tooltip`/`TooltipProvider` do shadcn (`@/components/ui/tooltip`).
-- Textos curtos e didáticos, ex.:
-  - Faturamento: "Soma de todos os pagamentos efetivamente recebidos no período."
-  - (Faturamento) − (% Taxas): "Faturamento descontando taxas das maquininhas."
-  - Lucro Líquido: "Faturamento sem taxas, menos custos dos serviços."
-  - Custos dos Serviços: "Total gasto em peças e insumos no período."
-  - Serviços: "Quantidade de serviços iniciados no período."
-  - Ticket Médio: "Valor médio por serviço (Faturamento ÷ nº de serviços)."
-  - Média Carros/Dia: "Serviços por dia útil (seg–sáb) do período."
-  - Média Fat./Dia: "Faturamento dividido pelos dias do período."
-  - Contas a Receber: "Pagamentos pendentes com vencimento no período."
-  - Previsão de Recebimentos: "Soma do valor de serviços em progresso sem nenhum pagamento lançado."
+Acima ou ao lado dos seletores de mês, adicionar 3 `Checkbox` shadcn:
+
+```
+[ ] Meta R$ 55k   [ ] Meta R$ 65k   [ ] Meta R$ 75k
+```
+
+Estado: `const [goals, setGoals] = useState({ g55: false, g65: false, g75: false })`.
+
+Para cada meta ativa, adicionar um `<ReferenceLine y={55000} stroke="hsl(var(--muted-foreground))" strokeDasharray="6 4" label={{ value: 'R$ 55k', position: 'right', fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />` (importar `ReferenceLine` do recharts).
+
+Cores das metas: tom neutro (`muted-foreground`) com variações sutis de opacidade, ou uma cor única para todas — manter discreto para não competir com as séries.
 
 ---
 
-### 4. Gráfico de área acumulada do mês
+### 5. Tooltip
 
-**Card independente** abaixo do "Faturamento por Dia", largura total (`lg:col-span-2`).
-
-- **Independente dos filtros** do topo. Sempre considera `[startOfMonth(today), endOfMonth(today)]` e `[startOfMonth(subMonths(today,1)), endOfMonth(subMonths(today,1))]`.
-- Nova query (`useQuery` com `staleTime` igual ao do dashboard), busca pagamentos `pago=true` do mês atual e do mês anterior (mesmo filtro de status que as outras queries).
-- Constrói série diária com **soma acumulada**:
-  ```ts
-  daysOfMonth.forEach((d, i) => {
-    acc += valoresDoDia[d] || 0;
-    serie.push({ dia: i+1, atual: acc, anterior: accAnterior[i] });
-  });
-  ```
-  - Mês atual: corta no dia de hoje (não projeta futuro).
-  - Mês anterior: série completa do mês.
-  - Eixo X: dia do mês (1..31).
-- Componente `AreaChart` do recharts com dois `<Area>`:
-  - `atual` em `hsl(var(--primary))`, fill com gradient ~0.4 opacidade.
-  - `anterior` em cor neutra (`hsl(var(--muted-foreground))`), fill ~0.15, **render condicional** via toggle.
-- Toggle: `Switch` (shadcn) + label "Comparar com mês anterior" no header do card. Default: off.
-- Tooltip do recharts formatando valores como moeda.
+Atualizar `formatter` do `RTooltip` para iterar dinamicamente sobre as séries presentes, exibindo `[cor] Mês X: R$ valor` para cada mês ativo no ponto.
 
 ---
 
-### Arquivos
+### Detalhes técnicos
 
-- **Editar**: `src/pages/Dashboard.tsx` — único arquivo afetado.
-- Imports novos: `HelpCircle, Hourglass` (lucide), `Tooltip/TooltipProvider/TooltipTrigger/TooltipContent` (`@/components/ui/tooltip`), `Switch` (`@/components/ui/switch`), `AreaChart, Area, CartesianGrid` (recharts).
+- Novo helper `toMonthKey(date)` → `'YYYY-MM'` e `parseMonthKey(key)` → `Date` (1º dia do mês).
+- Novo helper `formatMonthLabel(date)` → `'Maio/2026'` (usar `format` do `date-fns` com locale `ptBR`).
+- Imports adicionais: `ReferenceLine` (recharts), `Checkbox` (`@/components/ui/checkbox`), `Select*` (`@/components/ui/select`), `ptBR` (`date-fns/locale`).
+- Remover: `Switch` daquele card (mantido se usado em outro lugar — verificar; provavelmente exclusivo).
+- `staleTime`: manter 2 min.
+
+---
 
 ### Pontos a considerar:
 
-1. **Previsão de Recebimentos**: contar apenas serviços **sem nenhum pagamento** (mesmo "A Definir" conta como pagamento).
-2. **Gráfico acumulado**: a linha do mês atual deve **parar em hoje** (sem projetar).
-3. **Mês com menos dias**: ao comparar Fev (28) com Mar (31), alinho por **dia do mês** (1→1, 2→2…) e ignoro dias extras.
+1. **Default ao abrir**: slot 1 = mês anterior já selecionado, slots 2 e 3 vazios.
+2. **Lista de meses no dropdown**: últimos 12 meses anteriores ao atual.
+3. **Metas**: valores fixos R$ 55k / 65k / 75k (não editáveis).

@@ -2,13 +2,14 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/format';
-import { BarChart, Bar, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, CartesianGrid } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, CartesianGrid, ReferenceLine } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, Wrench, Car, Calculator, CreditCard, Save, CalendarIcon, HelpCircle, Hourglass } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Switch } from '@/components/ui/switch';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, subDays, differenceInCalendarDays, eachDayOfInterval, getDate, getDaysInMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -90,6 +91,21 @@ function countWorkingDays(start: Date, end: Date): number {
   return days.filter(d => { const dow = d.getDay(); return dow >= 1 && dow <= 6; }).length;
 }
 
+const toMonthKey = (d: Date) => format(d, 'yyyy-MM');
+const parseMonthKey = (k: string) => { const [y, m] = k.split('-').map(Number); return new Date(y, m - 1, 1); };
+const formatMonthLabel = (d: Date) => {
+  const s = format(d, 'MMMM/yyyy', { locale: ptBR });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+};
+
+const SLOT_COLORS = ['hsl(217 91% 60%)', 'hsl(280 70% 60%)', 'hsl(160 70% 45%)'];
+const CURRENT_COLOR = 'hsl(var(--primary))';
+const GOAL_VALUES: { key: 'g55' | 'g65' | 'g75'; label: string; value: number }[] = [
+  { key: 'g55', label: 'R$ 55k', value: 55000 },
+  { key: 'g65', label: 'R$ 65k', value: 65000 },
+  { key: 'g75', label: 'R$ 75k', value: 75000 },
+];
+
 export default function Dashboard() {
   const saved = localStorage.getItem('dashboard_filter');
   const initial: SavedFilter = saved ? JSON.parse(saved) : { type: 'mes' };
@@ -98,7 +114,8 @@ export default function Dashboard() {
   const [customStart, setCustomStart] = useState<Date | undefined>(initial.customStart ? new Date(initial.customStart) : undefined);
   const [customEnd, setCustomEnd] = useState<Date | undefined>(initial.customEnd ? new Date(initial.customEnd) : undefined);
   const [dirty, setDirty] = useState(false);
-  const [compareMonth, setCompareMonth] = useState(false);
+  const [compareMonths, setCompareMonths] = useState<(string | null)[]>(() => [toMonthKey(subMonths(new Date(), 1)), null, null]);
+  const [goals, setGoals] = useState<{ g55: boolean; g65: boolean; g75: boolean }>({ g55: false, g65: false, g75: false });
 
   const [startDate, endDate] = useMemo(() => getDateRange(filterType, customStart, customEnd), [filterType, customStart, customEnd]);
   const [prevStart, prevEnd] = useMemo(() => getPrevRange(filterType, startDate, endDate), [filterType, startDate, endDate]);
@@ -166,65 +183,83 @@ export default function Dashboard() {
 
   // Gráfico acumulado mensal (independente dos filtros)
   const today = new Date();
-  const curMonthStart = startOfMonth(today);
-  const curMonthEnd = endOfMonth(today);
-  const prevMonthStart = startOfMonth(subMonths(today, 1));
-  const prevMonthEnd = endOfMonth(subMonths(today, 1));
+  const curMonthKey = toMonthKey(startOfMonth(today));
+
+  // Slots ativos (mês atual + comparações selecionadas, sem duplicar)
+  const activeMonthKeys = useMemo(() => {
+    const arr: string[] = [curMonthKey];
+    compareMonths.forEach(k => { if (k && !arr.includes(k)) arr.push(k); });
+    return arr;
+  }, [compareMonths, curMonthKey]);
+
+  // Opções de meses (12 meses anteriores ao atual)
+  const monthOptions = useMemo(() => {
+    const opts: { key: string; label: string }[] = [];
+    for (let i = 1; i <= 12; i++) {
+      const d = subMonths(startOfMonth(today), i);
+      opts.push({ key: toMonthKey(d), label: formatMonthLabel(d) });
+    }
+    return opts;
+  }, [today]);
 
   const { data: cumulativeData } = useQuery({
-    queryKey: ['dashboard-cumulative', toDateStr(curMonthStart), toDateStr(prevMonthStart)],
+    queryKey: ['dashboard-cumulative', activeMonthKeys.join(',')],
     queryFn: async () => {
-      const [cur, prev] = await Promise.all([
-        supabase.from('servicos_pagamentos')
+      const results = await Promise.all(activeMonthKeys.map(async (k) => {
+        const start = parseMonthKey(k);
+        const end = endOfMonth(start);
+        const { data } = await supabase.from('servicos_pagamentos')
           .select('valor, data_pagamento, tipo, servicos!inner(status)')
           .eq('pago', true)
-          .gte('data_pagamento', toDateStr(curMonthStart)).lte('data_pagamento', toDateStr(curMonthEnd))
-          .not('servicos.status', 'in', '("orcamento","cancelado")'),
-        supabase.from('servicos_pagamentos')
-          .select('valor, data_pagamento, tipo, servicos!inner(status)')
-          .eq('pago', true)
-          .gte('data_pagamento', toDateStr(prevMonthStart)).lte('data_pagamento', toDateStr(prevMonthEnd))
-          .not('servicos.status', 'in', '("orcamento","cancelado")'),
-      ]);
-      return {
-        cur: (cur.data || []) as any[],
-        prev: (prev.data || []) as any[],
-      };
+          .gte('data_pagamento', toDateStr(start)).lte('data_pagamento', toDateStr(end))
+          .not('servicos.status', 'in', '("orcamento","cancelado")');
+        return [k, (data || []) as any[]] as const;
+      }));
+      return Object.fromEntries(results) as Record<string, any[]>;
     },
     staleTime: 2 * 60 * 1000,
   });
 
   const cumulativeSeries = useMemo(() => {
     const todayDay = getDate(today);
-    const curDays = getDaysInMonth(curMonthStart);
-    const prevDays = getDaysInMonth(prevMonthStart);
-    const maxDays = Math.max(curDays, prevDays);
-
-    const sumByDay = (rows: any[]) => {
+    const dayCounts: Record<string, number> = {};
+    const sumMaps: Record<string, Record<number, number>> = {};
+    activeMonthKeys.forEach(k => {
+      dayCounts[k] = getDaysInMonth(parseMonthKey(k));
       const m: Record<number, number> = {};
-      (rows || []).filter(r => r.tipo !== 'A Definir').forEach(r => {
+      (cumulativeData?.[k] || []).filter(r => r.tipo !== 'A Definir').forEach(r => {
         if (!r.data_pagamento) return;
         const d = Number(r.data_pagamento.split('-')[2]);
         m[d] = (m[d] || 0) + Number(r.valor);
       });
-      return m;
-    };
-    const curMap = sumByDay(cumulativeData?.cur || []);
-    const prevMap = sumByDay(cumulativeData?.prev || []);
-
-    let accCur = 0, accPrev = 0;
-    const serie: { dia: number; atual: number | null; anterior: number | null }[] = [];
+      sumMaps[k] = m;
+    });
+    const maxDays = Math.max(...activeMonthKeys.map(k => dayCounts[k]));
+    const acc: Record<string, number> = {};
+    activeMonthKeys.forEach(k => { acc[k] = 0; });
+    const serie: any[] = [];
     for (let i = 1; i <= maxDays; i++) {
-      if (i <= curDays && i <= todayDay) accCur += curMap[i] || 0;
-      if (i <= prevDays) accPrev += prevMap[i] || 0;
-      serie.push({
-        dia: i,
-        atual: i <= todayDay ? accCur : null,
-        anterior: i <= prevDays ? accPrev : null,
+      const point: any = { dia: i };
+      activeMonthKeys.forEach(k => {
+        const days = dayCounts[k];
+        if (i > days) { point[k] = null; return; }
+        if (k === curMonthKey && i > todayDay) { point[k] = null; return; }
+        acc[k] += sumMaps[k][i] || 0;
+        point[k] = acc[k];
       });
+      serie.push(point);
     }
     return serie;
-  }, [cumulativeData, today]);
+  }, [cumulativeData, activeMonthKeys, today, curMonthKey]);
+
+  // Mapeia chave de mês -> cor (atual fixo, demais por ordem de slot)
+  const monthColorMap = useMemo(() => {
+    const map: Record<string, string> = { [curMonthKey]: CURRENT_COLOR };
+    compareMonths.forEach((k, i) => {
+      if (k && !map[k]) map[k] = SLOT_COLORS[i] || SLOT_COLORS[SLOT_COLORS.length - 1];
+    });
+    return map;
+  }, [compareMonths, curMonthKey]);
 
   const pagamentos = queryData?.pagamentos ?? [];
   const servicos = queryData?.servicos ?? [];
@@ -410,7 +445,7 @@ export default function Dashboard() {
 
             {/* Gráfico acumulado mensal */}
             <div className="bg-card border border-border rounded-lg p-4">
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-semibold text-muted-foreground">Faturamento Acumulado do Mês</h3>
                   <Tooltip>
@@ -424,37 +459,99 @@ export default function Dashboard() {
                     </TooltipContent>
                   </Tooltip>
                 </div>
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="cmp-month" className="text-xs text-muted-foreground cursor-pointer">Comparar com mês anterior</Label>
-                  <Switch id="cmp-month" checked={compareMonth} onCheckedChange={setCompareMonth} />
+                <div className="flex items-center gap-4 flex-wrap">
+                  {GOAL_VALUES.map(g => (
+                    <label key={g.key} className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+                      <Checkbox checked={goals[g.key]} onCheckedChange={(c) => setGoals(prev => ({ ...prev, [g.key]: !!c }))} />
+                      Meta {g.label}
+                    </label>
+                  ))}
                 </div>
               </div>
+
+              <div className="flex flex-wrap gap-2 mb-3">
+                {[0, 1, 2].map(slot => (
+                  <div key={slot} className="flex items-center gap-1.5">
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground">Comparar {slot + 1}</span>
+                    <Select
+                      value={compareMonths[slot] ?? 'none'}
+                      onValueChange={(v) => setCompareMonths(prev => { const next = [...prev]; next[slot] = v === 'none' ? null : v; return next; })}
+                    >
+                      <SelectTrigger className="h-8 w-[150px] text-xs">
+                        <SelectValue placeholder="Nenhum" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Nenhum</SelectItem>
+                        {monthOptions.map(o => (
+                          <SelectItem key={o.key} value={o.key} disabled={compareMonths.some((k, i) => i !== slot && k === o.key)}>
+                            {o.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ))}
+              </div>
+
               <ResponsiveContainer width="100%" height={280}>
                 <AreaChart data={cumulativeSeries}>
                   <defs>
-                    <linearGradient id="fillAtual" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.5} />
-                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
-                    </linearGradient>
-                    <linearGradient id="fillAnterior" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.25} />
-                      <stop offset="100%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.02} />
-                    </linearGradient>
+                    {activeMonthKeys.map((k, idx) => (
+                      <linearGradient key={k} id={`fillMonth-${k}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={monthColorMap[k]} stopOpacity={idx === 0 ? 0.45 : 0.25} />
+                        <stop offset="100%" stopColor={monthColorMap[k]} stopOpacity={0.03} />
+                      </linearGradient>
+                    ))}
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
                   <XAxis dataKey="dia" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
                   <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} tickFormatter={(v) => `R$ ${(v/1000).toFixed(0)}k`} />
                   <RTooltip
                     contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, color: 'hsl(var(--foreground))' }}
-                    formatter={(v: number, name: string) => [formatCurrency(v), name === 'atual' ? 'Mês atual' : 'Mês anterior']}
+                    formatter={(v: number, name: string) => {
+                      const label = name === curMonthKey
+                        ? `${formatMonthLabel(parseMonthKey(name))} (Atual)`
+                        : formatMonthLabel(parseMonthKey(name));
+                      return [formatCurrency(v), label];
+                    }}
                     labelFormatter={(d) => `Dia ${d}`}
                   />
-                  {compareMonth && (
-                    <Area type="monotone" dataKey="anterior" stroke="hsl(var(--muted-foreground))" strokeWidth={2} strokeDasharray="4 4" fill="url(#fillAnterior)" connectNulls />
-                  )}
-                  <Area type="monotone" dataKey="atual" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#fillAtual)" connectNulls />
+                  {activeMonthKeys.slice().reverse().map(k => (
+                    <Area
+                      key={k}
+                      type="monotone"
+                      dataKey={k}
+                      stroke={monthColorMap[k]}
+                      strokeWidth={2}
+                      strokeDasharray={k === curMonthKey ? undefined : '4 4'}
+                      fill={`url(#fillMonth-${k})`}
+                      connectNulls
+                    />
+                  ))}
+                  {GOAL_VALUES.filter(g => goals[g.key]).map(g => (
+                    <ReferenceLine
+                      key={g.key}
+                      y={g.value}
+                      stroke="hsl(var(--muted-foreground))"
+                      strokeDasharray="6 4"
+                      strokeOpacity={0.7}
+                      label={{ value: `Meta ${g.label}`, position: 'right', fill: 'hsl(var(--muted-foreground))', fontSize: 10 }}
+                    />
+                  ))}
                 </AreaChart>
               </ResponsiveContainer>
+
+              {/* Legenda customizada */}
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mt-3 pt-3 border-t border-border">
+                {activeMonthKeys.map(k => (
+                  <div key={k} className="flex items-center gap-1.5 text-xs">
+                    <span className="inline-block w-3 h-3 rounded-full" style={{ backgroundColor: monthColorMap[k] }} />
+                    <span className="text-muted-foreground">
+                      {formatMonthLabel(parseMonthKey(k))}{k === curMonthKey ? ' (Atual)' : ''}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
