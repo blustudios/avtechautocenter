@@ -1,54 +1,97 @@
 ## Objetivo
 
-No `src/pages/Dashboard.tsx`:
+Quatro melhorias no `src/pages/Dashboard.tsx`:
 
-1. Adicionar dois novos filtros rápidos: **Ontem** e **Mês Passado**.
-2. Quando o filtro **Este Mês** estiver ativo, a comparação "vs. Período Anterior" deve usar o mês anterior **até o mesmo dia** do mês atual — não o mês passado inteiro.
+1. Corrigir **Média Carros/Dia** e **Média Fat./Dia** quando "Este Mês" estiver ativo.
+2. Novo card **Previsão de Recebimentos**.
+3. Ícone **?** em cada card com explicação curta da métrica.
+4. Novo gráfico de **área acumulada** do faturamento do mês, com toggle on/off para sobrepor o mês anterior.
 
-## Mudanças
+---
 
-### 1. Novos filtros rápidos
+### 1. Correção das médias proporcionais ("Este Mês")
 
-Adicionar na lista `filterButtons` (e no tipo `FilterType`):
+**Problema atual**: `totalDays` e `workDays` usam `startDate..endDate` que, para `mes`, vai do dia 1 até o fim do mês (ex.: 30/06). Hoje é 12/06 → divisor = 30 dias, subestimando a média.
 
-- `ontem` → intervalo: `[subDays(today, 1), subDays(today, 1)]`
-- `mes_passado` → intervalo: `[startOfMonth(subMonths(today,1)), endOfMonth(subMonths(today,1))]`
+**Solução**: para filtros que se estendem para o futuro (`mes`), o divisor deve considerar apenas até **hoje**.
 
-Atualizar `FilterType` para incluir `'ontem' | 'mes_passado'` e estender o `switch` em `getDateRange`.
+```ts
+const effectiveEnd = endDate > today ? today : endDate;
+const totalDays  = differenceInCalendarDays(effectiveEnd, startDate) + 1;
+const workDays   = countWorkingDays(startDate, effectiveEnd);
+```
 
-Layout: os botões entram na mesma linha dos filtros atuais, na ordem: **Hoje · Ontem · Esta Semana · Este Mês · Mês Passado · Personalizado**.
+Aplica-se a `mes` (e a qualquer custom que termine no futuro). `hoje`, `ontem`, `mes_passado`, `semana` (passada) ficam corretos automaticamente.
 
-### 2. Período anterior proporcional ("Este Mês")
+---
 
-Hoje `getPrevRange` apenas subtrai 1 mês do `start` e do `end`. Isso faz com que, ao escolher "Este Mês" no dia 10, comparemos com o mês passado inteiro (1–30/31), inflando o comparativo.
+### 2. Card "Previsão de Recebimentos"
 
-Nova regra para o cálculo do período anterior:
+Adicionar nova métrica ao grid principal:
 
-- `**mes` (Este Mês)**: anterior = `[startOfMonth(subMonths(today,1)), subMonths(today, 1)]` — ou seja, do dia 1 do mês passado até o "mesmo dia" do mês passado (hoje − 1 mês). Se hoje é 12/06, anterior = 12/05 a 12/05? Não: **01/05 a 12/05**. Isso reflete "mês passado até hoje".
-- `**hoje**`: anterior = ontem (`[subDays(today,1), subDays(today,1)]`).
-- `**ontem**`: anterior = anteontem.
-- `**semana**`: anterior = semana passada inteira (mesma lógica atual: subtrair 7 dias do start/end).
-- `**mes_passado**`: anterior = mês retrasado inteiro (`startOfMonth(subMonths(today,2))` a `endOfMonth(subMonths(today,2))`).
-- `**custom**`: anterior = mesma duração imediatamente antes do `start` (mantém comportamento previsível).
+- **Fonte**: serviços com `status = 'em_progresso'` que **não tenham nenhum registro em `servicos_pagamentos**`.
+- **Valor**: soma de `valor_total` desses serviços.
+- **Não é afetado pelos filtros de período** (é uma fotografia atual do que está na oficina).
+- Query separada (sem date filter):
+  ```ts
+  supabase.from('servicos')
+    .select('id, valor_total, servicos_pagamentos(id)')
+    .eq('status', 'em_progresso')
+  // filtrar client-side: pagamentos.length === 0
+  ```
+- Ícone: `Clock` ou `Hourglass`.
 
-Refatorar `getPrevRange` para receber `(filterType, start, end)` e aplicar a regra acima.
+---
 
-### 3. Impacto nas métricas
+### 3. Tooltip "?" em cada card
 
-Tudo que depende de `prevStart`/`prevEnd` já é recalculado automaticamente via `useMemo` e `useQuery` (keys `ps`/`pe`). O único KPI que usa explicitamente o período anterior é **"vs. Período Anterior"** (`prevFat`, `fatChange`) — esse passará a refletir o comparativo proporcional corretamente.
+- Estender `metrics[]` adicionando `help: string`.
+- Renderizar `HelpCircle` (lucide) ao lado do label, dentro de `Tooltip`/`TooltipProvider` do shadcn (`@/components/ui/tooltip`).
+- Textos curtos e didáticos, ex.:
+  - Faturamento: "Soma de todos os pagamentos efetivamente recebidos no período."
+  - (Faturamento) − (% Taxas): "Faturamento descontando taxas das maquininhas."
+  - Lucro Líquido: "Faturamento sem taxas, menos custos dos serviços."
+  - Custos dos Serviços: "Total gasto em peças e insumos no período."
+  - Serviços: "Quantidade de serviços iniciados no período."
+  - Ticket Médio: "Valor médio por serviço (Faturamento ÷ nº de serviços)."
+  - Média Carros/Dia: "Serviços por dia útil (seg–sáb) do período."
+  - Média Fat./Dia: "Faturamento dividido pelos dias do período."
+  - Contas a Receber: "Pagamentos pendentes com vencimento no período."
+  - Previsão de Recebimentos: "Soma do valor de serviços em progresso sem nenhum pagamento lançado."
 
-A label exibida abaixo do delta (`Anterior (dd/MM - dd/MM)`) continuará dinâmica e mostrará o novo intervalo (ex.: `01/05 - 12/05`), deixando claro ao usuário o que está sendo comparado.
+---
 
-### 4. Persistência
+### 4. Gráfico de área acumulada do mês
 
-O `localStorage` (`dashboard_filter`) já guarda `type` como string — apenas aceitará os novos valores. Nenhuma migração necessária.
+**Card independente** abaixo do "Faturamento por Dia", largura total (`lg:col-span-2`).
 
-## Arquivos
+- **Independente dos filtros** do topo. Sempre considera `[startOfMonth(today), endOfMonth(today)]` e `[startOfMonth(subMonths(today,1)), endOfMonth(subMonths(today,1))]`.
+- Nova query (`useQuery` com `staleTime` igual ao do dashboard), busca pagamentos `pago=true` do mês atual e do mês anterior (mesmo filtro de status que as outras queries).
+- Constrói série diária com **soma acumulada**:
+  ```ts
+  daysOfMonth.forEach((d, i) => {
+    acc += valoresDoDia[d] || 0;
+    serie.push({ dia: i+1, atual: acc, anterior: accAnterior[i] });
+  });
+  ```
+  - Mês atual: corta no dia de hoje (não projeta futuro).
+  - Mês anterior: série completa do mês.
+  - Eixo X: dia do mês (1..31).
+- Componente `AreaChart` do recharts com dois `<Area>`:
+  - `atual` em `hsl(var(--primary))`, fill com gradient ~0.4 opacidade.
+  - `anterior` em cor neutra (`hsl(var(--muted-foreground))`), fill ~0.15, **render condicional** via toggle.
+- Toggle: `Switch` (shadcn) + label "Comparar com mês anterior" no header do card. Default: off.
+- Tooltip do recharts formatando valores como moeda.
 
-- **Editar**: `src/pages/Dashboard.tsx` (único arquivo afetado).
+---
 
-## Pontos a confirmar
+### Arquivos
 
-1. Para **Este Mês**, confirmo: anterior = **dia 1 do mês passado até "hoje − 1 mês"** (ex.: hoje 12/06 → 01/05–12/05). OK? Sim
-2. Para **Mês Passado**, comparar com o mês retrasado inteiro faz sentido para você? Sim
-3. Para **Custom**, manter "mesma duração imediatamente antes do início" (em vez de subtrair 1 mês como hoje)? Sim
+- **Editar**: `src/pages/Dashboard.tsx` — único arquivo afetado.
+- Imports novos: `HelpCircle, Hourglass` (lucide), `Tooltip/TooltipProvider/TooltipTrigger/TooltipContent` (`@/components/ui/tooltip`), `Switch` (`@/components/ui/switch`), `AreaChart, Area, CartesianGrid` (recharts).
+
+### Pontos a considerar:
+
+1. **Previsão de Recebimentos**: contar apenas serviços **sem nenhum pagamento** (mesmo "A Definir" conta como pagamento).
+2. **Gráfico acumulado**: a linha do mês atual deve **parar em hoje** (sem projetar).
+3. **Mês com menos dias**: ao comparar Fev (28) com Mar (31), alinho por **dia do mês** (1→1, 2→2…) e ignoro dias extras.

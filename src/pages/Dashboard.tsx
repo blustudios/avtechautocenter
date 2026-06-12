@@ -2,12 +2,15 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/format';
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, Wrench, Car, Calculator, CreditCard, Save, CalendarIcon } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip as RTooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area, CartesianGrid } from 'recharts';
+import { TrendingUp, TrendingDown, DollarSign, Wrench, Car, Calculator, CreditCard, Save, CalendarIcon, HelpCircle, Hourglass } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, subDays, differenceInCalendarDays, eachDayOfInterval } from 'date-fns';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, subDays, differenceInCalendarDays, eachDayOfInterval, getDate, getDaysInMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -82,6 +85,7 @@ function toDateStr(d: Date): string {
 }
 
 function countWorkingDays(start: Date, end: Date): number {
+  if (end < start) return 0;
   const days = eachDayOfInterval({ start, end });
   return days.filter(d => { const dow = d.getDay(); return dow >= 1 && dow <= 6; }).length;
 }
@@ -94,6 +98,7 @@ export default function Dashboard() {
   const [customStart, setCustomStart] = useState<Date | undefined>(initial.customStart ? new Date(initial.customStart) : undefined);
   const [customEnd, setCustomEnd] = useState<Date | undefined>(initial.customEnd ? new Date(initial.customEnd) : undefined);
   const [dirty, setDirty] = useState(false);
+  const [compareMonth, setCompareMonth] = useState(false);
 
   const [startDate, endDate] = useMemo(() => getDateRange(filterType, customStart, customEnd), [filterType, customStart, customEnd]);
   const [prevStart, prevEnd] = useMemo(() => getPrevRange(filterType, startDate, endDate), [filterType, startDate, endDate]);
@@ -140,8 +145,86 @@ export default function Dashboard() {
         contasReceberData: (arRes.data || []) as any as Pagamento[],
       };
     },
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 2 * 60 * 1000,
   });
+
+  // Previsão de Recebimentos: serviços em progresso sem nenhum pagamento
+  const { data: previsao } = useQuery({
+    queryKey: ['dashboard-previsao'],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('servicos')
+        .select('id, valor_total, servicos_pagamentos(id)')
+        .eq('status', 'em_progresso');
+      const lista = (data || []) as any[];
+      return lista
+        .filter(s => !s.servicos_pagamentos || s.servicos_pagamentos.length === 0)
+        .reduce((sum, s) => sum + Number(s.valor_total || 0), 0);
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+
+  // Gráfico acumulado mensal (independente dos filtros)
+  const today = new Date();
+  const curMonthStart = startOfMonth(today);
+  const curMonthEnd = endOfMonth(today);
+  const prevMonthStart = startOfMonth(subMonths(today, 1));
+  const prevMonthEnd = endOfMonth(subMonths(today, 1));
+
+  const { data: cumulativeData } = useQuery({
+    queryKey: ['dashboard-cumulative', toDateStr(curMonthStart), toDateStr(prevMonthStart)],
+    queryFn: async () => {
+      const [cur, prev] = await Promise.all([
+        supabase.from('servicos_pagamentos')
+          .select('valor, data_pagamento, tipo, servicos!inner(status)')
+          .eq('pago', true)
+          .gte('data_pagamento', toDateStr(curMonthStart)).lte('data_pagamento', toDateStr(curMonthEnd))
+          .not('servicos.status', 'in', '("orcamento","cancelado")'),
+        supabase.from('servicos_pagamentos')
+          .select('valor, data_pagamento, tipo, servicos!inner(status)')
+          .eq('pago', true)
+          .gte('data_pagamento', toDateStr(prevMonthStart)).lte('data_pagamento', toDateStr(prevMonthEnd))
+          .not('servicos.status', 'in', '("orcamento","cancelado")'),
+      ]);
+      return {
+        cur: (cur.data || []) as any[],
+        prev: (prev.data || []) as any[],
+      };
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+
+  const cumulativeSeries = useMemo(() => {
+    const todayDay = getDate(today);
+    const curDays = getDaysInMonth(curMonthStart);
+    const prevDays = getDaysInMonth(prevMonthStart);
+    const maxDays = Math.max(curDays, prevDays);
+
+    const sumByDay = (rows: any[]) => {
+      const m: Record<number, number> = {};
+      (rows || []).filter(r => r.tipo !== 'A Definir').forEach(r => {
+        if (!r.data_pagamento) return;
+        const d = Number(r.data_pagamento.split('-')[2]);
+        m[d] = (m[d] || 0) + Number(r.valor);
+      });
+      return m;
+    };
+    const curMap = sumByDay(cumulativeData?.cur || []);
+    const prevMap = sumByDay(cumulativeData?.prev || []);
+
+    let accCur = 0, accPrev = 0;
+    const serie: { dia: number; atual: number | null; anterior: number | null }[] = [];
+    for (let i = 1; i <= maxDays; i++) {
+      if (i <= curDays && i <= todayDay) accCur += curMap[i] || 0;
+      if (i <= prevDays) accPrev += prevMap[i] || 0;
+      serie.push({
+        dia: i,
+        atual: i <= todayDay ? accCur : null,
+        anterior: i <= prevDays ? accPrev : null,
+      });
+    }
+    return serie;
+  }, [cumulativeData, today]);
 
   const pagamentos = queryData?.pagamentos ?? [];
   const servicos = queryData?.servicos ?? [];
@@ -175,8 +258,10 @@ export default function Dashboard() {
   const custoTotal = custosData.reduce((s, c) => s + Number(c.valor) * Number(c.quantidade), 0);
   const lucroLiquidoReal = lucroLiquido - custoTotal;
 
-  const totalDays = Math.max(1, differenceInCalendarDays(endDate, startDate) + 1);
-  const workDays = Math.max(1, countWorkingDays(startDate, endDate));
+  // Divisor proporcional: nunca conta dias futuros
+  const effectiveEnd = endDate > today ? today : endDate;
+  const totalDays = Math.max(1, differenceInCalendarDays(effectiveEnd, startDate) + 1);
+  const workDays = Math.max(1, countWorkingDays(startDate, effectiveEnd));
   const mediaCarrosDia = numServicos / workDays;
   const mediaFatDia = faturamento / totalDays;
 
@@ -212,15 +297,16 @@ export default function Dashboard() {
   ].filter(s => s.value > 0);
 
   const metrics = [
-    { label: 'Faturamento', value: formatCurrency(faturamento), icon: DollarSign },
-    { label: '(Faturamento) - (% Taxas)', value: formatCurrency(lucroLiquido), icon: TrendingUp },
-    { label: 'Lucro Líquido', value: formatCurrency(lucroLiquidoReal), icon: TrendingUp },
-    { label: 'Custos dos Serviços', value: formatCurrency(custoTotal), icon: TrendingDown },
-    { label: 'Serviços', value: String(numServicos), icon: Wrench },
-    { label: 'Ticket Médio', value: formatCurrency(ticketMedio), icon: Calculator },
-    { label: 'Média Carros/Dia', value: mediaCarrosDia.toFixed(1), icon: Car },
-    { label: 'Média Fat./Dia', value: formatCurrency(mediaFatDia), icon: DollarSign },
-    { label: 'Contas a Receber', value: formatCurrency(contasReceber), icon: CreditCard },
+    { label: 'Faturamento', value: formatCurrency(faturamento), icon: DollarSign, help: 'Soma de todos os pagamentos efetivamente recebidos no período.' },
+    { label: '(Faturamento) - (% Taxas)', value: formatCurrency(lucroLiquido), icon: TrendingUp, help: 'Faturamento descontando as taxas cobradas pelas maquininhas.' },
+    { label: 'Lucro Líquido', value: formatCurrency(lucroLiquidoReal), icon: TrendingUp, help: 'Faturamento sem taxas, menos os custos dos serviços do período.' },
+    { label: 'Custos dos Serviços', value: formatCurrency(custoTotal), icon: TrendingDown, help: 'Total gasto em peças e insumos no período.' },
+    { label: 'Serviços', value: String(numServicos), icon: Wrench, help: 'Quantidade de serviços iniciados (data de entrada) no período.' },
+    { label: 'Ticket Médio', value: formatCurrency(ticketMedio), icon: Calculator, help: 'Valor médio por serviço (soma dos valores ÷ nº de serviços).' },
+    { label: 'Média Carros/Dia', value: mediaCarrosDia.toFixed(1), icon: Car, help: 'Serviços por dia útil (seg–sáb). No mês atual considera apenas até hoje.' },
+    { label: 'Média Fat./Dia', value: formatCurrency(mediaFatDia), icon: DollarSign, help: 'Faturamento dividido pelos dias do período. No mês atual considera apenas até hoje.' },
+    { label: 'Contas a Receber', value: formatCurrency(contasReceber), icon: CreditCard, help: 'Pagamentos pendentes com vencimento dentro do período.' },
+    { label: 'Previsão de Recebimentos', value: formatCurrency(previsao || 0), icon: Hourglass, help: 'Soma do valor de serviços em progresso que ainda não têm nenhum pagamento lançado. Não é afetado pelo filtro de período.' },
   ];
 
   const filterButtons: { label: string; value: FilterType }[] = [
@@ -232,149 +318,210 @@ export default function Dashboard() {
   ];
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+    <TooltipProvider delayDuration={150}>
+      <div className="space-y-6 animate-fade-in">
+        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
 
-      <div className="flex flex-wrap items-center gap-2">
-        {filterButtons.map(f => (
-          <Button key={f.value} variant={filterType === f.value ? 'default' : 'outline'} size="sm" onClick={() => changeFilter(f.value)}>
-            {f.label}
-          </Button>
-        ))}
-
-        <Popover>
-          <PopoverTrigger asChild>
-            <Button variant={filterType === 'custom' ? 'default' : 'outline'} size="sm">
-              <CalendarIcon className="w-4 h-4 mr-1" />
-              {filterType === 'custom' && customStart && customEnd
-                ? `${format(customStart, 'dd/MM')} - ${format(customEnd, 'dd/MM')}`
-                : 'Personalizado'}
+        <div className="flex flex-wrap items-center gap-2">
+          {filterButtons.map(f => (
+            <Button key={f.value} variant={filterType === f.value ? 'default' : 'outline'} size="sm" onClick={() => changeFilter(f.value)}>
+              {f.label}
             </Button>
-          </PopoverTrigger>
-          <PopoverContent className="w-auto p-3" align="start">
-            <div className="space-y-3">
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Data Início</p>
-                <Calendar mode="single" selected={customStart}
-                  onSelect={(d) => { setCustomStart(d || undefined); if (d && customEnd) { changeFilter('custom'); } }}
-                  className={cn("p-2 pointer-events-auto")} />
-              </div>
-              <div>
-                <p className="text-xs text-muted-foreground mb-1">Data Fim</p>
-                <Calendar mode="single" selected={customEnd}
-                  onSelect={(d) => { setCustomEnd(d || undefined); if (d && customStart) { changeFilter('custom'); } }}
-                  className={cn("p-2 pointer-events-auto")} />
-              </div>
-            </div>
-          </PopoverContent>
-        </Popover>
+          ))}
 
-        {dirty && (
-          <Button size="sm" variant="outline" onClick={saveFilter} className="text-primary border-primary">
-            <Save className="w-4 h-4 mr-1" /> Salvar Filtro
-          </Button>
-        )}
-
-        <span className="text-xs text-muted-foreground ml-auto">
-          {format(startDate, 'dd/MM/yyyy')} — {format(endDate, 'dd/MM/yyyy')}
-        </span>
-      </div>
-
-      {loading ? (
-        <div className="text-center text-muted-foreground py-12">Carregando...</div>
-      ) : (
-        <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-            {metrics.map(m => (
-              <div key={m.label} className="bg-card border border-border rounded-lg p-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <m.icon className="w-4 h-4 text-primary" />
-                  <span className="text-xs text-muted-foreground">{m.label}</span>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant={filterType === 'custom' ? 'default' : 'outline'} size="sm">
+                <CalendarIcon className="w-4 h-4 mr-1" />
+                {filterType === 'custom' && customStart && customEnd
+                  ? `${format(customStart, 'dd/MM')} - ${format(customEnd, 'dd/MM')}`
+                  : 'Personalizado'}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-3" align="start">
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Data Início</p>
+                  <Calendar mode="single" selected={customStart}
+                    onSelect={(d) => { setCustomStart(d || undefined); if (d && customEnd) { changeFilter('custom'); } }}
+                    className={cn("p-2 pointer-events-auto")} />
                 </div>
-                <p className="text-lg font-bold text-foreground">{m.value}</p>
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Data Fim</p>
+                  <Calendar mode="single" selected={customEnd}
+                    onSelect={(d) => { setCustomEnd(d || undefined); if (d && customStart) { changeFilter('custom'); } }}
+                    className={cn("p-2 pointer-events-auto")} />
+                </div>
               </div>
-            ))}
-          </div>
+            </PopoverContent>
+          </Popover>
 
-          <div className="bg-card border border-border rounded-lg p-4 flex items-center gap-4">
-            <div>
-              <span className="text-sm text-muted-foreground">vs. Período Anterior</span>
-              <div className="flex items-center gap-2 mt-1">
-                {fatChange >= 0 ? <TrendingUp className="w-5 h-5 text-status-entregue" /> : <TrendingDown className="w-5 h-5 text-destructive" />}
-                <span className={`text-xl font-bold ${fatChange >= 0 ? 'text-status-entregue' : 'text-destructive'}`}>
-                  {fatChange >= 0 ? '+' : ''}{fatChange.toFixed(1)}%
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Anterior ({format(prevStart, 'dd/MM')} - {format(prevEnd, 'dd/MM')}): {formatCurrency(prevFat)}
-              </p>
+          {dirty && (
+            <Button size="sm" variant="outline" onClick={saveFilter} className="text-primary border-primary">
+              <Save className="w-4 h-4 mr-1" /> Salvar Filtro
+            </Button>
+          )}
+
+          <span className="text-xs text-muted-foreground ml-auto">
+            {format(startDate, 'dd/MM/yyyy')} — {format(endDate, 'dd/MM/yyyy')}
+          </span>
+        </div>
+
+        {loading ? (
+          <div className="text-center text-muted-foreground py-12">Carregando...</div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+              {metrics.map(m => (
+                <div key={m.label} className="bg-card border border-border rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <m.icon className="w-4 h-4 text-primary" />
+                    <span className="text-xs text-muted-foreground flex-1 truncate">{m.label}</span>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button type="button" className="text-muted-foreground/60 hover:text-primary transition-colors" aria-label="Ajuda">
+                          <HelpCircle className="w-3.5 h-3.5" />
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-[240px] text-xs">
+                        {m.help}
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                  <p className="text-lg font-bold text-foreground">{m.value}</p>
+                </div>
+              ))}
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="bg-card border border-border rounded-lg p-4 flex items-center gap-4">
+              <div>
+                <span className="text-sm text-muted-foreground">vs. Período Anterior</span>
+                <div className="flex items-center gap-2 mt-1">
+                  {fatChange >= 0 ? <TrendingUp className="w-5 h-5 text-status-entregue" /> : <TrendingDown className="w-5 h-5 text-destructive" />}
+                  <span className={`text-xl font-bold ${fatChange >= 0 ? 'text-status-entregue' : 'text-destructive'}`}>
+                    {fatChange >= 0 ? '+' : ''}{fatChange.toFixed(1)}%
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Anterior ({format(prevStart, 'dd/MM')} - {format(prevEnd, 'dd/MM')}): {formatCurrency(prevFat)}
+                </p>
+              </div>
+            </div>
+
+            {/* Gráfico acumulado mensal */}
             <div className="bg-card border border-border rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-muted-foreground mb-4">Faturamento por Dia</h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={barData}>
-                  <XAxis dataKey="label" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
-                  <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
-                  <Tooltip
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-muted-foreground">Faturamento Acumulado do Mês</h3>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button type="button" className="text-muted-foreground/60 hover:text-primary transition-colors" aria-label="Ajuda">
+                        <HelpCircle className="w-3.5 h-3.5" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[260px] text-xs">
+                      Soma acumulada do faturamento dia a dia ao longo do mês corrente. Não é afetado pelo filtro acima.
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="cmp-month" className="text-xs text-muted-foreground cursor-pointer">Comparar com mês anterior</Label>
+                  <Switch id="cmp-month" checked={compareMonth} onCheckedChange={setCompareMonth} />
+                </div>
+              </div>
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={cumulativeSeries}>
+                  <defs>
+                    <linearGradient id="fillAtual" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.5} />
+                      <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0.05} />
+                    </linearGradient>
+                    <linearGradient id="fillAnterior" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.25} />
+                      <stop offset="100%" stopColor="hsl(var(--muted-foreground))" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
+                  <XAxis dataKey="dia" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                  <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} tickFormatter={(v) => `R$ ${(v/1000).toFixed(0)}k`} />
+                  <RTooltip
                     contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, color: 'hsl(var(--foreground))' }}
-                    formatter={(v: number) => formatCurrency(v)}
+                    formatter={(v: number, name: string) => [formatCurrency(v), name === 'atual' ? 'Mês atual' : 'Mês anterior']}
+                    labelFormatter={(d) => `Dia ${d}`}
                   />
-                  <Bar dataKey="valor" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                </BarChart>
+                  {compareMonth && (
+                    <Area type="monotone" dataKey="anterior" stroke="hsl(var(--muted-foreground))" strokeWidth={2} strokeDasharray="4 4" fill="url(#fillAnterior)" connectNulls />
+                  )}
+                  <Area type="monotone" dataKey="atual" stroke="hsl(var(--primary))" strokeWidth={2} fill="url(#fillAtual)" connectNulls />
+                </AreaChart>
               </ResponsiveContainer>
             </div>
 
-            <div className="bg-card border border-border rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-muted-foreground mb-4">Serviços por Status</h3>
-              {statusCounts.length > 0 ? (
-                <div className="flex items-center gap-4">
-                  <ResponsiveContainer width="50%" height={200}>
-                    <PieChart>
-                      <Pie data={statusCounts} dataKey="value" innerRadius={50} outerRadius={80} paddingAngle={4}>
-                        {statusCounts.map((s, i) => <Cell key={i} fill={s.color} />)}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="space-y-2">
-                    {statusCounts.map(s => (
-                      <div key={s.name} className="flex items-center gap-2 text-sm">
-                        <div className="w-3 h-3 rounded-full" style={{ background: s.color }} />
-                        <span className="text-foreground">{s.name}: {s.value}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ) : <p className="text-muted-foreground text-sm">Sem dados</p>}
-            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="bg-card border border-border rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-muted-foreground mb-4">Faturamento por Dia</h3>
+                <ResponsiveContainer width="100%" height={250}>
+                  <BarChart data={barData}>
+                    <XAxis dataKey="label" tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                    <YAxis tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />
+                    <RTooltip
+                      contentStyle={{ background: 'hsl(var(--popover))', border: '1px solid hsl(var(--border))', borderRadius: 8, color: 'hsl(var(--foreground))' }}
+                      formatter={(v: number) => formatCurrency(v)}
+                    />
+                    <Bar dataKey="valor" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
 
-            <div className="bg-card border border-border rounded-lg p-4">
-              <h3 className="text-sm font-semibold text-muted-foreground mb-4">Pagamentos</h3>
-              {paymentCounts.length > 0 ? (
-                <div className="flex items-center gap-4">
-                  <ResponsiveContainer width="50%" height={200}>
-                    <PieChart>
-                      <Pie data={paymentCounts} dataKey="value" innerRadius={50} outerRadius={80} paddingAngle={4}>
-                        {paymentCounts.map((s, i) => <Cell key={i} fill={s.color} />)}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <div className="space-y-2">
-                    {paymentCounts.map(s => (
-                      <div key={s.name} className="flex items-center gap-2 text-sm">
-                        <div className="w-3 h-3 rounded-full" style={{ background: s.color }} />
-                        <span className="text-foreground">{s.name}: {s.value}</span>
-                      </div>
-                    ))}
+              <div className="bg-card border border-border rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-muted-foreground mb-4">Serviços por Status</h3>
+                {statusCounts.length > 0 ? (
+                  <div className="flex items-center gap-4">
+                    <ResponsiveContainer width="50%" height={200}>
+                      <PieChart>
+                        <Pie data={statusCounts} dataKey="value" innerRadius={50} outerRadius={80} paddingAngle={4}>
+                          {statusCounts.map((s, i) => <Cell key={i} fill={s.color} />)}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="space-y-2">
+                      {statusCounts.map(s => (
+                        <div key={s.name} className="flex items-center gap-2 text-sm">
+                          <div className="w-3 h-3 rounded-full" style={{ background: s.color }} />
+                          <span className="text-foreground">{s.name}: {s.value}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
-              ) : <p className="text-muted-foreground text-sm">Sem dados</p>}
+                ) : <p className="text-muted-foreground text-sm">Sem dados</p>}
+              </div>
+
+              <div className="bg-card border border-border rounded-lg p-4">
+                <h3 className="text-sm font-semibold text-muted-foreground mb-4">Pagamentos</h3>
+                {paymentCounts.length > 0 ? (
+                  <div className="flex items-center gap-4">
+                    <ResponsiveContainer width="50%" height={200}>
+                      <PieChart>
+                        <Pie data={paymentCounts} dataKey="value" innerRadius={50} outerRadius={80} paddingAngle={4}>
+                          {paymentCounts.map((s, i) => <Cell key={i} fill={s.color} />)}
+                        </Pie>
+                      </PieChart>
+                    </ResponsiveContainer>
+                    <div className="space-y-2">
+                      {paymentCounts.map(s => (
+                        <div key={s.name} className="flex items-center gap-2 text-sm">
+                          <div className="w-3 h-3 rounded-full" style={{ background: s.color }} />
+                          <span className="text-foreground">{s.name}: {s.value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : <p className="text-muted-foreground text-sm">Sem dados</p>}
+              </div>
             </div>
-          </div>
-        </>
-      )}
-    </div>
+          </>
+        )}
+      </div>
+    </TooltipProvider>
   );
 }
