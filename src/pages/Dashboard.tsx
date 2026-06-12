@@ -12,7 +12,7 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 
-type FilterType = 'hoje' | 'semana' | 'mes' | 'custom';
+type FilterType = 'hoje' | 'ontem' | 'semana' | 'mes' | 'mes_passado' | 'custom';
 
 interface SavedFilter {
   type: FilterType;
