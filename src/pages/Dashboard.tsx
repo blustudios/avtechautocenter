@@ -183,65 +183,83 @@ export default function Dashboard() {
 
   // Gráfico acumulado mensal (independente dos filtros)
   const today = new Date();
-  const curMonthStart = startOfMonth(today);
-  const curMonthEnd = endOfMonth(today);
-  const prevMonthStart = startOfMonth(subMonths(today, 1));
-  const prevMonthEnd = endOfMonth(subMonths(today, 1));
+  const curMonthKey = toMonthKey(startOfMonth(today));
+
+  // Slots ativos (mês atual + comparações selecionadas, sem duplicar)
+  const activeMonthKeys = useMemo(() => {
+    const arr: string[] = [curMonthKey];
+    compareMonths.forEach(k => { if (k && !arr.includes(k)) arr.push(k); });
+    return arr;
+  }, [compareMonths, curMonthKey]);
+
+  // Opções de meses (12 meses anteriores ao atual)
+  const monthOptions = useMemo(() => {
+    const opts: { key: string; label: string }[] = [];
+    for (let i = 1; i <= 12; i++) {
+      const d = subMonths(startOfMonth(today), i);
+      opts.push({ key: toMonthKey(d), label: formatMonthLabel(d) });
+    }
+    return opts;
+  }, [today]);
 
   const { data: cumulativeData } = useQuery({
-    queryKey: ['dashboard-cumulative', toDateStr(curMonthStart), toDateStr(prevMonthStart)],
+    queryKey: ['dashboard-cumulative', activeMonthKeys.join(',')],
     queryFn: async () => {
-      const [cur, prev] = await Promise.all([
-        supabase.from('servicos_pagamentos')
+      const results = await Promise.all(activeMonthKeys.map(async (k) => {
+        const start = parseMonthKey(k);
+        const end = endOfMonth(start);
+        const { data } = await supabase.from('servicos_pagamentos')
           .select('valor, data_pagamento, tipo, servicos!inner(status)')
           .eq('pago', true)
-          .gte('data_pagamento', toDateStr(curMonthStart)).lte('data_pagamento', toDateStr(curMonthEnd))
-          .not('servicos.status', 'in', '("orcamento","cancelado")'),
-        supabase.from('servicos_pagamentos')
-          .select('valor, data_pagamento, tipo, servicos!inner(status)')
-          .eq('pago', true)
-          .gte('data_pagamento', toDateStr(prevMonthStart)).lte('data_pagamento', toDateStr(prevMonthEnd))
-          .not('servicos.status', 'in', '("orcamento","cancelado")'),
-      ]);
-      return {
-        cur: (cur.data || []) as any[],
-        prev: (prev.data || []) as any[],
-      };
+          .gte('data_pagamento', toDateStr(start)).lte('data_pagamento', toDateStr(end))
+          .not('servicos.status', 'in', '("orcamento","cancelado")');
+        return [k, (data || []) as any[]] as const;
+      }));
+      return Object.fromEntries(results) as Record<string, any[]>;
     },
     staleTime: 2 * 60 * 1000,
   });
 
   const cumulativeSeries = useMemo(() => {
     const todayDay = getDate(today);
-    const curDays = getDaysInMonth(curMonthStart);
-    const prevDays = getDaysInMonth(prevMonthStart);
-    const maxDays = Math.max(curDays, prevDays);
-
-    const sumByDay = (rows: any[]) => {
+    const dayCounts: Record<string, number> = {};
+    const sumMaps: Record<string, Record<number, number>> = {};
+    activeMonthKeys.forEach(k => {
+      dayCounts[k] = getDaysInMonth(parseMonthKey(k));
       const m: Record<number, number> = {};
-      (rows || []).filter(r => r.tipo !== 'A Definir').forEach(r => {
+      (cumulativeData?.[k] || []).filter(r => r.tipo !== 'A Definir').forEach(r => {
         if (!r.data_pagamento) return;
         const d = Number(r.data_pagamento.split('-')[2]);
         m[d] = (m[d] || 0) + Number(r.valor);
       });
-      return m;
-    };
-    const curMap = sumByDay(cumulativeData?.cur || []);
-    const prevMap = sumByDay(cumulativeData?.prev || []);
-
-    let accCur = 0, accPrev = 0;
-    const serie: { dia: number; atual: number | null; anterior: number | null }[] = [];
+      sumMaps[k] = m;
+    });
+    const maxDays = Math.max(...activeMonthKeys.map(k => dayCounts[k]));
+    const acc: Record<string, number> = {};
+    activeMonthKeys.forEach(k => { acc[k] = 0; });
+    const serie: any[] = [];
     for (let i = 1; i <= maxDays; i++) {
-      if (i <= curDays && i <= todayDay) accCur += curMap[i] || 0;
-      if (i <= prevDays) accPrev += prevMap[i] || 0;
-      serie.push({
-        dia: i,
-        atual: i <= todayDay ? accCur : null,
-        anterior: i <= prevDays ? accPrev : null,
+      const point: any = { dia: i };
+      activeMonthKeys.forEach(k => {
+        const days = dayCounts[k];
+        if (i > days) { point[k] = null; return; }
+        if (k === curMonthKey && i > todayDay) { point[k] = null; return; }
+        acc[k] += sumMaps[k][i] || 0;
+        point[k] = acc[k];
       });
+      serie.push(point);
     }
     return serie;
-  }, [cumulativeData, today]);
+  }, [cumulativeData, activeMonthKeys, today, curMonthKey]);
+
+  // Mapeia chave de mês -> cor (atual fixo, demais por ordem de slot)
+  const monthColorMap = useMemo(() => {
+    const map: Record<string, string> = { [curMonthKey]: CURRENT_COLOR };
+    compareMonths.forEach((k, i) => {
+      if (k && !map[k]) map[k] = SLOT_COLORS[i] || SLOT_COLORS[SLOT_COLORS.length - 1];
+    });
+    return map;
+  }, [compareMonths, curMonthKey]);
 
   const pagamentos = queryData?.pagamentos ?? [];
   const servicos = queryData?.servicos ?? [];
