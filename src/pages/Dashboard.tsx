@@ -114,7 +114,6 @@ export default function Dashboard() {
   const [customStart, setCustomStart] = useState<Date | undefined>(initial.customStart ? new Date(initial.customStart) : undefined);
   const [customEnd, setCustomEnd] = useState<Date | undefined>(initial.customEnd ? new Date(initial.customEnd) : undefined);
   const [dirty, setDirty] = useState(false);
-  const [dirty, setDirty] = useState(false);
   const [compareMonths, setCompareMonths] = useState<(string | null)[]>(() => [toMonthKey(subMonths(new Date(), 1)), null, null]);
   const [goals, setGoals] = useState<{ g55: boolean; g65: boolean; g75: boolean }>({ g55: false, g65: false, g75: false });
 
