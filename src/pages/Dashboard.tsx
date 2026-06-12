@@ -48,14 +48,33 @@ function getDateRange(type: FilterType, customStart?: Date, customEnd?: Date): [
   const today = new Date();
   switch (type) {
     case 'hoje': return [today, today];
+    case 'ontem': { const y = subDays(today, 1); return [y, y]; }
     case 'semana': return [startOfWeek(today, { weekStartsOn: 1 }), endOfWeek(today, { weekStartsOn: 1 })];
     case 'mes': return [startOfMonth(today), endOfMonth(today)];
+    case 'mes_passado': { const m = subMonths(today, 1); return [startOfMonth(m), endOfMonth(m)]; }
     case 'custom': return [customStart || today, customEnd || today];
   }
 }
 
-function getPrevRange(start: Date, end: Date): [Date, Date] {
-  return [subMonths(start, 1), subMonths(end, 1)];
+function getPrevRange(type: FilterType, start: Date, end: Date): [Date, Date] {
+  const today = new Date();
+  switch (type) {
+    case 'hoje': { const y = subDays(today, 1); return [y, y]; }
+    case 'ontem': { const a = subDays(today, 2); return [a, a]; }
+    case 'semana': return [subDays(start, 7), subDays(end, 7)];
+    case 'mes': {
+      const prevMonth = subMonths(today, 1);
+      return [startOfMonth(prevMonth), prevMonth];
+    }
+    case 'mes_passado': {
+      const m = subMonths(today, 2);
+      return [startOfMonth(m), endOfMonth(m)];
+    }
+    case 'custom': {
+      const days = differenceInCalendarDays(end, start) + 1;
+      return [subDays(start, days), subDays(start, 1)];
+    }
+  }
 }
 
 function toDateStr(d: Date): string {
