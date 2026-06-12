@@ -225,8 +225,10 @@ export default function Dashboard() {
 
   const filterButtons: { label: string; value: FilterType }[] = [
     { label: 'Hoje', value: 'hoje' },
+    { label: 'Ontem', value: 'ontem' },
     { label: 'Esta Semana', value: 'semana' },
     { label: 'Este Mês', value: 'mes' },
+    { label: 'Mês Passado', value: 'mes_passado' },
   ];
 
   return (
