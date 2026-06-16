@@ -19,6 +19,8 @@ import Configuracoes from "@/pages/Configuracoes";
 import ConfigGeral from "@/pages/configuracoes/Geral";
 import ConfigMaquininhas from "@/pages/configuracoes/Maquininhas";
 import ConfigMarcasModelos from "@/pages/configuracoes/MarcasModelos";
+import ConfigFinanceiro from "@/pages/configuracoes/Financeiro";
+import Financeiro from "@/pages/Financeiro";
 
 const queryClient = new QueryClient();
 
