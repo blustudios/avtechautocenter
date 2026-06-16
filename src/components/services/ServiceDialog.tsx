@@ -85,7 +85,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
 
   useEffect(() => {
     const load = async () => {
-      const [c, f, m, b, t, mc, md] = await Promise.all([
+      const [c, f, m, b, t, mc, md, cfg] = await Promise.all([
         supabase.from('clientes').select('cpf, nome'),
         supabase.from('fornecedores').select('id, nome'),
         supabase.from('maquininhas').select('id, nome, taxa_pix_maquina, ativo'),
@@ -93,6 +93,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
         supabase.from('taxas').select('*'),
         supabase.from('marcas_carros').select('*').order('nome'),
         supabase.from('modelos_carros').select('*').order('nome'),
+        supabase.from('configuracoes_app').select('valor').eq('chave', 'aviso_cadastro_cliente').maybeSingle(),
       ]);
       setClientes(c.data || []);
       setFornecedores(f.data || []);
@@ -101,6 +102,11 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
       setTaxas(t.data || []);
       setMarcasList(mc.data || []);
       setModelosList(md.data || []);
+      const cfgVal = (cfg.data?.valor as { habilitado?: boolean; valor_minimo?: number } | undefined);
+      setAvisoConfig({
+        habilitado: cfgVal?.habilitado ?? true,
+        valor_minimo: cfgVal?.valor_minimo ?? 500,
+      });
 
       if (isEdit) {
         const { data: sv } = await supabase.from('servicos').select('*').eq('id', serviceId).single();
