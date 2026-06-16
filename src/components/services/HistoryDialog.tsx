@@ -86,6 +86,9 @@ export function HistoryDialog({ serviceId, open, onClose }: Props) {
             ))}
           </div>
         )}
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Fechar</Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
