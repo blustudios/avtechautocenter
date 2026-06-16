@@ -251,8 +251,18 @@ export function TabLancamentos() {
         </div>
       )}
 
-      <LancamentoSaidaDialog open={openSaida} onOpenChange={v => { setOpenSaida(v); if (!v) setEditing(null); }} edit={editing && editing.tipo === 'saida' ? editing : null} />
-      <LancamentoEntradaDialog open={openEntrada} onOpenChange={v => { setOpenEntrada(v); if (!v) setEditing(null); }} edit={editing && editing.tipo === 'entrada' ? editing : null} />
+      <LancamentoSaidaDialog
+        open={openSaida}
+        onOpenChange={v => { setOpenSaida(v); if (!v) { setEditing(null); setDuplicating(null); } }}
+        edit={editing && editing.tipo === 'saida' ? editing : null}
+        initial={duplicating && duplicating.tipo === 'saida' ? duplicating : null}
+      />
+      <LancamentoEntradaDialog
+        open={openEntrada}
+        onOpenChange={v => { setOpenEntrada(v); if (!v) { setEditing(null); setDuplicating(null); } }}
+        edit={editing && editing.tipo === 'entrada' ? editing : null}
+        initial={duplicating && duplicating.tipo === 'entrada' ? duplicating : null}
+      />
       <DeleteRecurrenceDialog open={!!deletingRec} onOpenChange={v => { if (!v) setDeletingRec(null); }} lancamento={deletingRec} />
     </div>
   );
