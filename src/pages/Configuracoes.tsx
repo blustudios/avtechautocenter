@@ -1,7 +1,13 @@
 import { useNavigate } from 'react-router-dom';
-import { Settings, CreditCard, Car, ChevronRight } from 'lucide-react';
+import { Settings, CreditCard, Car, ChevronRight, Bell } from 'lucide-react';
 
 const items = [
+  {
+    title: 'Geral',
+    description: 'Avisos e preferências gerais do sistema.',
+    icon: Bell,
+    path: '/configuracoes/geral',
+  },
   {
     title: 'Maquininhas',
     description: 'Cadastre maquininhas, bandeiras e taxas. Ative/desative para controlar quais aparecem nos pagamentos.',
