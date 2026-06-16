@@ -159,6 +159,178 @@ export type Database = {
         }
         Relationships: []
       }
+      financeiro_caixa: {
+        Row: {
+          created_at: string
+          id: string
+          mes_referencia: string
+          saldo_conta_pj: number
+          saldo_dinheiro: number
+          saldo_stone: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          mes_referencia: string
+          saldo_conta_pj?: number
+          saldo_dinheiro?: number
+          saldo_stone?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          mes_referencia?: string
+          saldo_conta_pj?: number
+          saldo_dinheiro?: number
+          saldo_stone?: number
+        }
+        Relationships: []
+      }
+      financeiro_categorias: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean
+          is_system: boolean
+          nome: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          is_system?: boolean
+          nome: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          is_system?: boolean
+          nome?: string
+        }
+        Relationships: []
+      }
+      financeiro_lancamentos: {
+        Row: {
+          categoria_id: string | null
+          created_at: string
+          data: string
+          descricao: string
+          id: string
+          is_auto: boolean
+          mes_referencia: string
+          origem_id: string | null
+          recorrencia_id: string | null
+          status_pagamento: string | null
+          tipo: string
+          valor_previsto: number
+          valor_realizado: number
+        }
+        Insert: {
+          categoria_id?: string | null
+          created_at?: string
+          data: string
+          descricao: string
+          id?: string
+          is_auto?: boolean
+          mes_referencia: string
+          origem_id?: string | null
+          recorrencia_id?: string | null
+          status_pagamento?: string | null
+          tipo: string
+          valor_previsto?: number
+          valor_realizado?: number
+        }
+        Update: {
+          categoria_id?: string | null
+          created_at?: string
+          data?: string
+          descricao?: string
+          id?: string
+          is_auto?: boolean
+          mes_referencia?: string
+          origem_id?: string | null
+          recorrencia_id?: string | null
+          status_pagamento?: string | null
+          tipo?: string
+          valor_previsto?: number
+          valor_realizado?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financeiro_lancamentos_categoria_id_fkey"
+            columns: ["categoria_id"]
+            isOneToOne: false
+            referencedRelation: "financeiro_categorias"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financeiro_lancamentos_origem_id_fkey"
+            columns: ["origem_id"]
+            isOneToOne: false
+            referencedRelation: "financeiro_origens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "financeiro_lancamentos_recorrencia_id_fkey"
+            columns: ["recorrencia_id"]
+            isOneToOne: false
+            referencedRelation: "financeiro_recorrencias"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      financeiro_origens: {
+        Row: {
+          created_at: string
+          id: string
+          is_default: boolean
+          is_system: boolean
+          nome: string
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          is_system?: boolean
+          nome: string
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_default?: boolean
+          is_system?: boolean
+          nome?: string
+          tipo?: string
+        }
+        Relationships: []
+      }
+      financeiro_recorrencias: {
+        Row: {
+          created_at: string
+          data_fim: string
+          data_inicio: string
+          frequencia: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          data_fim: string
+          data_inicio: string
+          frequencia: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          data_fim?: string
+          data_inicio?: string
+          frequencia?: string
+          id?: string
+        }
+        Relationships: []
+      }
       fornecedores: {
         Row: {
           created_at: string

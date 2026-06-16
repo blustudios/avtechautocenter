@@ -19,6 +19,8 @@ import Configuracoes from "@/pages/Configuracoes";
 import ConfigGeral from "@/pages/configuracoes/Geral";
 import ConfigMaquininhas from "@/pages/configuracoes/Maquininhas";
 import ConfigMarcasModelos from "@/pages/configuracoes/MarcasModelos";
+import ConfigFinanceiro from "@/pages/configuracoes/Financeiro";
+import Financeiro from "@/pages/Financeiro";
 
 const queryClient = new QueryClient();
 
@@ -42,6 +44,7 @@ function ProtectedRoutes() {
         <Route path="/clientes" element={<Clientes />} />
         <Route path="/fornecedores" element={<Fornecedores />} />
         <Route path="/estoque" element={<Estoque />} />
+        <Route path="/financeiro" element={<Financeiro />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/relatorios" element={<Relatorios />} />
         <Route path="/relatorios/custos" element={<RelatorioCustos />} />
@@ -50,6 +53,7 @@ function ProtectedRoutes() {
         <Route path="/configuracoes/geral" element={<ConfigGeral />} />
         <Route path="/configuracoes/maquininhas" element={<ConfigMaquininhas />} />
         <Route path="/configuracoes/marcas-modelos" element={<ConfigMarcasModelos />} />
+        <Route path="/configuracoes/financeiro" element={<ConfigFinanceiro />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppLayout>
