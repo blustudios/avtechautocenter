@@ -189,6 +189,10 @@ export function PneuSelectorDialog({ open, onClose, onSelect }: Props) {
               </div>
             </div>
           )}
+
+          <div className="flex justify-end pt-2 border-t border-border">
+            <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
