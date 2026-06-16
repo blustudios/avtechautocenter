@@ -30,6 +30,22 @@ export function formatPlaca(value: string): string {
   return `${clean.slice(0, 3)}-${clean.slice(3)}`;
 }
 
+export function formatNomeProprio(nome: string): string {
+  const preposicoes = ['de', 'do', 'dos', 'da', 'das', 'e'];
+  return nome
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((palavra, i) => {
+      if (i === 0 || !preposicoes.includes(palavra)) {
+        return palavra.charAt(0).toUpperCase() + palavra.slice(1);
+      }
+      return palavra;
+    })
+    .join(' ');
+}
+
 export const statusLabels: Record<string, string> = {
   orcamento: 'Orçamento',
   em_progresso: 'Em Progresso',

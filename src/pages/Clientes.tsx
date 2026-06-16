@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { Plus, Search, X, Car, MoreHorizontal, Pencil, Trash2, Wrench, ClipboardList, UserPlus } from 'lucide-react';
-import { formatCPF, formatPhone, formatPlaca, CAR_COLORS } from '@/lib/format';
+import { formatCPF, formatPhone, formatPlaca, formatNomeProprio, CAR_COLORS } from '@/lib/format';
 import { toast } from 'sonner';
 import { ServiceDialog } from '@/components/services/ServiceDialog';
 import { useNavigate } from 'react-router-dom';
@@ -145,7 +145,7 @@ export default function Clientes() {
     if (cpf.length !== 11) { toast.error('CPF inválido'); return; }
     if (!form.nome.trim()) { toast.error('Nome obrigatório'); return; }
     const formatted = formatCPF(cpf);
-    const data = { cpf: formatted, nome: form.nome, email: form.email, whatsapp: form.whatsapp };
+    const data = { cpf: formatted, nome: formatNomeProprio(form.nome), email: form.email, whatsapp: form.whatsapp };
 
     if (editCpf) {
       await supabase.from('clientes').update(data).eq('cpf', editCpf);

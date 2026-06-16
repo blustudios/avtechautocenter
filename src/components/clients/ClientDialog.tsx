@@ -8,7 +8,7 @@ import { Separator } from '@/components/ui/separator';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { Plus, X, Car, ClipboardList } from 'lucide-react';
-import { formatCPF, formatPhone, formatPlaca, CAR_COLORS } from '@/lib/format';
+import { formatCPF, formatPhone, formatPlaca, formatNomeProprio, CAR_COLORS } from '@/lib/format';
 import { toast } from 'sonner';
 
 interface Props {
@@ -50,7 +50,7 @@ export function ClientDialog({ open, onClose, onSaveAndService, onSaveAndOrcamen
     if (!form.nome.trim()) { toast.error('Nome obrigatório'); return; }
     const formatted = formatCPF(cpf);
     const { error } = await supabase.from('clientes').insert({
-      cpf: formatted, nome: form.nome, email: form.email, whatsapp: form.whatsapp,
+      cpf: formatted, nome: formatNomeProprio(form.nome), email: form.email, whatsapp: form.whatsapp,
     });
     if (error?.code === '23505') { toast.error('CPF já cadastrado'); return; }
     if (error) { toast.error('Erro ao salvar'); return; }

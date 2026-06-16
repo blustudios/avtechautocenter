@@ -1,56 +1,82 @@
-## Melhoria do indicador de carregamento global
+## Objetivo
 
-### Análise da solução proposta
+Garantir que, ao criar ou editar um cliente, o campo `nome` seja automaticamente formatado em **Nome Próprio** (Title Case), independentemente de como o usuário digitou.
 
-A ideia de um overlay escuro centralizado é boa para deixar o estado de loading **evidente**, mas bloquear 100% da interface em **todo e qualquer fetch** seria agressivo demais — hoje o `GlobalLoadingOverlay` dispara para qualquer `useQuery`/`useMutation` ativo (inclusive refetches em segundo plano do React Query, polls, prefetch). Bloquear a tela nesses casos pioraria a UX.
+## Escopo
 
-**Recomendação:** combinar as duas abordagens.
+Esta melhoria atinge **todos os pontos de entrada e edição** de clientes no sistema.
 
-- **Mutações e ações explícitas** (`useIsMutating` + chamadas via `useGlobalLoading().run(...)`) → overlay escuro central com spinner e bloqueio total de cliques. É aqui que o usuário está esperando uma resposta direta.
-- **Fetches passivos** (refetches do React Query em background) → manter apenas a barrinha de progresso fina no topo, sem escurecer a tela.
+## Alterações Propostas
 
-Isso mantém a clareza pedida nos momentos críticos (salvar serviço, excluir, gerar recibo, login, etc.) sem travar a navegação quando o app só está atualizando dados em segundo plano.
+### 1. Utilitário `formatNomeProprio`
 
-### O que muda
+Criar em `src/lib/format.ts` a função:
 
-**1. `src/components/GlobalLoadingOverlay.tsx**`
+```typescript
+export function formatNomeProprio(nome: string): string {
+  const preposicoes = ['de', 'do', 'dos', 'da', 'das', 'e'];
+  return nome
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .map((palavra, i) => {
+      if (i === 0 || !preposicoes.includes(palavra)) {
+        return palavra.charAt(0).toUpperCase() + palavra.slice(1);
+      }
+      return palavra;
+    })
+    .join(' ');
+}
+```
 
-- Separar dois estados:
-  - `blocking` = `useIsMutating() + LoadingContext.pending > 0` → renderiza overlay escuro.
-  - `passive` = somente `useIsFetching() > 0` → renderiza apenas a barra de topo (mantém o badge atual opcional).
-- Overlay bloqueante:
-  - `fixed inset-0 z-[200]`
-  - Fundo `bg-background/70 backdrop-blur-sm`
-  - `pointer-events-auto` (intercepta cliques e teclas)
-  - Centro: card arredondado com `Loader2` grande (`h-12 w-12 text-primary animate-spin`) + texto "Carregando...".
-  - `aria-busy="true"`, `role="status"`, foco preso (simples: `tabIndex={-1}` no container) para acessibilidade.
-  - Animação `animate-fade-in` ao aparecer.
-- Manter `SHOW_DELAY_MS = 500` para não piscar em respostas rápidas.
+Comportamento esperado:
 
-**2. `src/contexts/LoadingContext.tsx**`
+- `"joão da silva"` → `"João da Silva"`
+- `"MARIA DOS SANTOS"` → `"Maria dos Santos"`
+- `"  pedro   e   paulo  "` → `"Pedro e Paulo"`
+- `"Ana De Souza"` → `"Ana de Souza"` (preposição no meio em minúscula)
 
-- Expor `pending` (número) além de `isLoading`, para o overlay diferenciar bloqueante x passivo.
-- Sem mudanças na API `run()` — componentes que já usam continuam funcionando e passam a acionar o bloqueio automaticamente.
+### 2. Aplicação no ponto de criação (modal)
 
-**3. Sem mudanças em telas/diálogos**
+Em `src/components/clients/ClientDialog.tsx`, na função `save`, formatar o nome **antes do `insert**`:
 
-- Mutations já passam por `useIsMutating` → bloqueio automático.
-- Onde houver ação async sem mutation (ex.: geração de recibo via `html2canvas`), envolver com `useGlobalLoading().run(...)` para ativar o bloqueio. Levantamento rápido em `ServiceDialog.tsx`, `Servicos.tsx` e geração de recibos durante a implementação.
+```typescript
+const { error } = await supabase.from('clientes').insert({
+  cpf: formatted,
+  nome: formatNomeProprio(form.nome),
+  email: form.email,
+  whatsapp: form.whatsapp,
+});
+```
 
-### Comportamento esperado
+### 3. Aplicação no ponto de criação e edição (página)
 
+Em `src/pages/Clientes.tsx`, na função `saveClient`, formatar o nome **antes do `insert`/`update**`:
 
-| Situação                           | Visual                                                 |
-| ---------------------------------- | ------------------------------------------------------ |
-| Salvar/excluir/finalizar serviço   | Tela escurecida + spinner central, cliques bloqueados  |
-| Login / logout                     | Tela escurecida + spinner central                      |
-| Geração de recibo JPG              | Tela escurecida + spinner central                      |
-| Refetch automático do Dashboard    | Apenas barra fina no topo                              |
-| Carregamento inicial de uma página | Skeletons já existentes + barra no topo (sem bloqueio) |
+```typescript
+const data = {
+  cpf: formatted,
+  nome: formatNomeProprio(form.nome),
+  email: form.email,
+  whatsapp: form.whatsapp,
+};
+```
 
+### 4. Testes manuais de validação
 
-### Riscos e mitigação
+Após implementação, verificar:
 
-- **Falsos bloqueios** em refetch passivo → resolvido separando `mutating`/`run` de `fetching`.
-- **Flicker** em respostas rápidas → mantido o delay de 500ms.
-- **Acessibilidade** → `role="status"`, `aria-busy`, `aria-live="polite"` no container.
+- Criar cliente com nome todo em minúsculo
+- Editar cliente com nome todo em maiúsculo
+- Nomes com preposições (`da`, `dos`, `de`, `e`)
+- Nomes com espaços extras
+
+## Por que esta abordagem?
+
+- **Centralizada:** A lógica vive em um único utilitário reutilizável (`src/lib/format.ts`), já o padrão do projeto para formatadores.
+- **Não intrusiva:** A formatação acontece no momento do salvamento, não durante a digitação, evitando que o cursor "pulo" ou que o usuário seja interrompido.
+- **Consistente:** Atinge tanto o modal de novo cliente (usado em fluxos rápidos) quanto a página principal de clientes (edição inclusa).
+- **Culturalmente adequada:** Respeita as regras de preposições em minúsculo do português brasileiro.  
+  
+Orientação extra:  
+Revisar e aplicar formatação a toda a base já cadastrada.
