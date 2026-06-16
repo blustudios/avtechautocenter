@@ -754,7 +754,9 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
                     <div key={i} className="bg-card border border-border rounded-lg p-3 space-y-2">
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                         <Select value={p.tipo} onValueChange={v => {
-                          const n = [...pagamentos]; n[i].tipo = v; n[i].maquininha_id = ''; n[i].bandeira_id = ''; setPagamentos(n);
+                          const n = [...pagamentos]; n[i].tipo = v;
+                          n[i].maquininha_id = needsMaquininha(v) ? getDefaultMaquininhaId() : '';
+                          n[i].bandeira_id = ''; setPagamentos(n);
                         }}>
                           <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Tipo" /></SelectTrigger>
                           <SelectContent>{tiposPagamento.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
