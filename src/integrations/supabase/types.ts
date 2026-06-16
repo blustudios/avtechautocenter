@@ -173,18 +173,21 @@ export type Database = {
       }
       maquininhas: {
         Row: {
+          ativo: boolean
           created_at: string
           id: string
           nome: string
           taxa_pix_maquina: number
         }
         Insert: {
+          ativo?: boolean
           created_at?: string
           id?: string
           nome: string
           taxa_pix_maquina?: number
         }
         Update: {
+          ativo?: boolean
           created_at?: string
           id?: string
           nome?: string

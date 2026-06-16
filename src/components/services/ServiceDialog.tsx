@@ -86,7 +86,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
       const [c, f, m, b, t, mc, md] = await Promise.all([
         supabase.from('clientes').select('cpf, nome'),
         supabase.from('fornecedores').select('id, nome'),
-        supabase.from('maquininhas').select('id, nome, taxa_pix_maquina'),
+        supabase.from('maquininhas').select('id, nome, taxa_pix_maquina, ativo'),
         supabase.from('bandeiras').select('id, maquininha_id, nome'),
         supabase.from('taxas').select('*'),
         supabase.from('marcas_carros').select('*').order('nome'),
@@ -736,7 +736,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
                             const n = [...pagamentos]; n[i].maquininha_id = v; n[i].bandeira_id = ''; setPagamentos(n);
                           }}>
                             <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Maquininha" /></SelectTrigger>
-                            <SelectContent>{maquininhas.map(m => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}</SelectContent>
+                            <SelectContent>{maquininhas.filter(m => m.ativo !== false || m.id === p.maquininha_id).map(m => <SelectItem key={m.id} value={m.id}>{m.nome}{m.ativo === false ? ' (inativa)' : ''}</SelectItem>)}</SelectContent>
                           </Select>
                         )}
                         {needsBandeira(p.tipo) && p.maquininha_id && (

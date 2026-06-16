@@ -16,6 +16,8 @@ import Relatorios from "@/pages/Relatorios";
 import RelatorioCustos from "@/pages/relatorios/Custos";
 import RelatorioPagamentos from "@/pages/relatorios/Pagamentos";
 import Configuracoes from "@/pages/Configuracoes";
+import ConfigMaquininhas from "@/pages/configuracoes/Maquininhas";
+import ConfigMarcasModelos from "@/pages/configuracoes/MarcasModelos";
 
 const queryClient = new QueryClient();
 
@@ -44,6 +46,8 @@ function ProtectedRoutes() {
         <Route path="/relatorios/custos" element={<RelatorioCustos />} />
         <Route path="/relatorios/pagamentos" element={<RelatorioPagamentos />} />
         <Route path="/configuracoes" element={<Configuracoes />} />
+        <Route path="/configuracoes/maquininhas" element={<ConfigMaquininhas />} />
+        <Route path="/configuracoes/marcas-modelos" element={<ConfigMarcasModelos />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AppLayout>
