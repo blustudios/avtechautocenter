@@ -23,9 +23,10 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   edit?: Lancamento | null;
+  initial?: Lancamento | null;
 }
 
-export function LancamentoSaidaDialog({ open, onOpenChange, edit }: Props) {
+export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Props) {
   const qc = useQueryClient();
   const { month } = useMonth();
   const { data: categorias } = useCategorias();
@@ -71,6 +72,21 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit }: Props) {
       setParcelado(!!pt);
       setParcelaAtual(pa || 1);
       setParcelaTotal(pt || 2);
+    } else if (initial) {
+      setData(initial.data);
+      setCategoriaId(initial.categoria_id || '');
+      setTitulo(initial.descricao);
+      setObservacoes((initial as any).observacoes || '');
+      setOrigemId(initial.origem_id || '');
+      setValorPrevisto(String(initial.valor_previsto));
+      setValorRealizado(String(initial.valor_realizado));
+      setStatus((initial.status_pagamento as any) || 'a_pagar');
+      setRecorrente(false);
+      setFrequencia('mensal');
+      setDataFim('');
+      setParcelado(false);
+      setParcelaAtual(1);
+      setParcelaTotal(2);
     } else {
       setData(format(month, 'yyyy-MM-dd'));
       setCategoriaId('');
@@ -87,7 +103,7 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit }: Props) {
       setParcelaAtual(1);
       setParcelaTotal(2);
     }
-  }, [open, edit, month]);
+  }, [open, edit, initial, month]);
 
   const catsDisponiveis = (categorias || []).filter(c => c.nome !== 'Custos de Serviço');
   const origensSaida = (origens || []).filter(o => o.tipo === 'saida');
