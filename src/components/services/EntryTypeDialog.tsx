@@ -44,6 +44,12 @@ export function EntryTypeDialog({ open, onClose, onSelect, showRapido = true }: 
               Novo Serviço Completo
             </Button>
           </div>
+
+          <div className="pt-2">
+            <Button variant="outline" onClick={onClose} className="w-full">
+              Cancelar
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
