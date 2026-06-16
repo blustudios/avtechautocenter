@@ -25,7 +25,8 @@ export function LancamentoEntradaDialog({ open, onOpenChange, edit }: Props) {
   const { data: origens } = useOrigens();
 
   const [data, setData] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [descricao, setDescricao] = useState('');
+  const [titulo, setTitulo] = useState('');
+  const [observacoes, setObservacoes] = useState('');
   const [origemId, setOrigemId] = useState<string>('');
   const [valor, setValor] = useState('0');
   const [saving, setSaving] = useState(false);
@@ -34,12 +35,14 @@ export function LancamentoEntradaDialog({ open, onOpenChange, edit }: Props) {
     if (!open) return;
     if (edit) {
       setData(edit.data);
-      setDescricao(edit.descricao);
+      setTitulo(edit.descricao);
+      setObservacoes((edit as any).observacoes || '');
       setOrigemId(edit.origem_id || '');
       setValor(String(edit.valor_realizado));
     } else {
       setData(format(month, 'yyyy-MM-dd'));
-      setDescricao('');
+      setTitulo('');
+      setObservacoes('');
       setOrigemId('');
       setValor('0');
     }
@@ -48,14 +51,15 @@ export function LancamentoEntradaDialog({ open, onOpenChange, edit }: Props) {
   const origensEntrada = (origens || []).filter(o => o.tipo === 'entrada' && !o.is_system);
 
   const save = async () => {
-    if (!descricao.trim()) { toast.error('Descrição obrigatória'); return; }
+    if (!titulo.trim()) { toast.error('Título obrigatório'); return; }
     if (!data) { toast.error('Data obrigatória'); return; }
     setSaving(true);
     try {
       const payload = {
         tipo: 'entrada' as const,
         data,
-        descricao: descricao.trim(),
+        descricao: titulo.trim(),
+        observacoes: observacoes.trim() || null,
         origem_id: origemId || null,
         valor_previsto: parseFloat(valor) || 0,
         valor_realizado: parseFloat(valor) || 0,
@@ -92,8 +96,24 @@ export function LancamentoEntradaDialog({ open, onOpenChange, edit }: Props) {
             <Input type="date" value={data} onChange={e => setData(e.target.value)} className="bg-card border-border" />
           </div>
           <div>
-            <Label>Descrição</Label>
-            <Textarea value={descricao} onChange={e => setDescricao(e.target.value)} rows={2} className="bg-card border-border" />
+            <Label>Título</Label>
+            <Input
+              value={titulo}
+              onChange={e => setTitulo(e.target.value)}
+              maxLength={80}
+              placeholder="Nome exibido na lista"
+              className="bg-card border-border"
+            />
+          </div>
+          <div>
+            <Label>Observações</Label>
+            <Textarea
+              value={observacoes}
+              onChange={e => setObservacoes(e.target.value)}
+              rows={3}
+              placeholder="Detalhes adicionais (opcional)"
+              className="bg-card border-border"
+            />
           </div>
           <div>
             <Label>Origem da entrada</Label>

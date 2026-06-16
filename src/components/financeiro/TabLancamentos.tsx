@@ -13,7 +13,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { ChevronDown, ChevronRight, MoreVertical, Plus, Lock, Search } from 'lucide-react';
+import { ChevronDown, ChevronRight, MoreVertical, Plus, Lock, Search, StickyNote } from 'lucide-react';
 import { LancamentoSaidaDialog } from './LancamentoSaidaDialog';
 import { LancamentoEntradaDialog } from './LancamentoEntradaDialog';
 import { DeleteRecurrenceDialog } from './DeleteRecurrenceDialog';
@@ -103,8 +103,21 @@ export function TabLancamentos() {
     <div key={l.id} className="flex items-center gap-3 px-3 py-2 border-t border-border/50 hover:bg-card/50">
       <div className="text-xs text-muted-foreground w-12 shrink-0">{formatDateShort(l.data)}</div>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-foreground truncate">{l.descricao}</span>
+        <div className="flex items-center gap-1.5">
+          {(l as any).observacoes && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex shrink-0"><StickyNote className="w-3.5 h-3.5 text-primary" /></span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs whitespace-pre-wrap">{(l as any).observacoes}</TooltipContent>
+            </Tooltip>
+          )}
+          <span className="text-sm text-foreground truncate">
+            {l.descricao}
+            {(l as any).parcela_total && (
+              <span className="text-muted-foreground"> ({(l as any).parcela_atual} de {(l as any).parcela_total})</span>
+            )}
+          </span>
           {l.is_auto && (
             <Tooltip>
               <TooltipTrigger><Lock className="w-3 h-3 text-muted-foreground" /></TooltipTrigger>
