@@ -16,6 +16,8 @@ import Relatorios from "@/pages/Relatorios";
 import RelatorioCustos from "@/pages/relatorios/Custos";
 import RelatorioPagamentos from "@/pages/relatorios/Pagamentos";
 import Configuracoes from "@/pages/Configuracoes";
+import ConfigMaquininhas from "@/pages/configuracoes/Maquininhas";
+import ConfigMarcasModelos from "@/pages/configuracoes/MarcasModelos";
 
 const queryClient = new QueryClient();
 
