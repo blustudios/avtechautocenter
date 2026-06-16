@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { CurrencyInput } from '@/components/ui/currency-input';
-import { Plus, X, Trash2, Car, Info, Wrench, DollarSign, CreditCard, ClipboardList, CircleDot, CheckCircle } from 'lucide-react';
+import { Plus, X, Trash2, Car, Info, Wrench, DollarSign, CreditCard, ClipboardList, CircleDot, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { PneuSelectorDialog } from '@/components/services/PneuSelectorDialog';
@@ -51,6 +51,8 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
   const [showLucroWarning, setShowLucroWarning] = useState(false);
   const [originalData, setOriginalData] = useState<any>(null);
   const [showAssignClient, setShowAssignClient] = useState(false);
+  const [avisoConfig, setAvisoConfig] = useState<{ habilitado: boolean; valor_minimo: number } | null>(null);
+  const [showAvisoCliente, setShowAvisoCliente] = useState(false);
 
   const [form, setForm] = useState({
     id: '',
