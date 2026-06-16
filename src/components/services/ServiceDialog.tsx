@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { CurrencyInput } from '@/components/ui/currency-input';
-import { Plus, X, Trash2, Car, Info, Wrench, DollarSign, CreditCard, ClipboardList, CircleDot, CheckCircle } from 'lucide-react';
+import { Plus, X, Trash2, Car, Info, Wrench, DollarSign, CreditCard, ClipboardList, CircleDot, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { PneuSelectorDialog } from '@/components/services/PneuSelectorDialog';
@@ -51,6 +51,8 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
   const [showLucroWarning, setShowLucroWarning] = useState(false);
   const [originalData, setOriginalData] = useState<any>(null);
   const [showAssignClient, setShowAssignClient] = useState(false);
+  const [avisoConfig, setAvisoConfig] = useState<{ habilitado: boolean; valor_minimo: number } | null>(null);
+  const [showAvisoCliente, setShowAvisoCliente] = useState(false);
 
   const [form, setForm] = useState({
     id: '',
@@ -83,7 +85,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
 
   useEffect(() => {
     const load = async () => {
-      const [c, f, m, b, t, mc, md] = await Promise.all([
+      const [c, f, m, b, t, mc, md, cfg] = await Promise.all([
         supabase.from('clientes').select('cpf, nome'),
         supabase.from('fornecedores').select('id, nome'),
         supabase.from('maquininhas').select('id, nome, taxa_pix_maquina, ativo'),
@@ -91,6 +93,7 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
         supabase.from('taxas').select('*'),
         supabase.from('marcas_carros').select('*').order('nome'),
         supabase.from('modelos_carros').select('*').order('nome'),
+        supabase.from('configuracoes_app').select('valor').eq('chave', 'aviso_cadastro_cliente').maybeSingle(),
       ]);
       setClientes(c.data || []);
       setFornecedores(f.data || []);
@@ -99,6 +102,11 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
       setTaxas(t.data || []);
       setMarcasList(mc.data || []);
       setModelosList(md.data || []);
+      const cfgVal = (cfg.data?.valor as { habilitado?: boolean; valor_minimo?: number } | undefined);
+      setAvisoConfig({
+        habilitado: cfgVal?.habilitado ?? true,
+        valor_minimo: cfgVal?.valor_minimo ?? 500,
+      });
 
       if (isEdit) {
         const { data: sv } = await supabase.from('servicos').select('*').eq('id', serviceId).single();
@@ -175,6 +183,26 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
 
   const needsMaquininha = (tipo: string) => !['Pix CNPJ', 'Dinheiro', 'A Definir'].includes(tipo);
   const needsBandeira = (tipo: string) => !['Pix CNPJ', 'Dinheiro', 'Pix Máquina', 'A Definir'].includes(tipo);
+
+  // If exactly one active maquininha exists, return its id (auto-select). Otherwise empty.
+  const getDefaultMaquininhaId = () => {
+    const ativas = maquininhas.filter(m => m.ativo !== false);
+    return ativas.length === 1 ? ativas[0].id : '';
+  };
+
+  // Aviso de cadastro de cliente: dispara quando habilitado, sem cliente e valor > limite
+  useEffect(() => {
+    if (!open || !avisoConfig?.habilitado) {
+      setShowAvisoCliente(false);
+      return;
+    }
+    const valor = parseFloat(form.valor_total) || 0;
+    if (!form.cliente_cpf && valor > avisoConfig.valor_minimo) {
+      setShowAvisoCliente(true);
+    } else {
+      setShowAvisoCliente(false);
+    }
+  }, [open, form.cliente_cpf, form.valor_total, avisoConfig]);
 
   const getTaxRate = (tipo: string, maquininha_id: string, bandeira_id: string, parcelas: number) => {
     if (tipo === 'Pix CNPJ' || tipo === 'Dinheiro' || tipo === 'A Definir') return 0;
@@ -726,7 +754,9 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
                     <div key={i} className="bg-card border border-border rounded-lg p-3 space-y-2">
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
                         <Select value={p.tipo} onValueChange={v => {
-                          const n = [...pagamentos]; n[i].tipo = v; n[i].maquininha_id = ''; n[i].bandeira_id = ''; setPagamentos(n);
+                          const n = [...pagamentos]; n[i].tipo = v;
+                          n[i].maquininha_id = needsMaquininha(v) ? getDefaultMaquininhaId() : '';
+                          n[i].bandeira_id = ''; setPagamentos(n);
                         }}>
                           <SelectTrigger className="bg-background border-border"><SelectValue placeholder="Tipo" /></SelectTrigger>
                           <SelectContent>{tiposPagamento.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
@@ -876,7 +906,30 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Aviso: Cadastro de Cliente para serviços de alto valor */}
+        <AlertDialog open={showAvisoCliente} onOpenChange={setShowAvisoCliente}>
+          <AlertDialogContent className="bg-popover border-border">
+            <AlertDialogHeader>
+              <div className="flex flex-col items-center text-center gap-3">
+                <div className="rounded-full bg-primary/10 p-3">
+                  <AlertTriangle className="w-8 h-8 text-primary" />
+                </div>
+                <AlertDialogTitle className="text-center">Atenção!</AlertDialogTitle>
+              </div>
+              <AlertDialogDescription className="text-center pt-2">
+                Serviço com valor alto! Lembre-se de atribuir um Cliente com CPF e telefone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={() => setShowAvisoCliente(false)} className="w-full">
+                Entendi
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
+
 
       <PneuSelectorDialog open={showPneuSelector} onClose={() => setShowPneuSelector(false)}
         onSelect={(pneu) => setPneusServico([...pneusServico, pneu])} />

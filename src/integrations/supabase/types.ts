@@ -102,6 +102,24 @@ export type Database = {
         }
         Relationships: []
       }
+      configuracoes_app: {
+        Row: {
+          chave: string
+          updated_at: string
+          valor: Json
+        }
+        Insert: {
+          chave: string
+          updated_at?: string
+          valor: Json
+        }
+        Update: {
+          chave?: string
+          updated_at?: string
+          valor?: Json
+        }
+        Relationships: []
+      }
       estoque_pneus: {
         Row: {
           aro: string
