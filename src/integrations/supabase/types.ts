@@ -219,7 +219,11 @@ export type Database = {
           id: string
           is_auto: boolean
           mes_referencia: string
+          observacoes: string | null
           origem_id: string | null
+          parcela_atual: number | null
+          parcela_grupo_id: string | null
+          parcela_total: number | null
           recorrencia_id: string | null
           status_pagamento: string | null
           tipo: string
@@ -234,7 +238,11 @@ export type Database = {
           id?: string
           is_auto?: boolean
           mes_referencia: string
+          observacoes?: string | null
           origem_id?: string | null
+          parcela_atual?: number | null
+          parcela_grupo_id?: string | null
+          parcela_total?: number | null
           recorrencia_id?: string | null
           status_pagamento?: string | null
           tipo: string
@@ -249,7 +257,11 @@ export type Database = {
           id?: string
           is_auto?: boolean
           mes_referencia?: string
+          observacoes?: string | null
           origem_id?: string | null
+          parcela_atual?: number | null
+          parcela_grupo_id?: string | null
+          parcela_total?: number | null
           recorrencia_id?: string | null
           status_pagamento?: string | null
           tipo?: string
