@@ -175,6 +175,7 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
         return (
           <div className="space-y-2">
             <div className="flex flex-col sm:flex-row gap-2">
+              <Button variant="outline" onClick={onClose} className="flex-1 sm:flex-none">Fechar</Button>
               <Button variant="secondary" onClick={() => generateImage('orcamento')} className="flex-1">
                 <Download className="w-4 h-4 mr-2" /> Baixar Orçamento
               </Button>
