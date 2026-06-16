@@ -42,11 +42,11 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  return <Ctx.Provider value={{ run, isLoading: visible }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ run, isLoading: visible, pending }}>{children}</Ctx.Provider>;
 }
 
 export function useGlobalLoading(): LoadingCtx {
   const c = useContext(Ctx);
-  if (!c) return { run: async (fn) => fn(), isLoading: false };
+  if (!c) return { run: async (fn) => fn(), isLoading: false, pending: 0 };
   return c;
 }
