@@ -88,6 +88,12 @@ export function TabLancamentos() {
     if (l.tipo === 'entrada') setOpenEntrada(true); else setOpenSaida(true);
   };
 
+  const onDuplicate = (l: Lancamento) => {
+    setEditing(null);
+    setDuplicating(l);
+    if (l.tipo === 'entrada') setOpenEntrada(true); else setOpenSaida(true);
+  };
+
   const onDelete = async (l: Lancamento) => {
     if (l.recorrencia_id) {
       setDeletingRec(l);
