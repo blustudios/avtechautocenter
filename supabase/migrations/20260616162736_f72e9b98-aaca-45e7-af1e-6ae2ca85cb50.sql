@@ -1,0 +1,1 @@
+ALTER TABLE public.maquininhas ADD COLUMN ativo boolean NOT NULL DEFAULT true;
