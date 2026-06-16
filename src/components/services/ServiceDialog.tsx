@@ -184,6 +184,26 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
   const needsMaquininha = (tipo: string) => !['Pix CNPJ', 'Dinheiro', 'A Definir'].includes(tipo);
   const needsBandeira = (tipo: string) => !['Pix CNPJ', 'Dinheiro', 'Pix Máquina', 'A Definir'].includes(tipo);
 
+  // If exactly one active maquininha exists, return its id (auto-select). Otherwise empty.
+  const getDefaultMaquininhaId = () => {
+    const ativas = maquininhas.filter(m => m.ativo !== false);
+    return ativas.length === 1 ? ativas[0].id : '';
+  };
+
+  // Aviso de cadastro de cliente: dispara quando habilitado, sem cliente e valor > limite
+  useEffect(() => {
+    if (!open || !avisoConfig?.habilitado) {
+      setShowAvisoCliente(false);
+      return;
+    }
+    const valor = parseFloat(form.valor_total) || 0;
+    if (!form.cliente_cpf && valor > avisoConfig.valor_minimo) {
+      setShowAvisoCliente(true);
+    } else {
+      setShowAvisoCliente(false);
+    }
+  }, [open, form.cliente_cpf, form.valor_total, avisoConfig]);
+
   const getTaxRate = (tipo: string, maquininha_id: string, bandeira_id: string, parcelas: number) => {
     if (tipo === 'Pix CNPJ' || tipo === 'Dinheiro' || tipo === 'A Definir') return 0;
     if (tipo === 'Pix Máquina') {
