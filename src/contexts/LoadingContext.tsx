@@ -3,6 +3,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState, Re
 interface LoadingCtx {
   run: <T>(fn: () => Promise<T>) => Promise<T>;
   isLoading: boolean;
+  pending: number;
 }
 
 const Ctx = createContext<LoadingCtx | null>(null);

@@ -1,62 +1,56 @@
-## Melhorias: Pré-seleção de Maquininha + Aviso de Cadastro de Cliente
+## Melhoria do indicador de carregamento global
 
-### 1. Pré-seleção automática quando há apenas uma maquininha ativa
+### Análise da solução proposta
 
-**Arquivo:** `src/components/services/ServiceDialog.tsx`
+A ideia de um overlay escuro centralizado é boa para deixar o estado de loading **evidente**, mas bloquear 100% da interface em **todo e qualquer fetch** seria agressivo demais — hoje o `GlobalLoadingOverlay` dispara para qualquer `useQuery`/`useMutation` ativo (inclusive refetches em segundo plano do React Query, polls, prefetch). Bloquear a tela nesses casos pioraria a UX.
 
-- Criar um helper `getDefaultMaquininhaId()` que retorna o `id` da única maquininha ativa, caso `maquininhas.filter(m => m.ativo !== false).length === 1`. Caso contrário retorna `''`.
-- Aplicar nos 3 pontos onde um pagamento ganha um `tipo` que requer maquininha (função `needsMaquininha`):
-  - Ao mudar `tipo` no Select (linha ~729): se o novo tipo precisa de maquininha e há só uma ativa, já preenche `maquininha_id` (e a `bandeira_id` continua vazia, exigindo seleção).
-  - Ao adicionar pagamento via "Adicionar pagamento" (linha ~779): se o tipo padrão "A Definir" já não precisa, mantém vazio. Mas se mudar depois, o ponto acima cobre.
-  - Ao auto-criar primeiro pagamento (linha ~719): mesma lógica.
-- Não tocar em pagamentos já existentes carregados do banco (preservam histórico).
+**Recomendação:** combinar as duas abordagens.
 
-### 2. Aviso "Serviço com valor alto" + Configurações Geral
+- **Mutações e ações explícitas** (`useIsMutating` + chamadas via `useGlobalLoading().run(...)`) → overlay escuro central com spinner e bloqueio total de cliques. É aqui que o usuário está esperando uma resposta direta.
+- **Fetches passivos** (refetches do React Query em background) → manter apenas a barrinha de progresso fina no topo, sem escurecer a tela.
 
-#### 2a. Nova subcategoria "Geral" em Configurações
-- Adicionar novo card "Geral" (ícone `Bell` ou `AlertTriangle`) em `src/pages/Configuracoes.tsx`, apontando para `/configuracoes/geral`.
-- Criar `src/pages/configuracoes/Geral.tsx` com a seção **"Aviso de Cadastro de Cliente"**:
-  - Switch ON/OFF para habilitar o aviso.
-  - `CurrencyInput` para o valor mínimo que dispara o aviso (default R$ 500,00).
-  - Botão "Salvar" persistindo no banco.
-- Registrar rota `/configuracoes/geral` em `src/App.tsx`.
+Isso mantém a clareza pedida nos momentos críticos (salvar serviço, excluir, gerar recibo, login, etc.) sem travar a navegação quando o app só está atualizando dados em segundo plano.
 
-#### 2b. Persistência das configurações
-- Nova tabela `configuracoes_app` (key/value) — uma única linha por chave:
-  ```
-  chave text primary key
-  valor jsonb not null
-  updated_at timestamptz
-  ```
-  Chaves usadas: `aviso_cadastro_cliente` → `{ habilitado: boolean, valor_minimo: number }`.
-- GRANT para `authenticated` (read/write) e `service_role`. RLS habilitado, política permitindo qualquer `authenticated` ler e gravar (configuração compartilhada do tenant único).
-- Seed da chave com `{ habilitado: true, valor_minimo: 500 }`.
+### O que muda
 
-#### 2c. Pop-up de aviso no ServiceDialog
-- No `ServiceDialog`, carregar a config ao abrir (junto com as outras queries do `Promise.all` em `loadRefs`).
-- Disparar `AlertDialog` (já importado) com:
-  - Ícone `AlertTriangle` laranja grande (warning).
-  - Título: "Atenção!"
-  - Descrição: "Serviço com valor alto! Lembre-se de atribuir um Cliente com CPF e telefone."
-  - Botão único "Entendi" para fechar.
-- Condições para abrir o pop-up (a cada interação que abre o card):
-  - `aviso_cadastro_cliente.habilitado === true`
-  - `!form.cliente_cpf` (sem cliente atribuído)
-  - `parseFloat(form.valor_total) > valor_minimo`
-- Trigger: `useEffect` que observa `[open, form.valor_total, form.cliente_cpf, configCarregada]`. Para garantir "a cada interação com o card", o aviso reaparece sempre que o dialog abrir e as condições continuarem verdadeiras (estado `dismissedNoSession` resetado quando `open` vira `false`).
+**1. `src/components/GlobalLoadingOverlay.tsx**`
 
-### Arquivos afetados
+- Separar dois estados:
+  - `blocking` = `useIsMutating() + LoadingContext.pending > 0` → renderiza overlay escuro.
+  - `passive` = somente `useIsFetching() > 0` → renderiza apenas a barra de topo (mantém o badge atual opcional).
+- Overlay bloqueante:
+  - `fixed inset-0 z-[200]`
+  - Fundo `bg-background/70 backdrop-blur-sm`
+  - `pointer-events-auto` (intercepta cliques e teclas)
+  - Centro: card arredondado com `Loader2` grande (`h-12 w-12 text-primary animate-spin`) + texto "Carregando...".
+  - `aria-busy="true"`, `role="status"`, foco preso (simples: `tabIndex={-1}` no container) para acessibilidade.
+  - Animação `animate-fade-in` ao aparecer.
+- Manter `SHOW_DELAY_MS = 500` para não piscar em respostas rápidas.
 
-**Novos**
-- `src/pages/configuracoes/Geral.tsx`
-- Migração SQL para tabela `configuracoes_app` + seed.
+**2. `src/contexts/LoadingContext.tsx**`
 
-**Modificados**
-- `src/pages/Configuracoes.tsx` (novo card "Geral")
-- `src/App.tsx` (rota)
-- `src/components/services/ServiceDialog.tsx` (pré-seleção + AlertDialog de aviso + carregamento da config)
+- Expor `pending` (número) além de `isLoading`, para o overlay diferenciar bloqueante x passivo.
+- Sem mudanças na API `run()` — componentes que já usam continuam funcionando e passam a acionar o bloqueio automaticamente.
 
-### Riscos / Edge cases
-- Se a maquininha única ativa for desativada após pré-seleção, o pagamento já salvo continua válido (lógica atual já preserva inativas referenciadas).
-- Se o usuário desabilitar a config "Aviso de Cadastro", nenhum pop-up dispara, independente do valor.
-- Aviso não bloqueia nada — é apenas reminder; usuário pode salvar mesmo sem cliente (regras de finalização atuais permanecem).
+**3. Sem mudanças em telas/diálogos**
+
+- Mutations já passam por `useIsMutating` → bloqueio automático.
+- Onde houver ação async sem mutation (ex.: geração de recibo via `html2canvas`), envolver com `useGlobalLoading().run(...)` para ativar o bloqueio. Levantamento rápido em `ServiceDialog.tsx`, `Servicos.tsx` e geração de recibos durante a implementação.
+
+### Comportamento esperado
+
+
+| Situação                           | Visual                                                 |
+| ---------------------------------- | ------------------------------------------------------ |
+| Salvar/excluir/finalizar serviço   | Tela escurecida + spinner central, cliques bloqueados  |
+| Login / logout                     | Tela escurecida + spinner central                      |
+| Geração de recibo JPG              | Tela escurecida + spinner central                      |
+| Refetch automático do Dashboard    | Apenas barra fina no topo                              |
+| Carregamento inicial de uma página | Skeletons já existentes + barra no topo (sem bloqueio) |
+
+
+### Riscos e mitigação
+
+- **Falsos bloqueios** em refetch passivo → resolvido separando `mutating`/`run` de `fetching`.
+- **Flicker** em respostas rápidas → mantido o delay de 500ms.
+- **Acessibilidade** → `role="status"`, `aria-busy`, `aria-live="polite"` no container.
