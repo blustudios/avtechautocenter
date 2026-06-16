@@ -33,6 +33,7 @@ export function TabLancamentos() {
   const [openSaida, setOpenSaida] = useState(false);
   const [openEntrada, setOpenEntrada] = useState(false);
   const [editing, setEditing] = useState<Lancamento | null>(null);
+  const [duplicating, setDuplicating] = useState<Lancamento | null>(null);
   const [deletingRec, setDeletingRec] = useState<Lancamento | null>(null);
 
   const [filtroCat, setFiltroCat] = useState<string>('todas');
