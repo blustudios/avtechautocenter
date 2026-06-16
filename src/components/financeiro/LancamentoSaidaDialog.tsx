@@ -153,8 +153,7 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit }: Props) {
     const vp = parseFloat(valorPrevisto) || 0;
     const vr = parseFloat(valorRealizado) || 0;
 
-    type Row = ReturnType<typeof buildBase> & Record<string, any>;
-    const rows: Row[] = [];
+    const rows: any[] = [];
 
     // Parcela atual
     rows.push({
