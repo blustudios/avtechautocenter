@@ -206,7 +206,8 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
       case 'em_progresso':
         return (
           <div className="flex flex-col sm:flex-row justify-between gap-2">
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={onClose}>Fechar</Button>
               <Button variant="outline" onClick={() => setConfirmAction('excluir')} className="border-destructive text-destructive hover:bg-destructive/10">
                 <Trash2 className="w-4 h-4 mr-2" /> Excluir
               </Button>
