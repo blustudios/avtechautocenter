@@ -17,9 +17,10 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   edit?: Lancamento | null;
+  initial?: Lancamento | null;
 }
 
-export function LancamentoEntradaDialog({ open, onOpenChange, edit }: Props) {
+export function LancamentoEntradaDialog({ open, onOpenChange, edit, initial }: Props) {
   const qc = useQueryClient();
   const { month } = useMonth();
   const { data: origens } = useOrigens();
@@ -33,12 +34,13 @@ export function LancamentoEntradaDialog({ open, onOpenChange, edit }: Props) {
 
   useEffect(() => {
     if (!open) return;
-    if (edit) {
-      setData(edit.data);
-      setTitulo(edit.descricao);
-      setObservacoes((edit as any).observacoes || '');
-      setOrigemId(edit.origem_id || '');
-      setValor(String(edit.valor_realizado));
+    const src = edit || initial;
+    if (src) {
+      setData(src.data);
+      setTitulo(src.descricao);
+      setObservacoes((src as any).observacoes || '');
+      setOrigemId(src.origem_id || '');
+      setValor(String(src.valor_realizado));
     } else {
       setData(format(month, 'yyyy-MM-dd'));
       setTitulo('');
@@ -46,7 +48,7 @@ export function LancamentoEntradaDialog({ open, onOpenChange, edit }: Props) {
       setOrigemId('');
       setValor('0');
     }
-  }, [open, edit, month]);
+  }, [open, edit, initial, month]);
 
   const origensEntrada = (origens || []).filter(o => o.tipo === 'entrada' && !o.is_system);
 

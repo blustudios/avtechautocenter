@@ -33,6 +33,7 @@ export function TabLancamentos() {
   const [openSaida, setOpenSaida] = useState(false);
   const [openEntrada, setOpenEntrada] = useState(false);
   const [editing, setEditing] = useState<Lancamento | null>(null);
+  const [duplicating, setDuplicating] = useState<Lancamento | null>(null);
   const [deletingRec, setDeletingRec] = useState<Lancamento | null>(null);
 
   const [filtroCat, setFiltroCat] = useState<string>('todas');
@@ -84,6 +85,12 @@ export function TabLancamentos() {
 
   const onEdit = (l: Lancamento) => {
     setEditing(l);
+    if (l.tipo === 'entrada') setOpenEntrada(true); else setOpenSaida(true);
+  };
+
+  const onDuplicate = (l: Lancamento) => {
+    setEditing(null);
+    setDuplicating(l);
     if (l.tipo === 'entrada') setOpenEntrada(true); else setOpenSaida(true);
   };
 
@@ -145,6 +152,7 @@ export function TabLancamentos() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => onEdit(l)}>Editar</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onDuplicate(l)}>Duplicar</DropdownMenuItem>
             <DropdownMenuItem onClick={() => onDelete(l)} className="text-destructive">Excluir</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -243,8 +251,18 @@ export function TabLancamentos() {
         </div>
       )}
 
-      <LancamentoSaidaDialog open={openSaida} onOpenChange={v => { setOpenSaida(v); if (!v) setEditing(null); }} edit={editing && editing.tipo === 'saida' ? editing : null} />
-      <LancamentoEntradaDialog open={openEntrada} onOpenChange={v => { setOpenEntrada(v); if (!v) setEditing(null); }} edit={editing && editing.tipo === 'entrada' ? editing : null} />
+      <LancamentoSaidaDialog
+        open={openSaida}
+        onOpenChange={v => { setOpenSaida(v); if (!v) { setEditing(null); setDuplicating(null); } }}
+        edit={editing && editing.tipo === 'saida' ? editing : null}
+        initial={duplicating && duplicating.tipo === 'saida' ? duplicating : null}
+      />
+      <LancamentoEntradaDialog
+        open={openEntrada}
+        onOpenChange={v => { setOpenEntrada(v); if (!v) { setEditing(null); setDuplicating(null); } }}
+        edit={editing && editing.tipo === 'entrada' ? editing : null}
+        initial={duplicating && duplicating.tipo === 'entrada' ? duplicating : null}
+      />
       <DeleteRecurrenceDialog open={!!deletingRec} onOpenChange={v => { if (!v) setDeletingRec(null); }} lancamento={deletingRec} />
     </div>
   );
