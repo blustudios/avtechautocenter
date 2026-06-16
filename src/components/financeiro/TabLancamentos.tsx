@@ -152,6 +152,7 @@ export function TabLancamentos() {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuItem onClick={() => onEdit(l)}>Editar</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => onDuplicate(l)}>Duplicar</DropdownMenuItem>
             <DropdownMenuItem onClick={() => onDelete(l)} className="text-destructive">Excluir</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
