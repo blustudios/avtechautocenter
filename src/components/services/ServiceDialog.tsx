@@ -906,7 +906,30 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Aviso: Cadastro de Cliente para serviços de alto valor */}
+        <AlertDialog open={showAvisoCliente} onOpenChange={setShowAvisoCliente}>
+          <AlertDialogContent className="bg-popover border-border">
+            <AlertDialogHeader>
+              <div className="flex flex-col items-center text-center gap-3">
+                <div className="rounded-full bg-primary/10 p-3">
+                  <AlertTriangle className="w-8 h-8 text-primary" />
+                </div>
+                <AlertDialogTitle className="text-center">Atenção!</AlertDialogTitle>
+              </div>
+              <AlertDialogDescription className="text-center pt-2">
+                Serviço com valor alto! Lembre-se de atribuir um Cliente com CPF e telefone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogAction onClick={() => setShowAvisoCliente(false)} className="w-full">
+                Entendi
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </DialogContent>
+
 
       <PneuSelectorDialog open={showPneuSelector} onClose={() => setShowPneuSelector(false)}
         onSelect={(pneu) => setPneusServico([...pneusServico, pneu])} />
