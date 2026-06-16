@@ -491,6 +491,7 @@ export default function Clientes() {
                 ))}
               </div>
               <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setViewClient(null)}>Fechar</Button>
                 <Button variant="outline" onClick={() => {
                   setViewClient(null);
                   openEditClient(viewClient.cpf);
