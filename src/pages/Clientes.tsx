@@ -582,6 +582,9 @@ export default function Clientes() {
             <p className="text-xs text-muted-foreground">
               Você pode desativar o carro em vez de excluí-lo usando o toggle Ativo/Inativo.
             </p>
+            <div className="flex justify-end pt-2">
+              <Button variant="outline" onClick={() => setLinkedServices(null)}>Fechar</Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
