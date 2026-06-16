@@ -1,39 +1,47 @@
-# Plano: Botões de Saída em Todos os Popups
+# Plano: Subcategorias em Configurações + Switch Ativo/Inativo nas Maquininhas
 
-## Problema
-Após removermos o "X" e o fechamento por clique fora / ESC, alguns dialogs ficaram **sem nenhuma forma de saída**. O exemplo principal é a primeira janela ao clicar num card de Serviço (`ServiceViewDialog`) nos status `orçamento` e `em progresso`.
+## 1) Reorganização da página de Configurações
 
-## Mapeamento — dialogs sem botão de saída
+### Estrutura nova
+- `/configuracoes` → **hub** com dois cards de subcategoria (Maquininhas, Marcas e Modelos). Visual: cards grandes com ícone, título e descrição curta.
+- `/configuracoes/maquininhas` → conteúdo atual da seção Maquininhas (lista, formulário, bandeiras, taxas).
+- `/configuracoes/marcas-modelos` → conteúdo atual da seção Marcas e Modelos (lista, importação XML).
 
-| Dialog | Status | Ação |
-|---|---|---|
-| `ServiceViewDialog` (orçamento) | sem Fechar | Adicionar **Fechar** |
-| `ServiceViewDialog` (em_progresso) | sem Fechar | Adicionar **Fechar** |
-| `ServiceViewDialog` (cancelado/finalizado) | já tem | — |
-| `PneuSelectorDialog` | sem Cancelar no nível do dialog | Adicionar **Cancelar** no rodapé |
-| `Clientes` → "viewClient" dialog | só botão "Editar Cliente" | Adicionar **Fechar** |
-| `Clientes` → "Linked services" dialog | nenhum | Adicionar **Fechar** |
-| `Configuracoes` → "Importar XML" dialog | nenhum | Adicionar **Cancelar** |
-| `HistoryDialog`, `EntryTypeDialog` | já corrigidos na rodada anterior | — |
-| Demais (`ServiceDialog`, `ClientDialog`, `AssignClientDialog`, `EditPagamento`, `EditCusto`, `Estoque`, `Fornecedores`, `Configuracoes` form, `Clientes` form) | já têm Cancelar | — |
-| `AlertDialog`s | sempre têm `AlertDialogCancel` | — |
+### Implementação
+- Quebrar `src/pages/Configuracoes.tsx` em 3 arquivos:
+  - `src/pages/Configuracoes.tsx` — hub com cards (novo conteúdo enxuto)
+  - `src/pages/configuracoes/Maquininhas.tsx` — toda a lógica de maquininhas/bandeiras/taxas (migrar do arquivo atual)
+  - `src/pages/configuracoes/MarcasModelos.tsx` — toda a lógica de marcas/modelos + import XML
+- Cada subpágina exibe um botão "Voltar" para `/configuracoes`.
+- Registrar as rotas em `src/App.tsx`.
+- O item "Configurações" no `AppSidebar` continua apontando para `/configuracoes` (hub).
 
-## Implementação
+## 2) Switch Ativo/Inativo nas Maquininhas
 
-### 1. `ServiceViewDialog.tsx`
-- Branch `orcamento` (linhas 174-192): adicionar botão **Fechar** outline na linha de ações principais (junto a Baixar/Editar/Executar). Manter "Cancelar Orçamento" destrutivo abaixo.
-- Branch `em_progresso` (linhas 205-227): adicionar botão **Fechar** outline ao lado de Excluir / Atribuir Cliente.
+### Banco
+Migration:
+```sql
+ALTER TABLE public.maquininhas
+  ADD COLUMN ativo boolean NOT NULL DEFAULT true;
+```
+(Maquininhas existentes ficam todas ativas.)
 
-### 2. `PneuSelectorDialog.tsx`
-- Adicionar `DialogFooter` com botão **Cancelar** que chama `onClose()` (ao final do `space-y-4`, antes do fechamento do `DialogContent`).
+### UI — página Maquininhas
+- Em cada card da lista, no canto direito, um `Switch` (shadcn) com label "Ativa".
+- Click no switch **não** abre o formulário de edição (`stopPropagation` no wrapper).
+- Toggle chama `supabase.from('maquininhas').update({ ativo: !cur }).eq('id', m.id)`, atualiza estado local, e mostra `toast`.
+- Card inativo: aplicar `opacity-60` e badge "Inativa" sutil.
 
-### 3. `Clientes.tsx`
-- Dialog `viewClient` (linha 493): adicionar **Fechar** (outline) ao lado de "Editar Cliente".
-- Dialog `linkedServices` (linha 556): adicionar `DialogFooter` com **Fechar**.
+### Filtragem no formulário de pagamento (`ServiceDialog`)
+- Linha 89: alterar `select('id, nome, taxa_pix_maquina')` para `.eq('ativo', true)`.
+- **Caso de borda:** ao editar um pagamento antigo cuja maquininha foi desativada após o registro, ela não apareceria no select, "perdendo" a referência visual.
+  - Solução: além das ativas, incluir explicitamente os IDs já referenciados em `pagamentosForm`. Ao montar a lista do `Select`, fazer um `union` entre `maquininhas` (ativas) e maquininhas presentes em pagamentos atuais (carregadas separadamente, marcadas como "Inativa" no item).
+  - Isso preserva consistência sem quebrar serviços históricos.
 
-### 4. `Configuracoes.tsx`
-- Dialog `showXmlImport` (linha 497): adicionar `DialogFooter` com **Cancelar** que fecha (`setShowXmlImport(false)`).
+## 3) Arquivos afetados
+- **Novos:** `src/pages/configuracoes/Maquininhas.tsx`, `src/pages/configuracoes/MarcasModelos.tsx`
+- **Editados:** `src/pages/Configuracoes.tsx` (vira hub), `src/App.tsx` (rotas), `src/components/services/ServiceDialog.tsx` (filtro `ativo` + preservação de inativa em edição), tipo Supabase regenerado pela migration.
 
-## Notas
-- Todos os botões usam `variant="outline"` e label "Fechar" (read-only/visualização) ou "Cancelar" (formulários/seletores).
-- Nenhuma lógica de negócio é tocada — apenas presentation.
+## 4) Riscos
+- Nenhum impacto em dados existentes (default `true`).
+- Quebra do arquivo grande pode introduzir bugs de import — mitigado movendo blocos inteiros sem refatorar lógica.
