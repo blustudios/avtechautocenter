@@ -1,47 +1,62 @@
-# Plano: Subcategorias em Configurações + Switch Ativo/Inativo nas Maquininhas
+## Melhorias: Pré-seleção de Maquininha + Aviso de Cadastro de Cliente
 
-## 1) Reorganização da página de Configurações
+### 1. Pré-seleção automática quando há apenas uma maquininha ativa
 
-### Estrutura nova
-- `/configuracoes` → **hub** com dois cards de subcategoria (Maquininhas, Marcas e Modelos). Visual: cards grandes com ícone, título e descrição curta.
-- `/configuracoes/maquininhas` → conteúdo atual da seção Maquininhas (lista, formulário, bandeiras, taxas).
-- `/configuracoes/marcas-modelos` → conteúdo atual da seção Marcas e Modelos (lista, importação XML).
+**Arquivo:** `src/components/services/ServiceDialog.tsx`
 
-### Implementação
-- Quebrar `src/pages/Configuracoes.tsx` em 3 arquivos:
-  - `src/pages/Configuracoes.tsx` — hub com cards (novo conteúdo enxuto)
-  - `src/pages/configuracoes/Maquininhas.tsx` — toda a lógica de maquininhas/bandeiras/taxas (migrar do arquivo atual)
-  - `src/pages/configuracoes/MarcasModelos.tsx` — toda a lógica de marcas/modelos + import XML
-- Cada subpágina exibe um botão "Voltar" para `/configuracoes`.
-- Registrar as rotas em `src/App.tsx`.
-- O item "Configurações" no `AppSidebar` continua apontando para `/configuracoes` (hub).
+- Criar um helper `getDefaultMaquininhaId()` que retorna o `id` da única maquininha ativa, caso `maquininhas.filter(m => m.ativo !== false).length === 1`. Caso contrário retorna `''`.
+- Aplicar nos 3 pontos onde um pagamento ganha um `tipo` que requer maquininha (função `needsMaquininha`):
+  - Ao mudar `tipo` no Select (linha ~729): se o novo tipo precisa de maquininha e há só uma ativa, já preenche `maquininha_id` (e a `bandeira_id` continua vazia, exigindo seleção).
+  - Ao adicionar pagamento via "Adicionar pagamento" (linha ~779): se o tipo padrão "A Definir" já não precisa, mantém vazio. Mas se mudar depois, o ponto acima cobre.
+  - Ao auto-criar primeiro pagamento (linha ~719): mesma lógica.
+- Não tocar em pagamentos já existentes carregados do banco (preservam histórico).
 
-## 2) Switch Ativo/Inativo nas Maquininhas
+### 2. Aviso "Serviço com valor alto" + Configurações Geral
 
-### Banco
-Migration:
-```sql
-ALTER TABLE public.maquininhas
-  ADD COLUMN ativo boolean NOT NULL DEFAULT true;
-```
-(Maquininhas existentes ficam todas ativas.)
+#### 2a. Nova subcategoria "Geral" em Configurações
+- Adicionar novo card "Geral" (ícone `Bell` ou `AlertTriangle`) em `src/pages/Configuracoes.tsx`, apontando para `/configuracoes/geral`.
+- Criar `src/pages/configuracoes/Geral.tsx` com a seção **"Aviso de Cadastro de Cliente"**:
+  - Switch ON/OFF para habilitar o aviso.
+  - `CurrencyInput` para o valor mínimo que dispara o aviso (default R$ 500,00).
+  - Botão "Salvar" persistindo no banco.
+- Registrar rota `/configuracoes/geral` em `src/App.tsx`.
 
-### UI — página Maquininhas
-- Em cada card da lista, no canto direito, um `Switch` (shadcn) com label "Ativa".
-- Click no switch **não** abre o formulário de edição (`stopPropagation` no wrapper).
-- Toggle chama `supabase.from('maquininhas').update({ ativo: !cur }).eq('id', m.id)`, atualiza estado local, e mostra `toast`.
-- Card inativo: aplicar `opacity-60` e badge "Inativa" sutil.
+#### 2b. Persistência das configurações
+- Nova tabela `configuracoes_app` (key/value) — uma única linha por chave:
+  ```
+  chave text primary key
+  valor jsonb not null
+  updated_at timestamptz
+  ```
+  Chaves usadas: `aviso_cadastro_cliente` → `{ habilitado: boolean, valor_minimo: number }`.
+- GRANT para `authenticated` (read/write) e `service_role`. RLS habilitado, política permitindo qualquer `authenticated` ler e gravar (configuração compartilhada do tenant único).
+- Seed da chave com `{ habilitado: true, valor_minimo: 500 }`.
 
-### Filtragem no formulário de pagamento (`ServiceDialog`)
-- Linha 89: alterar `select('id, nome, taxa_pix_maquina')` para `.eq('ativo', true)`.
-- **Caso de borda:** ao editar um pagamento antigo cuja maquininha foi desativada após o registro, ela não apareceria no select, "perdendo" a referência visual.
-  - Solução: além das ativas, incluir explicitamente os IDs já referenciados em `pagamentosForm`. Ao montar a lista do `Select`, fazer um `union` entre `maquininhas` (ativas) e maquininhas presentes em pagamentos atuais (carregadas separadamente, marcadas como "Inativa" no item).
-  - Isso preserva consistência sem quebrar serviços históricos.
+#### 2c. Pop-up de aviso no ServiceDialog
+- No `ServiceDialog`, carregar a config ao abrir (junto com as outras queries do `Promise.all` em `loadRefs`).
+- Disparar `AlertDialog` (já importado) com:
+  - Ícone `AlertTriangle` laranja grande (warning).
+  - Título: "Atenção!"
+  - Descrição: "Serviço com valor alto! Lembre-se de atribuir um Cliente com CPF e telefone."
+  - Botão único "Entendi" para fechar.
+- Condições para abrir o pop-up (a cada interação que abre o card):
+  - `aviso_cadastro_cliente.habilitado === true`
+  - `!form.cliente_cpf` (sem cliente atribuído)
+  - `parseFloat(form.valor_total) > valor_minimo`
+- Trigger: `useEffect` que observa `[open, form.valor_total, form.cliente_cpf, configCarregada]`. Para garantir "a cada interação com o card", o aviso reaparece sempre que o dialog abrir e as condições continuarem verdadeiras (estado `dismissedNoSession` resetado quando `open` vira `false`).
 
-## 3) Arquivos afetados
-- **Novos:** `src/pages/configuracoes/Maquininhas.tsx`, `src/pages/configuracoes/MarcasModelos.tsx`
-- **Editados:** `src/pages/Configuracoes.tsx` (vira hub), `src/App.tsx` (rotas), `src/components/services/ServiceDialog.tsx` (filtro `ativo` + preservação de inativa em edição), tipo Supabase regenerado pela migration.
+### Arquivos afetados
 
-## 4) Riscos
-- Nenhum impacto em dados existentes (default `true`).
-- Quebra do arquivo grande pode introduzir bugs de import — mitigado movendo blocos inteiros sem refatorar lógica.
+**Novos**
+- `src/pages/configuracoes/Geral.tsx`
+- Migração SQL para tabela `configuracoes_app` + seed.
+
+**Modificados**
+- `src/pages/Configuracoes.tsx` (novo card "Geral")
+- `src/App.tsx` (rota)
+- `src/components/services/ServiceDialog.tsx` (pré-seleção + AlertDialog de aviso + carregamento da config)
+
+### Riscos / Edge cases
+- Se a maquininha única ativa for desativada após pré-seleção, o pagamento já salvo continua válido (lógica atual já preserva inativas referenciadas).
+- Se o usuário desabilitar a config "Aviso de Cadastro", nenhum pop-up dispara, independente do valor.
+- Aviso não bloqueia nada — é apenas reminder; usuário pode salvar mesmo sem cliente (regras de finalização atuais permanecem).
