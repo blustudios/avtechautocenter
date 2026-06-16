@@ -505,6 +505,9 @@ export default function Configuracoes() {
               const file = e.target.files?.[0];
               if (file) handleXmlImport(file);
             }} className="bg-card border-border" />
+            <div className="flex justify-end pt-2">
+              <Button variant="outline" onClick={() => setShowXmlImport(false)}>Cancelar</Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

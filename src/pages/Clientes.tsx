@@ -491,6 +491,7 @@ export default function Clientes() {
                 ))}
               </div>
               <div className="flex justify-end gap-3">
+                <Button variant="outline" onClick={() => setViewClient(null)}>Fechar</Button>
                 <Button variant="outline" onClick={() => {
                   setViewClient(null);
                   openEditClient(viewClient.cpf);
@@ -581,6 +582,9 @@ export default function Clientes() {
             <p className="text-xs text-muted-foreground">
               Você pode desativar o carro em vez de excluí-lo usando o toggle Ativo/Inativo.
             </p>
+            <div className="flex justify-end pt-2">
+              <Button variant="outline" onClick={() => setLinkedServices(null)}>Fechar</Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
