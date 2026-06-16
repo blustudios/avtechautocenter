@@ -1,103 +1,109 @@
-## Objetivo
+# Plano: Loader Global Automático + Dialogs Modais Estritos
 
-Melhorar o gráfico **"Faturamento Acumulado do Mês"** no Dashboard para:
+## 1) Indicador de "Carregando" (>0.5s)
 
-1. Comparar o mês atual com **até 3 meses passados** (selecionáveis pelo usuário).
-2. Cada mês com **cor distinta** e **legenda** (mês/cor) abaixo do gráfico.
-3. Três checkboxes **show/hide** para exibir **linhas tracejadas horizontais de metas**: R$ 55k, R$ 65k e R$ 75k.
+### Estratégia
+Em vez de instrumentar cada chamada manualmente, vamos criar um **loader global automático** que detecta atividade pendente em duas frentes principais:
 
-Arquivo afetado: `**src/pages/Dashboard.tsx**` (único).
+**A. React Query (já usado em Dashboard, Servicos etc.)**
+- Usar o hook nativo `useIsFetching()` + `useIsMutating()` no `App.tsx`.
+- Sempre que houver query/mutation ativa por mais de **500ms**, exibir um loader fixo.
+
+**B. Operações imperativas (Supabase direto, sem React Query)**
+- Há vários `await supabase.from(...)` espalhados (Clientes, Estoque, Fornecedores, ServiceDialog, dialogs de edição etc.).
+- Criar um contexto leve `LoadingProvider` com:
+  - `const { run } = useGlobalLoading();`
+  - `await run(() => supabase.from('x').insert(...))` — incrementa contador, dispara timer 500ms; ao resolver, decrementa.
+- Substituir progressivamente os `await` críticos por `run(...)` (saves, deletes, fetches de listas).
+
+### Componente Visual
+- `GlobalLoadingOverlay`:
+  - Barra fina superior (estilo NProgress) em `hsl(var(--primary))` (laranja) — não bloqueia a UI.
+  - + Pequeno badge flutuante canto inferior direito com spinner + texto "Carregando..." quando ativo >500ms.
+  - Animação `fade-in` já existente no Tailwind.
+- Aparece somente após **500ms** de atividade contínua, evitando flicker em respostas rápidas.
+
+### Skeletons existentes
+- Mantemos os `Skeleton` já usados nas páginas (Dashboard, Servicos) — eles continuam sendo a UX preferida em listagens. O loader global é complementar, focado em ações pontuais (salvar, excluir, refetch).
+
+### Arquivos afetados
+- `src/components/GlobalLoadingOverlay.tsx` (novo)
+- `src/contexts/LoadingContext.tsx` (novo)
+- `src/App.tsx` — montar overlay + provider, conectar `useIsFetching/useIsMutating`
+- Adoção incremental de `run(...)` em pontos críticos: `ServiceDialog`, `ClientDialog`, `EditPagamentoDialog`, `EditCustoDialog`, `AssignClientDialog`, páginas `Clientes`/`Estoque`/`Fornecedores` (saves e deletes).
 
 ---
 
-### 1. Seleção de meses comparativos (até 3)
+## 2) Dialogs: bloquear fechamento ao clicar fora e por ESC
 
-Substituir o `Switch` "Comparar com mês anterior" por um controle de seleção múltipla:
+### Estratégia
+Radix UI Dialog (shadcn) expõe duas props no `DialogContent`:
+- `onPointerDownOutside={(e) => e.preventDefault()}` — bloqueia clique no overlay
+- `onEscapeKeyDown={(e) => e.preventDefault()}` — bloqueia tecla ESC
+- Adicionalmente: remover o ícone "X" no canto superior direito (atualmente em `dialog.tsx`), já que o usuário pediu que a saída seja **somente via botão Cancelar**.
 
-- 3 dropdowns (`Select` shadcn) lado a lado no header do card, rotulados **"Comparar 1"**, **"Comparar 2"**, **"Comparar 3"**, cada um com opção `Nenhum` + lista dos **últimos 12 meses** anteriores ao atual (ex.: "Maio/2026", "Abril/2026", …).
-- Estado: `const [compareMonths, setCompareMonths] = useState<(string|null)[]>([toMonthKey(subMonths(today,1)), null, null])` (default: mês anterior já selecionado no slot 1, para preservar comportamento atual).
-- Slots não preenchidos ou repetidos são ignorados.
+### Implementação centralizada
+Editar `src/components/ui/dialog.tsx`:
+1. Em `DialogContent`, adicionar por padrão:
+   ```tsx
+   onPointerDownOutside={(e) => e.preventDefault()}
+   onInteractOutside={(e) => e.preventDefault()}
+   onEscapeKeyDown={(e) => e.preventDefault()}
+   ```
+   Com possibilidade de override via props (para casos excepcionais como tooltips/menus internos — não afeta hoje).
+2. Remover o `<DialogPrimitive.Close>` (X) do `DialogContent`.
 
-**Cores fixas por slot** (semânticas, dark-mode safe):
+Isso aplica a regra automaticamente em **todos** os dialogs já existentes, sem editar cada arquivo:
+- ServiceDialog, ServiceViewDialog, PneuSelectorDialog, EntryTypeDialog, AssignClientDialog, HistoryDialog
+- ClientDialog
+- EditPagamentoDialog, EditCustoDialog
+- Dialogs inline em Servicos, Clientes, Estoque, Configuracoes, Fornecedores
 
-- Mês atual: `hsl(var(--primary))` (laranja)
-- Slot 1: `hsl(217 91% 60%)` (azul)
-- Slot 2: `hsl(280 70% 60%)` (roxo)
-- Slot 3: `hsl(160 70% 45%)` (verde-água)
+### Auditoria pós-mudança
+- Garantir que **todo** dialog já tem botão "Cancelar" visível. Mapeamento rápido:
+  - ServiceDialog ✅ — tem footer com Cancelar/Salvar
+  - ClientDialog, Fornecedores, Estoque, Configuracoes ✅ — todos seguem padrão Cancelar/Salvar
+  - HistoryDialog / ServiceViewDialog (read-only) — adicionar botão "Fechar" se ainda não houver
+  - EntryTypeDialog (escolha de tipo) — adicionar "Cancelar"
+  - AssignClientDialog ✅
+- Em dialogs read-only ("Fechar" em vez de "Cancelar"), o nome do botão fica "Fechar".
+
+### AlertDialog
+- `src/components/ui/alert-dialog.tsx` já é modal-strict por natureza (Radix AlertDialog não fecha em outside-click). Sem mudança necessária.
 
 ---
 
-### 2. Query e série de dados
+## 3) Detalhes técnicos
 
-Refatorar `useQuery` `dashboard-cumulative` para buscar **N+1 meses** dinamicamente:
-
+### LoadingContext (resumo)
 ```ts
-const monthsToFetch = [today, ...compareMonths.filter(Boolean).map(parseMonthKey)];
-// Promise.all sobre cada mês -> Record<monthKey, rows[]>
+interface Ctx {
+  run: <T>(fn: () => Promise<T>, opts?: { delay?: number }) => Promise<T>;
+  isLoading: boolean; // true após delay (default 500ms)
+}
 ```
+Internamente:
+- contador `pending`
+- `setTimeout(500)` ao subir de 0→1; cancela ao voltar a 0 antes de disparar.
 
-`cumulativeSeries` passa a produzir objetos com chaves dinâmicas por mês:
-
-```ts
-{ dia: 1, atual: 1200, '2026-05': 980, '2026-04': 1500 }
+### Dialog override (resumo)
+```tsx
+<DialogPrimitive.Content
+  onPointerDownOutside={(e) => { props.onPointerDownOutside?.(e); if (!e.defaultPrevented) e.preventDefault(); }}
+  onEscapeKeyDown={(e) => { props.onEscapeKeyDown?.(e); if (!e.defaultPrevented) e.preventDefault(); }}
+  ...
+/>
 ```
-
-Regras mantidas:
-
-- Mês atual corta em `todayDay` (não projeta).
-- Meses passados sempre completos.
-- Alinhamento por dia do mês (1→1, 2→2…); dias extras (ex.: 31 em fev) ficam `null`.
-- Eixo X = 1..max(diasDosMesesSelecionados).
+Mantém extensibilidade caso algum dialog futuro precise reabrir o comportamento.
 
 ---
 
-### 3. Renderização do `AreaChart`
+## 4) Ordem de execução
+1. Editar `dialog.tsx` (mudança global, baixo risco) — item 2 inteiro.
+2. Criar `LoadingContext` + `GlobalLoadingOverlay` e plugar no `App.tsx` — cobre 100% das React Queries automaticamente.
+3. Adoção do `run(...)` nos saves/deletes imperativos mais visíveis.
+4. Auditoria visual: abrir cada dialog e confirmar botão de saída.
 
-- Renderizar um `<Area>` para o mês atual + um para cada slot ativo, usando a cor correspondente, `strokeWidth=2`, `fill=url(#fillX)` com `opacity` ~0.25 para passados e ~0.4 para o atual.
-- Gradients definidos dinamicamente em `<defs>` (um `linearGradient` por mês selecionado).
-- `connectNulls` ativo.
-
-**Legenda customizada** (abaixo do gráfico, dentro do card):
-
-- Lista horizontal de chips: `[bolinha colorida] Junho/2026 (Atual)`, `Maio/2026`, etc.
-- Renderizada manualmente (não o `<Legend>` do recharts) para controle visual e consistência com o resto do app.
-
----
-
-### 4. Metas (linhas tracejadas)
-
-Acima ou ao lado dos seletores de mês, adicionar 3 `Checkbox` shadcn:
-
-```
-[ ] Meta R$ 55k   [ ] Meta R$ 65k   [ ] Meta R$ 75k
-```
-
-Estado: `const [goals, setGoals] = useState({ g55: false, g65: false, g75: false })`.
-
-Para cada meta ativa, adicionar um `<ReferenceLine y={55000} stroke="hsl(var(--muted-foreground))" strokeDasharray="6 4" label={{ value: 'R$ 55k', position: 'right', fill: 'hsl(var(--muted-foreground))', fontSize: 11 }} />` (importar `ReferenceLine` do recharts).
-
-Cores das metas: tom neutro (`muted-foreground`) com variações sutis de opacidade, ou uma cor única para todas — manter discreto para não competir com as séries.
-
----
-
-### 5. Tooltip
-
-Atualizar `formatter` do `RTooltip` para iterar dinamicamente sobre as séries presentes, exibindo `[cor] Mês X: R$ valor` para cada mês ativo no ponto.
-
----
-
-### Detalhes técnicos
-
-- Novo helper `toMonthKey(date)` → `'YYYY-MM'` e `parseMonthKey(key)` → `Date` (1º dia do mês).
-- Novo helper `formatMonthLabel(date)` → `'Maio/2026'` (usar `format` do `date-fns` com locale `ptBR`).
-- Imports adicionais: `ReferenceLine` (recharts), `Checkbox` (`@/components/ui/checkbox`), `Select*` (`@/components/ui/select`), `ptBR` (`date-fns/locale`).
-- Remover: `Switch` daquele card (mantido se usado em outro lugar — verificar; provavelmente exclusivo).
-- `staleTime`: manter 2 min.
-
----
-
-### Pontos a considerar:
-
-1. **Default ao abrir**: slot 1 = mês anterior já selecionado, slots 2 e 3 vazios.
-2. **Lista de meses no dropdown**: últimos 12 meses anteriores ao atual.
-3. **Metas**: valores fixos R$ 55k / 65k / 75k (não editáveis).
+## 5) Riscos / pontos de atenção
+- Remover o "X" muda fortemente a UX — confirmar que é o desejado (o usuário disse explicitamente "única forma de sair = Cancelar").
+- Loader global pode poluir se aparecer em toda navegação. O delay de 500ms mitiga; manteremos estilo discreto (barra superior + badge), não modal bloqueante.
