@@ -4,6 +4,8 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/AppLayout";
+import { GlobalLoadingOverlay } from "@/components/GlobalLoadingOverlay";
+import { LoadingProvider } from "@/contexts/LoadingContext";
 import Login from "@/pages/Login";
 import Servicos from "@/pages/Servicos";
 import Clientes from "@/pages/Clientes";
