@@ -46,6 +46,10 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
   const [parcelado, setParcelado] = useState(false);
   const [parcelaAtual, setParcelaAtual] = useState(1);
   const [parcelaTotal, setParcelaTotal] = useState(2);
+  const [faturado, setFaturado] = useState(false);
+  const [faturas, setFaturas] = useState<{ data: string; valor: string }[]>([
+    { data: format(new Date(), 'yyyy-MM-dd'), valor: '0' },
+  ]);
   const [saving, setSaving] = useState(false);
 
   // Fluxo de confirmação do parcelado
