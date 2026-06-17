@@ -1,8 +1,11 @@
 import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { useMonth } from '@/contexts/MonthContext';
 import {
   useCategorias, useOrigens, useLancamentosManuais, useAutoLines,
 } from '@/hooks/financeiro/useFinanceiroData';
+import { monthRange, toMesRef } from '@/lib/financeiro/dates';
 import { formatCurrency } from '@/lib/format';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -10,7 +13,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Legend, CartesianGrid,
   AreaChart, Area, ReferenceLine,
 } from 'recharts';
-import { endOfMonth, getDate, parseISO } from 'date-fns';
+import { endOfMonth, getDate, parseISO, isSameMonth } from 'date-fns';
 
 const COLORS = ['#F97316', '#22C55E', '#3B82F6', '#EAB308', '#A855F7', '#EF4444', '#06B6D4', '#EC4899', '#84CC16', '#F59E0B', '#8B5CF6', '#10B981'];
 
