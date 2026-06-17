@@ -49,6 +49,36 @@ export function TabResumo() {
     return Array.from(m.values()).sort((a, b) => b.realizado - a.realizado);
   }, [saidas, categorias]);
 
+  const serieDiaria = useMemo(() => {
+    const lastDay = getDate(endOfMonth(month));
+    const lucroPorDia = new Array(lastDay + 1).fill(0) as number[];
+    const addDay = (dataStr: string, valor: number) => {
+      try {
+        const d = parseISO(dataStr);
+        if (d.getMonth() !== month.getMonth() || d.getFullYear() !== month.getFullYear()) return;
+        const dia = getDate(d);
+        if (dia >= 1 && dia <= lastDay) lucroPorDia[dia] += valor;
+      } catch {}
+    };
+    for (const l of entradas) addDay(l.data, Number(l.valor_realizado || 0));
+    for (const l of saidas) {
+      if (l.categoria_id === catRetiradas?.id) continue;
+      addDay(l.data, -Number(l.valor_realizado || 0));
+    }
+    let acc = 0;
+    const arr: { dia: number; acumulado: number; positivo: number; negativo: number }[] = [];
+    for (let d = 1; d <= lastDay; d++) {
+      acc += lucroPorDia[d];
+      arr.push({
+        dia: d,
+        acumulado: acc,
+        positivo: acc > 0 ? acc : 0,
+        negativo: acc < 0 ? acc : 0,
+      });
+    }
+    return arr;
+  }, [entradas, saidas, catRetiradas, month]);
+
   if (isLoading) return <div className="space-y-3"><Skeleton className="h-28" /><Skeleton className="h-64" /></div>;
 
   const KPI = ({ label, value, color }: { label: string; value: number; color?: string }) => (
