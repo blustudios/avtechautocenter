@@ -439,9 +439,10 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
                     <Checkbox
                       id="parc"
                       checked={parcelado}
-                      onCheckedChange={v => { setParcelado(!!v); if (v) setRecorrente(false); }}
+                      disabled={faturado}
+                      onCheckedChange={v => { setParcelado(!!v); if (v) { setRecorrente(false); setFaturado(false); } }}
                     />
-                    <Label htmlFor="parc" className="cursor-pointer">Parcelado</Label>
+                    <Label htmlFor="parc" className={`cursor-pointer ${faturado ? 'opacity-50' : ''}`}>Parcelado</Label>
                   </div>
                   {parcelado && (
                     <div className="grid grid-cols-2 gap-3">
@@ -472,14 +473,14 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
                     <Checkbox
                       id="rec"
                       checked={recorrente}
-                      disabled={parcelado}
-                      onCheckedChange={v => setRecorrente(!!v)}
+                      disabled={parcelado || faturado}
+                      onCheckedChange={v => { setRecorrente(!!v); if (v) { setParcelado(false); setFaturado(false); } }}
                     />
-                    <Label htmlFor="rec" className={`cursor-pointer ${parcelado ? 'opacity-50' : ''}`}>
+                    <Label htmlFor="rec" className={`cursor-pointer ${(parcelado || faturado) ? 'opacity-50' : ''}`}>
                       Recorrência
                     </Label>
                   </div>
-                  {recorrente && !parcelado && (
+                  {recorrente && !parcelado && !faturado && (
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <Label>Frequência</Label>
@@ -496,6 +497,83 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
                         <Label>Data final</Label>
                         <Input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} className="bg-card border-border" />
                       </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border border-border rounded-lg p-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="fat"
+                      checked={faturado}
+                      disabled={parcelado || recorrente}
+                      onCheckedChange={v => {
+                        const on = !!v;
+                        setFaturado(on);
+                        if (on) {
+                          setParcelado(false);
+                          setRecorrente(false);
+                          if (faturas.length === 0) {
+                            setFaturas([{ data: format(new Date(), 'yyyy-MM-dd'), valor: '0' }]);
+                          }
+                        }
+                      }}
+                    />
+                    <Label htmlFor="fat" className={`cursor-pointer ${(parcelado || recorrente) ? 'opacity-50' : ''}`}>
+                      Faturado
+                    </Label>
+                  </div>
+                  {faturado && (
+                    <div className="space-y-2">
+                      {faturas.map((f, idx) => (
+                        <div key={idx} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                          <div>
+                            {idx === 0 && <Label className="text-xs">Data</Label>}
+                            <Input
+                              type="date"
+                              value={f.data}
+                              onChange={e => {
+                                const v = e.target.value;
+                                setFaturas(arr => arr.map((x, i) => i === idx ? { ...x, data: v } : x));
+                              }}
+                              className="bg-card border-border"
+                            />
+                          </div>
+                          <div>
+                            {idx === 0 && <Label className="text-xs">Valor</Label>}
+                            <CurrencyInput
+                              value={f.valor}
+                              onChange={(v) => setFaturas(arr => arr.map((x, i) => i === idx ? { ...x, valor: v } : x))}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={faturas.length <= 1}
+                            onClick={() => setFaturas(arr => arr.filter((_, i) => i !== idx))}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            ✕
+                          </Button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFaturas(arr => {
+                            const last = arr[arr.length - 1];
+                            const first = arr[0];
+                            const nextData = last?.data
+                              ? format(addMonths(parseISO(last.data), 1), 'yyyy-MM-dd')
+                              : format(new Date(), 'yyyy-MM-dd');
+                            return [...arr, { data: nextData, valor: first?.valor || '0' }];
+                          });
+                        }}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        + incluir
+                      </button>
                     </div>
                   )}
                 </div>
