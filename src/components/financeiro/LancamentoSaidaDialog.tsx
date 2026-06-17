@@ -405,27 +405,32 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Valor Previsto</Label>
-                <CurrencyInput value={valorPrevisto} onChange={setValorPrevisto} />
-              </div>
-              <div>
-                <Label>Valor Realizado</Label>
-                <CurrencyInput value={valorRealizado} onChange={setValorRealizado} />
-              </div>
-            </div>
-            <div>
-              <Label>Status de Pagamento</Label>
-              <Select value={status} onValueChange={(v: any) => setStatus(v)}>
-                <SelectTrigger className="bg-card border-border"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="a_pagar">A pagar</SelectItem>
-                  <SelectItem value="agendado">Agendado</SelectItem>
-                  <SelectItem value="pago">Pago</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {!faturado && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Valor Previsto</Label>
+                    <CurrencyInput value={valorPrevisto} onChange={setValorPrevisto} />
+                  </div>
+                  <div>
+                    <Label>Valor Realizado</Label>
+                    <CurrencyInput value={valorRealizado} onChange={setValorRealizado} />
+                  </div>
+                </div>
+                <div>
+                  <Label>Status de Pagamento</Label>
+                  <Select value={status} onValueChange={(v: any) => setStatus(v)}>
+                    <SelectTrigger className="bg-card border-border"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="a_pagar">A pagar</SelectItem>
+                      <SelectItem value="agendado">Agendado</SelectItem>
+                      <SelectItem value="pago">Pago</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+
 
             {!edit && (
               <>
