@@ -8,7 +8,10 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { CurrencyInput } from '@/components/ui/currency-input';
-import { Plus, X, Trash2, Car, Info, Wrench, DollarSign, CreditCard, ClipboardList, CircleDot, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Plus, X, Trash2, Car, Info, Wrench, DollarSign, CreditCard, ClipboardList, CircleDot, CheckCircle, AlertTriangle, ChevronsUpDown, Check } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { AutocompleteInput } from '@/components/ui/autocomplete-input';
 import { PneuSelectorDialog } from '@/components/services/PneuSelectorDialog';
@@ -596,12 +599,11 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
                 <>
                   <div>
                     <Label>Cliente</Label>
-                    <Select value={form.cliente_cpf} onValueChange={v => setForm({ ...form, cliente_cpf: v, carro_placa: '' })}>
-                      <SelectTrigger className="bg-card border-border"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                      <SelectContent>
-                        {clientes.map(c => <SelectItem key={c.cpf} value={c.cpf}>{c.nome} · {c.cpf}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <ClientCombobox
+                      clientes={clientes}
+                      value={form.cliente_cpf}
+                      onChange={v => setForm({ ...form, cliente_cpf: v, carro_placa: '' })}
+                    />
                   </div>
                   <div>
                     <Label>Carro</Label>
@@ -957,5 +959,59 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
         />
       )}
     </Dialog>
+  );
+}
+
+function ClientCombobox({ clientes, value, onChange }: { clientes: any[]; value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const selected = clientes.find(c => c.cpf === value);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between bg-card border-border font-normal"
+        >
+          <span className={cn('truncate', !selected && 'text-muted-foreground')}>
+            {selected ? `${selected.nome} · ${selected.cpf}` : 'Selecione...'}
+          </span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+        <Command
+          filter={(itemValue, search) => {
+            const s = search.toLowerCase().replace(/\D/g, '');
+            const sText = search.toLowerCase();
+            if (sText && itemValue.includes(sText)) return 1;
+            if (s && itemValue.replace(/\D/g, '').includes(s)) return 1;
+            return 0;
+          }}
+        >
+          <CommandInput placeholder="Buscar por nome ou CPF..." />
+          <CommandList>
+            <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+            <CommandGroup>
+              {clientes.map(c => {
+                const val = `${c.nome} ${c.cpf} ${String(c.cpf).replace(/\D/g, '')}`.toLowerCase();
+                return (
+                  <CommandItem
+                    key={c.cpf}
+                    value={val}
+                    onSelect={() => { onChange(c.cpf); setOpen(false); }}
+                  >
+                    <Check className={cn('mr-2 h-4 w-4', value === c.cpf ? 'opacity-100' : 'opacity-0')} />
+                    <span className="truncate">{c.nome} · {c.cpf}</span>
+                  </CommandItem>
+                );
+              })}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }

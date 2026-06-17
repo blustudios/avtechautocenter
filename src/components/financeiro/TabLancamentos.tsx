@@ -40,6 +40,13 @@ export function TabLancamentos() {
   const [filtroStatus, setFiltroStatus] = useState<string>('todos');
   const [filtroOrigem, setFiltroOrigem] = useState<string>('todas');
   const [busca, setBusca] = useState('');
+  const [filtroHoje, setFiltroHoje] = useState(false);
+
+  const hojeISO = new Date().toISOString().slice(0, 10);
+  const hasFilters = filtroCat !== 'todas' || filtroStatus !== 'todos' || filtroOrigem !== 'todas' || busca !== '' || filtroHoje;
+  const limparFiltros = () => {
+    setFiltroCat('todas'); setFiltroStatus('todos'); setFiltroOrigem('todas'); setBusca(''); setFiltroHoje(false);
+  };
 
   const [openEntradas, setOpenEntradas] = useState(true);
   const [openSaidas, setOpenSaidas] = useState(true);
@@ -56,10 +63,11 @@ export function TabLancamentos() {
       if (filtroCat !== 'todas' && l.categoria_id !== filtroCat) return false;
       if (filtroStatus !== 'todos' && l.status_pagamento !== filtroStatus) return false;
       if (filtroOrigem !== 'todas' && l.origem_id !== filtroOrigem) return false;
+      if (filtroHoje && l.data !== hojeISO) return false;
       if (busca && !l.descricao.toLowerCase().includes(busca.toLowerCase())) return false;
       return true;
     });
-  }, [all, filtroCat, filtroStatus, filtroOrigem, busca]);
+  }, [all, filtroCat, filtroStatus, filtroOrigem, busca, filtroHoje, hojeISO]);
 
   const entradas = filtered.filter(l => l.tipo === 'entrada');
   const saidas = filtered.filter(l => l.tipo === 'saida');
@@ -199,8 +207,22 @@ export function TabLancamentos() {
               {origens?.map(o => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button
+            type="button"
+            variant={filtroHoje ? 'default' : 'outline'}
+            onClick={() => setFiltroHoje(v => !v)}
+            className={filtroHoje ? 'bg-primary text-primary-foreground' : 'bg-card border-border'}
+          >
+            Hoje
+          </Button>
+          {hasFilters && (
+            <Button type="button" variant="ghost" size="sm" onClick={limparFiltros} className="text-muted-foreground hover:text-foreground">
+              Limpar filtros
+            </Button>
+          )}
         </div>
       </div>
+
 
       {isLoading ? (
         <div className="space-y-2"><Skeleton className="h-12" /><Skeleton className="h-12" /><Skeleton className="h-12" /></div>

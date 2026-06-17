@@ -8,7 +8,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RTooltip,
   BarChart, Bar, XAxis, YAxis, Legend, CartesianGrid,
+  AreaChart, Area, ReferenceLine,
 } from 'recharts';
+import { endOfMonth, getDate, parseISO } from 'date-fns';
 
 const COLORS = ['#F97316', '#22C55E', '#3B82F6', '#EAB308', '#A855F7', '#EF4444', '#06B6D4', '#EC4899', '#84CC16', '#F59E0B', '#8B5CF6', '#10B981'];
 
@@ -47,6 +49,36 @@ export function TabResumo() {
     return Array.from(m.values()).sort((a, b) => b.realizado - a.realizado);
   }, [saidas, categorias]);
 
+  const serieDiaria = useMemo(() => {
+    const lastDay = getDate(endOfMonth(month));
+    const lucroPorDia = new Array(lastDay + 1).fill(0) as number[];
+    const addDay = (dataStr: string, valor: number) => {
+      try {
+        const d = parseISO(dataStr);
+        if (d.getMonth() !== month.getMonth() || d.getFullYear() !== month.getFullYear()) return;
+        const dia = getDate(d);
+        if (dia >= 1 && dia <= lastDay) lucroPorDia[dia] += valor;
+      } catch {}
+    };
+    for (const l of entradas) addDay(l.data, Number(l.valor_realizado || 0));
+    for (const l of saidas) {
+      if (l.categoria_id === catRetiradas?.id) continue;
+      addDay(l.data, -Number(l.valor_realizado || 0));
+    }
+    let acc = 0;
+    const arr: { dia: number; acumulado: number; positivo: number; negativo: number }[] = [];
+    for (let d = 1; d <= lastDay; d++) {
+      acc += lucroPorDia[d];
+      arr.push({
+        dia: d,
+        acumulado: acc,
+        positivo: acc > 0 ? acc : 0,
+        negativo: acc < 0 ? acc : 0,
+      });
+    }
+    return arr;
+  }, [entradas, saidas, catRetiradas, month]);
+
   if (isLoading) return <div className="space-y-3"><Skeleton className="h-28" /><Skeleton className="h-64" /></div>;
 
   const KPI = ({ label, value, color }: { label: string; value: number; color?: string }) => (
@@ -64,6 +96,31 @@ export function TabResumo() {
         <KPI label="Total Entradas" value={totalEntradas} color="text-green-400" />
         <KPI label="Total Saídas" value={totalSaidas} color="text-foreground" />
       </div>
+
+      <div className="bg-card border border-border rounded-lg p-4">
+        <h3 className="font-semibold mb-3 text-foreground">Lucro Líquido Real — evolução no mês</h3>
+        {serieDiaria.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">Sem dados no mês</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={serieDiaria} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke="#262626" strokeDasharray="3 3" />
+              <XAxis dataKey="dia" stroke="#888" tick={{ fontSize: 11 }} />
+              <YAxis stroke="#888" tick={{ fontSize: 11 }} tickFormatter={(v) => formatCurrency(Number(v))} width={90} />
+              <ReferenceLine y={0} stroke="#555" />
+              <RTooltip
+                formatter={(v: any) => formatCurrency(Number(v))}
+                labelFormatter={(l) => `Dia ${l}`}
+                contentStyle={{ background: '#1A1A1A', border: '1px solid #333' }}
+              />
+              <Area type="monotone" dataKey="positivo" stroke="#22C55E" fill="#22C55E" fillOpacity={0.35} isAnimationActive={false} />
+              <Area type="monotone" dataKey="negativo" stroke="#EF4444" fill="#EF4444" fillOpacity={0.35} isAnimationActive={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+
 
       <div className="bg-card border border-border rounded-lg p-4">
         <h3 className="font-semibold mb-3 text-foreground">Previsto vs Realizado por Categoria</h3>
