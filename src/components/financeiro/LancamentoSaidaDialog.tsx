@@ -46,6 +46,10 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
   const [parcelado, setParcelado] = useState(false);
   const [parcelaAtual, setParcelaAtual] = useState(1);
   const [parcelaTotal, setParcelaTotal] = useState(2);
+  const [faturado, setFaturado] = useState(false);
+  const [faturas, setFaturas] = useState<{ data: string; valor: string }[]>([
+    { data: format(new Date(), 'yyyy-MM-dd'), valor: '0' },
+  ]);
   const [saving, setSaving] = useState(false);
 
   // Fluxo de confirmação do parcelado
@@ -72,6 +76,8 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
       setParcelado(!!pt);
       setParcelaAtual(pa || 1);
       setParcelaTotal(pt || 2);
+      setFaturado(false);
+      setFaturas([{ data: format(new Date(), 'yyyy-MM-dd'), valor: '0' }]);
     } else if (initial) {
       setData(initial.data);
       setCategoriaId(initial.categoria_id || '');
@@ -87,6 +93,8 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
       setParcelado(false);
       setParcelaAtual(1);
       setParcelaTotal(2);
+      setFaturado(false);
+      setFaturas([{ data: format(new Date(), 'yyyy-MM-dd'), valor: '0' }]);
     } else {
       setData(format(month, 'yyyy-MM-dd'));
       setCategoriaId('');
@@ -102,6 +110,8 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
       setParcelado(false);
       setParcelaAtual(1);
       setParcelaTotal(2);
+      setFaturado(false);
+      setFaturas([{ data: format(new Date(), 'yyyy-MM-dd'), valor: '0' }]);
     }
   }, [open, edit, initial, month]);
 
@@ -119,6 +129,14 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
 
   const validate = () => {
     if (!titulo.trim()) { toast.error('Título obrigatório'); return false; }
+    if (faturado) {
+      if (!faturas.length) { toast.error('Adicione ao menos uma fatura'); return false; }
+      for (const f of faturas) {
+        if (!f.data) { toast.error('Todas as faturas precisam de data'); return false; }
+        if (!(parseFloat(f.valor) > 0)) { toast.error('Todas as faturas precisam de valor > 0'); return false; }
+      }
+      return true;
+    }
     if (!data) { toast.error('Data obrigatória'); return false; }
     if (recorrente && !dataFim) { toast.error('Data final da recorrência obrigatória'); return false; }
     if (parcelado) {
@@ -129,6 +147,32 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
     }
     return true;
   };
+
+  const saveFaturado = async () => {
+    const grupoId = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const ordenadas = [...faturas].sort((a, b) => a.data.localeCompare(b.data));
+    const total = ordenadas.length;
+    const rows = ordenadas.map((f, idx) => {
+      const v = parseFloat(f.valor) || 0;
+      const isPago = f.data <= today;
+      return {
+        ...buildBase(),
+        data: f.data,
+        valor_previsto: v,
+        valor_realizado: isPago ? v : 0,
+        status_pagamento: isPago ? 'pago' : 'a_pagar',
+        mes_referencia: format(startOfMonth(parseISO(f.data)), 'yyyy-MM-dd'),
+        parcela_atual: idx + 1,
+        parcela_total: total,
+        parcela_grupo_id: grupoId,
+      };
+    });
+    const { error } = await supabase.from('financeiro_lancamentos').insert(rows as any);
+    if (error) throw error;
+    toast.success(`${rows.length} fatura(s) registrada(s)`);
+  };
+
 
   const saveSimple = async () => {
     const { error } = await supabase.from('financeiro_lancamentos').insert({
@@ -244,6 +288,8 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
         toast.success('Saída atualizada');
       } else if (parcelado) {
         // já tratado no fluxo de confirmação
+      } else if (faturado) {
+        await saveFaturado();
       } else if (recorrente) {
         await saveRecorrente();
       } else {
@@ -315,10 +361,12 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
             <p className="text-xs text-muted-foreground bg-muted/40 border border-border rounded p-2">
               Custos já lançados dentro de um Serviço não devem ser cadastrados aqui — eles entram automaticamente na linha "Custos de Serviço".
             </p>
-            <div>
-              <Label>Data da saída</Label>
-              <Input type="date" value={data} onChange={e => setData(e.target.value)} className="bg-card border-border" />
-            </div>
+            {!faturado && (
+              <div>
+                <Label>Data da saída</Label>
+                <Input type="date" value={data} onChange={e => setData(e.target.value)} className="bg-card border-border" />
+              </div>
+            )}
             <div>
               <Label>Categoria</Label>
               <Select value={categoriaId} onValueChange={setCategoriaId}>
@@ -357,27 +405,32 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Valor Previsto</Label>
-                <CurrencyInput value={valorPrevisto} onChange={setValorPrevisto} />
-              </div>
-              <div>
-                <Label>Valor Realizado</Label>
-                <CurrencyInput value={valorRealizado} onChange={setValorRealizado} />
-              </div>
-            </div>
-            <div>
-              <Label>Status de Pagamento</Label>
-              <Select value={status} onValueChange={(v: any) => setStatus(v)}>
-                <SelectTrigger className="bg-card border-border"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="a_pagar">A pagar</SelectItem>
-                  <SelectItem value="agendado">Agendado</SelectItem>
-                  <SelectItem value="pago">Pago</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            {!faturado && (
+              <>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Valor Previsto</Label>
+                    <CurrencyInput value={valorPrevisto} onChange={setValorPrevisto} />
+                  </div>
+                  <div>
+                    <Label>Valor Realizado</Label>
+                    <CurrencyInput value={valorRealizado} onChange={setValorRealizado} />
+                  </div>
+                </div>
+                <div>
+                  <Label>Status de Pagamento</Label>
+                  <Select value={status} onValueChange={(v: any) => setStatus(v)}>
+                    <SelectTrigger className="bg-card border-border"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="a_pagar">A pagar</SelectItem>
+                      <SelectItem value="agendado">Agendado</SelectItem>
+                      <SelectItem value="pago">Pago</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </>
+            )}
+
 
             {!edit && (
               <>
@@ -386,9 +439,10 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
                     <Checkbox
                       id="parc"
                       checked={parcelado}
-                      onCheckedChange={v => { setParcelado(!!v); if (v) setRecorrente(false); }}
+                      disabled={faturado}
+                      onCheckedChange={v => { setParcelado(!!v); if (v) { setRecorrente(false); setFaturado(false); } }}
                     />
-                    <Label htmlFor="parc" className="cursor-pointer">Parcelado</Label>
+                    <Label htmlFor="parc" className={`cursor-pointer ${faturado ? 'opacity-50' : ''}`}>Parcelado</Label>
                   </div>
                   {parcelado && (
                     <div className="grid grid-cols-2 gap-3">
@@ -419,14 +473,14 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
                     <Checkbox
                       id="rec"
                       checked={recorrente}
-                      disabled={parcelado}
-                      onCheckedChange={v => setRecorrente(!!v)}
+                      disabled={parcelado || faturado}
+                      onCheckedChange={v => { setRecorrente(!!v); if (v) { setParcelado(false); setFaturado(false); } }}
                     />
-                    <Label htmlFor="rec" className={`cursor-pointer ${parcelado ? 'opacity-50' : ''}`}>
+                    <Label htmlFor="rec" className={`cursor-pointer ${(parcelado || faturado) ? 'opacity-50' : ''}`}>
                       Recorrência
                     </Label>
                   </div>
-                  {recorrente && !parcelado && (
+                  {recorrente && !parcelado && !faturado && (
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <Label>Frequência</Label>
@@ -443,6 +497,83 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
                         <Label>Data final</Label>
                         <Input type="date" value={dataFim} onChange={e => setDataFim(e.target.value)} className="bg-card border-border" />
                       </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="border border-border rounded-lg p-3 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Checkbox
+                      id="fat"
+                      checked={faturado}
+                      disabled={parcelado || recorrente}
+                      onCheckedChange={v => {
+                        const on = !!v;
+                        setFaturado(on);
+                        if (on) {
+                          setParcelado(false);
+                          setRecorrente(false);
+                          if (faturas.length === 0) {
+                            setFaturas([{ data: format(new Date(), 'yyyy-MM-dd'), valor: '0' }]);
+                          }
+                        }
+                      }}
+                    />
+                    <Label htmlFor="fat" className={`cursor-pointer ${(parcelado || recorrente) ? 'opacity-50' : ''}`}>
+                      Faturado
+                    </Label>
+                  </div>
+                  {faturado && (
+                    <div className="space-y-2">
+                      {faturas.map((f, idx) => (
+                        <div key={idx} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-end">
+                          <div>
+                            {idx === 0 && <Label className="text-xs">Data</Label>}
+                            <Input
+                              type="date"
+                              value={f.data}
+                              onChange={e => {
+                                const v = e.target.value;
+                                setFaturas(arr => arr.map((x, i) => i === idx ? { ...x, data: v } : x));
+                              }}
+                              className="bg-card border-border"
+                            />
+                          </div>
+                          <div>
+                            {idx === 0 && <Label className="text-xs">Valor</Label>}
+                            <CurrencyInput
+                              value={f.valor}
+                              onChange={(v) => setFaturas(arr => arr.map((x, i) => i === idx ? { ...x, valor: v } : x))}
+                            />
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            disabled={faturas.length <= 1}
+                            onClick={() => setFaturas(arr => arr.filter((_, i) => i !== idx))}
+                            className="text-destructive hover:text-destructive"
+                          >
+                            ✕
+                          </Button>
+                        </div>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFaturas(arr => {
+                            const last = arr[arr.length - 1];
+                            const first = arr[0];
+                            const nextData = last?.data
+                              ? format(addMonths(parseISO(last.data), 1), 'yyyy-MM-dd')
+                              : format(new Date(), 'yyyy-MM-dd');
+                            return [...arr, { data: nextData, valor: first?.valor || '0' }];
+                          });
+                        }}
+                        className="text-sm text-primary hover:underline"
+                      >
+                        + incluir
+                      </button>
                     </div>
                   )}
                 </div>
