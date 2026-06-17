@@ -93,6 +93,8 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
       setParcelado(false);
       setParcelaAtual(1);
       setParcelaTotal(2);
+      setFaturado(false);
+      setFaturas([{ data: format(new Date(), 'yyyy-MM-dd'), valor: '0' }]);
     } else {
       setData(format(month, 'yyyy-MM-dd'));
       setCategoriaId('');
