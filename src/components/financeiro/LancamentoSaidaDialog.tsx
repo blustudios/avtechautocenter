@@ -361,10 +361,12 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
             <p className="text-xs text-muted-foreground bg-muted/40 border border-border rounded p-2">
               Custos já lançados dentro de um Serviço não devem ser cadastrados aqui — eles entram automaticamente na linha "Custos de Serviço".
             </p>
-            <div>
-              <Label>Data da saída</Label>
-              <Input type="date" value={data} onChange={e => setData(e.target.value)} className="bg-card border-border" />
-            </div>
+            {!faturado && (
+              <div>
+                <Label>Data da saída</Label>
+                <Input type="date" value={data} onChange={e => setData(e.target.value)} className="bg-card border-border" />
+              </div>
+            )}
             <div>
               <Label>Categoria</Label>
               <Select value={categoriaId} onValueChange={setCategoriaId}>
