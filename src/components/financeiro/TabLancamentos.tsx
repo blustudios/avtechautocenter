@@ -207,8 +207,22 @@ export function TabLancamentos() {
               {origens?.map(o => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
             </SelectContent>
           </Select>
+          <Button
+            type="button"
+            variant={filtroHoje ? 'default' : 'outline'}
+            onClick={() => setFiltroHoje(v => !v)}
+            className={filtroHoje ? 'bg-primary text-primary-foreground' : 'bg-card border-border'}
+          >
+            Hoje
+          </Button>
+          {hasFilters && (
+            <Button type="button" variant="ghost" size="sm" onClick={limparFiltros} className="text-muted-foreground hover:text-foreground">
+              Limpar filtros
+            </Button>
+          )}
         </div>
       </div>
+
 
       {isLoading ? (
         <div className="space-y-2"><Skeleton className="h-12" /><Skeleton className="h-12" /><Skeleton className="h-12" /></div>
