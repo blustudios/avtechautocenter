@@ -129,6 +129,14 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
 
   const validate = () => {
     if (!titulo.trim()) { toast.error('Título obrigatório'); return false; }
+    if (faturado) {
+      if (!faturas.length) { toast.error('Adicione ao menos uma fatura'); return false; }
+      for (const f of faturas) {
+        if (!f.data) { toast.error('Todas as faturas precisam de data'); return false; }
+        if (!(parseFloat(f.valor) > 0)) { toast.error('Todas as faturas precisam de valor > 0'); return false; }
+      }
+      return true;
+    }
     if (!data) { toast.error('Data obrigatória'); return false; }
     if (recorrente && !dataFim) { toast.error('Data final da recorrência obrigatória'); return false; }
     if (parcelado) {
@@ -139,6 +147,32 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
     }
     return true;
   };
+
+  const saveFaturado = async () => {
+    const grupoId = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`);
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const ordenadas = [...faturas].sort((a, b) => a.data.localeCompare(b.data));
+    const total = ordenadas.length;
+    const rows = ordenadas.map((f, idx) => {
+      const v = parseFloat(f.valor) || 0;
+      const isPago = f.data <= today;
+      return {
+        ...buildBase(),
+        data: f.data,
+        valor_previsto: v,
+        valor_realizado: isPago ? v : 0,
+        status_pagamento: isPago ? 'pago' : 'a_pagar',
+        mes_referencia: format(startOfMonth(parseISO(f.data)), 'yyyy-MM-dd'),
+        parcela_atual: idx + 1,
+        parcela_total: total,
+        parcela_grupo_id: grupoId,
+      };
+    });
+    const { error } = await supabase.from('financeiro_lancamentos').insert(rows as any);
+    if (error) throw error;
+    toast.success(`${rows.length} fatura(s) registrada(s)`);
+  };
+
 
   const saveSimple = async () => {
     const { error } = await supabase.from('financeiro_lancamentos').insert({
