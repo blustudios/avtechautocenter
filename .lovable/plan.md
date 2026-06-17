@@ -1,40 +1,45 @@
-## Adicionar opção "Duplicar" no menu de Lançamentos
+## Objetivo
+Adicionar opção **"Faturado"** no cadastro de Saída, permitindo lançar uma compra dividida em **N faturas com data e valor individuais** (não uniforme como Parcelado).
 
-### Objetivo
-No menu de 3 pontinhos de cada lançamento (Entrada/Saída) em `Financeiro`, adicionar a ação **Duplicar**, que abre o diálogo de cadastro correspondente (Entrada ou Saída) pré-preenchido com os dados da linha de origem — porém como um **novo lançamento** (sem sobrescrever o original).
+## Comportamento
 
-### Comportamento
+**UI (no `LancamentoSaidaDialog.tsx`):**
+- Novo checkbox **Faturado**, ao lado de Parcelado e Recorrência.
+- Mutuamente exclusivo com Parcelado e Recorrência (marcar um desmarca os outros).
+- Quando marcado, esconde os campos padrão *Valor Previsto / Valor Realizado / Status de Pagamento / Data da saída* (substituídos pelas linhas de faturas) — Título, Categoria, Origem e Observações continuam normais.
+- Mostra uma lista de linhas, cada uma com:
+  - Campo **Data** (`<Input type="date">`)
+  - Campo **Valor (R$)** (`CurrencyInput`)
+  - Botão remover (ícone X) — desabilitado quando só há 1 linha
+- Primeira linha vem pré-preenchida com a data de hoje e valor 0.
+- Abaixo, link **"+ incluir"** que adiciona nova linha:
+  - **Data**: mês seguinte da última linha (`addMonths(últimaData, 1)`)
+  - **Valor**: copia o valor da primeira linha
 
-- **Local:** `src/components/financeiro/TabLancamentos.tsx`, no `DropdownMenu` de cada linha, entre **Editar** e **Excluir**, novo item `Duplicar`.
-- **Disponibilidade:** apenas para linhas manuais (já filtradas por `!l.is_auto`, igual aos demais itens).
-- **Roteamento:** se `l.tipo === 'entrada'`, abre `LancamentoEntradaDialog`; se `'saida'`, abre `LancamentoSaidaDialog`.
-- **Modo do diálogo:** NÃO em modo edição (`edit` continua `null`). Em vez disso, passamos um novo prop `initial` com os valores a pré-preencher. O salvar gera um novo registro (INSERT) — sem alterar o original.
+**Lógica ao Salvar:**
+- Validar: título, ≥1 linha, todas com data e valor > 0.
+- Gerar um `fatura_grupo_id` (UUID), reaproveitando as colunas existentes `parcela_grupo_id`, `parcela_atual`, `parcela_total` (não criar schema novo — semanticamente equivalente a parcelas com datas/valores livres).
+- Ordenar linhas por data crescente; numerar 1..N.
+- Para cada linha, inserir um `financeiro_lancamentos` com:
+  - `data` = data da linha
+  - `valor_previsto` = `valor_realizado` = valor da linha
+  - `status_pagamento`:
+    - `pago` se a data ≤ hoje
+    - `a_pagar` se a data > hoje
+  - `parcela_atual` = posição, `parcela_total` = N, `parcela_grupo_id` = grupo
+  - `mes_referencia` = `startOfMonth(data)`
+  - `descricao`, `categoria_id`, `origem_id`, `observacoes` iguais para todas
+- Toast: "N fatura(s) registrada(s)".
 
-### Campos duplicados
-Da linha de origem para os campos do formulário:
-- `data`, `descricao` (Título), `observacoes`, `categoria_id`, `origem_id`
-- `valor_previsto`, `valor_realizado`, `status_pagamento`
-- (Saída) detalhes de pagamento adicionais já presentes nos campos do diálogo
+**Exibição (`TabLancamentos.tsx`):**
+- Nenhuma mudança necessária: o sufixo "(1 de N)" já é renderizado quando `parcela_total > 0` (lógica do Parcelado).
 
-### Campos NÃO duplicados
-- `id`, `recorrencia_id`, `parcela_atual`, `parcela_total`, `parcela_grupo_id` — duplicação cria um lançamento avulso. Checkbox de "Parcelado" e "Recorrência" começam desmarcados (o usuário pode reativar se quiser).
-- `is_auto` é sempre `false` em manuais.
+## Casos de borda
+- Edição (`edit`): bloco Faturado oculto, como já é feito hoje com Parcelado/Recorrência.
+- Não pergunta confirmação (diferente do Parcelado) — todas as linhas são explícitas, o usuário já decidiu.
+- Se faturado marcado, desabilitar visualmente Parcelado e Recorrência (e vice-versa).
 
-### Mudanças técnicas
+## Arquivos alterados
+- `src/components/financeiro/LancamentoSaidaDialog.tsx` — toda a mudança (estado `faturado`, array `faturas`, render do bloco, função `saveFaturado`, ajuste em `handleSaveClick` e `validate`).
 
-**1. `TabLancamentos.tsx`**
-- Novo state: `duplicating: Lancamento | null`.
-- Handler `onDuplicate(l)`: `setDuplicating(l)` e abre o diálogo certo (`setOpenEntrada` ou `setOpenSaida`) — mantendo `editing` em `null`.
-- Novo `DropdownMenuItem` "Duplicar" entre Editar e Excluir.
-- Passar `initial={duplicating?.tipo === 'saida' ? duplicating : null}` para `LancamentoSaidaDialog`, idem para entrada.
-- No `onOpenChange` dos diálogos, resetar `duplicating` ao fechar.
-
-**2. `LancamentoSaidaDialog.tsx` e `LancamentoEntradaDialog.tsx`**
-- Adicionar prop opcional `initial?: Lancamento | null`.
-- No `useEffect` de inicialização, prioridade: `edit` > `initial` > defaults. Quando `initial` (e `!edit`), pré-popular todos os campos listados acima, com `parcelado=false`, `recorrente=false`, `parcelaAtual=1`, `parcelaTotal=2`.
-- O fluxo de salvar permanece o atual (cria novo registro), pois `edit` continua `null`.
-- O título do diálogo segue "Nova Saída" / "Nova Entrada" (não exibe "Editar").
-
-### Fora de escopo
-- Não duplica grupo de parcelas nem recorrência (apenas a linha individual).
-- Nenhuma mudança de schema, migration ou backend.
+Sem migrations, sem alteração no hook de dados, sem mudança no `LancamentoEntradaDialog` (recurso só para Saída).
