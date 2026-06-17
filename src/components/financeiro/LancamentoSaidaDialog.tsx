@@ -76,6 +76,8 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
       setParcelado(!!pt);
       setParcelaAtual(pa || 1);
       setParcelaTotal(pt || 2);
+      setFaturado(false);
+      setFaturas([{ data: format(new Date(), 'yyyy-MM-dd'), valor: '0' }]);
     } else if (initial) {
       setData(initial.data);
       setCategoriaId(initial.categoria_id || '');
