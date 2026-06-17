@@ -1,8 +1,11 @@
 import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { useMonth } from '@/contexts/MonthContext';
 import {
   useCategorias, useOrigens, useLancamentosManuais, useAutoLines,
 } from '@/hooks/financeiro/useFinanceiroData';
+import { monthRange, toMesRef } from '@/lib/financeiro/dates';
 import { formatCurrency } from '@/lib/format';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
@@ -10,7 +13,7 @@ import {
   BarChart, Bar, XAxis, YAxis, Legend, CartesianGrid,
   AreaChart, Area, ReferenceLine,
 } from 'recharts';
-import { endOfMonth, getDate, parseISO } from 'date-fns';
+import { endOfMonth, getDate, parseISO, isSameMonth } from 'date-fns';
 
 const COLORS = ['#F97316', '#22C55E', '#3B82F6', '#EAB308', '#A855F7', '#EF4444', '#06B6D4', '#EC4899', '#84CC16', '#F59E0B', '#8B5CF6', '#10B981'];
 
@@ -49,35 +52,98 @@ export function TabResumo() {
     return Array.from(m.values()).sort((a, b) => b.realizado - a.realizado);
   }, [saidas, categorias]);
 
+  const mesRef = toMesRef(month);
+
+  const { data: pagDaily } = useQuery({
+    queryKey: ['fin', 'resumo-pag-daily', mesRef],
+    staleTime: 30 * 1000,
+    queryFn: async () => {
+      const { from, to } = monthRange(month);
+      const { data } = await supabase
+        .from('servicos_pagamentos')
+        .select('valor, taxa_aplicada, data_pagamento, pago, servicos!inner(status)')
+        .eq('pago', true)
+        .gte('data_pagamento', from).lte('data_pagamento', to)
+        .in('servicos.status', ['em_progresso', 'finalizado']);
+      return data || [];
+    },
+  });
+
+  const { data: custosDaily } = useQuery({
+    queryKey: ['fin', 'resumo-custos-daily', mesRef],
+    staleTime: 30 * 1000,
+    queryFn: async () => {
+      const { from, to } = monthRange(month);
+      const { data } = await supabase
+        .from('servicos_custos')
+        .select('valor, data_compra, servicos!inner(status)')
+        .gte('data_compra', from).lte('data_compra', to)
+        .in('servicos.status', ['em_progresso', 'finalizado']);
+      return data || [];
+    },
+  });
+
   const serieDiaria = useMemo(() => {
-    const lastDay = getDate(endOfMonth(month));
-    const lucroPorDia = new Array(lastDay + 1).fill(0) as number[];
-    const addDay = (dataStr: string, valor: number) => {
-      try {
-        const d = parseISO(dataStr);
-        if (d.getMonth() !== month.getMonth() || d.getFullYear() !== month.getFullYear()) return;
-        const dia = getDate(d);
-        if (dia >= 1 && dia <= lastDay) lucroPorDia[dia] += valor;
-      } catch {}
+    const lastDayMonth = getDate(endOfMonth(month));
+    const today = new Date();
+    const isCurrent = isSameMonth(today, month);
+    const lastDay = isCurrent ? Math.min(getDate(today), lastDayMonth) : lastDayMonth;
+    if (lastDay < 1) return [];
+
+    const entradasPorDia = new Array(lastDayMonth + 1).fill(0) as number[];
+    const efetivadasPorDia = new Array(lastDayMonth + 1).fill(0) as number[];
+    const inMonth = (d: Date) => d.getMonth() === month.getMonth() && d.getFullYear() === month.getFullYear();
+    const dayOf = (s: string) => {
+      try { const d = parseISO(s); return inMonth(d) ? getDate(d) : null; } catch { return null; }
     };
-    for (const l of entradas) addDay(l.data, Number(l.valor_realizado || 0));
+
+    // Entradas manuais (valor_realizado por data)
+    for (const l of entradas) {
+      const dia = dayOf(l.data);
+      if (dia) entradasPorDia[dia] += Number(l.valor_realizado || 0);
+    }
+    // Entradas automáticas: pagamentos líquidos (valor - taxa) por data_pagamento
+    for (const p of (pagDaily as any[]) || []) {
+      const dia = dayOf(p.data_pagamento);
+      if (!dia) continue;
+      const liquido = Number(p.valor) - (Number(p.valor) * Number(p.taxa_aplicada || 0)) / 100;
+      entradasPorDia[dia] += liquido;
+    }
+
+    // Saídas previstas do mês (constante) — exclui Retiradas
+    let previstoMes = 0;
     for (const l of saidas) {
       if (l.categoria_id === catRetiradas?.id) continue;
-      addDay(l.data, -Number(l.valor_realizado || 0));
+      previstoMes += Number(l.valor_previsto || 0);
     }
-    let acc = 0;
+
+    // Saídas efetivadas por dia — manuais pagas (exclui Retiradas) + custos por data_compra
+    for (const l of saidas) {
+      if (l.categoria_id === catRetiradas?.id) continue;
+      if (l.status_pagamento !== 'pago') continue;
+      if ((l as any).__virtual) continue; // auto custos tratados via custosDaily
+      const dia = dayOf(l.data);
+      if (dia) efetivadasPorDia[dia] += Number(l.valor_realizado || 0);
+    }
+    for (const c of (custosDaily as any[]) || []) {
+      const dia = dayOf(c.data_compra);
+      if (dia) efetivadasPorDia[dia] += Number(c.valor || 0);
+    }
+
+    let accEntradas = 0;
     const arr: { dia: number; acumulado: number; positivo: number; negativo: number }[] = [];
     for (let d = 1; d <= lastDay; d++) {
-      acc += lucroPorDia[d];
+      accEntradas += entradasPorDia[d];
+      const valor = accEntradas - previstoMes - efetivadasPorDia[d];
       arr.push({
         dia: d,
-        acumulado: acc,
-        positivo: acc > 0 ? acc : 0,
-        negativo: acc < 0 ? acc : 0,
+        acumulado: valor,
+        positivo: valor > 0 ? valor : 0,
+        negativo: valor < 0 ? valor : 0,
       });
     }
     return arr;
-  }, [entradas, saidas, catRetiradas, month]);
+  }, [entradas, saidas, catRetiradas, month, pagDaily, custosDaily]);
 
   if (isLoading) return <div className="space-y-3"><Skeleton className="h-28" /><Skeleton className="h-64" /></div>;
 
