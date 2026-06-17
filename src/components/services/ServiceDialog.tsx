@@ -599,12 +599,11 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
                 <>
                   <div>
                     <Label>Cliente</Label>
-                    <Select value={form.cliente_cpf} onValueChange={v => setForm({ ...form, cliente_cpf: v, carro_placa: '' })}>
-                      <SelectTrigger className="bg-card border-border"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                      <SelectContent>
-                        {clientes.map(c => <SelectItem key={c.cpf} value={c.cpf}>{c.nome} · {c.cpf}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
+                    <ClientCombobox
+                      clientes={clientes}
+                      value={form.cliente_cpf}
+                      onChange={v => setForm({ ...form, cliente_cpf: v, carro_placa: '' })}
+                    />
                   </div>
                   <div>
                     <Label>Carro</Label>
