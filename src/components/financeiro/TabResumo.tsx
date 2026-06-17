@@ -8,7 +8,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RTooltip,
   BarChart, Bar, XAxis, YAxis, Legend, CartesianGrid,
+  AreaChart, Area, ReferenceLine,
 } from 'recharts';
+import { endOfMonth, getDate, parseISO } from 'date-fns';
 
 const COLORS = ['#F97316', '#22C55E', '#3B82F6', '#EAB308', '#A855F7', '#EF4444', '#06B6D4', '#EC4899', '#84CC16', '#F59E0B', '#8B5CF6', '#10B981'];
 
