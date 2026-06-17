@@ -288,6 +288,8 @@ export function LancamentoSaidaDialog({ open, onOpenChange, edit, initial }: Pro
         toast.success('Saída atualizada');
       } else if (parcelado) {
         // já tratado no fluxo de confirmação
+      } else if (faturado) {
+        await saveFaturado();
       } else if (recorrente) {
         await saveRecorrente();
       } else {
