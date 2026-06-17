@@ -98,6 +98,31 @@ export function TabResumo() {
       </div>
 
       <div className="bg-card border border-border rounded-lg p-4">
+        <h3 className="font-semibold mb-3 text-foreground">Lucro Líquido Real — evolução no mês</h3>
+        {serieDiaria.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-8">Sem dados no mês</p>
+        ) : (
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={serieDiaria} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
+              <CartesianGrid stroke="#262626" strokeDasharray="3 3" />
+              <XAxis dataKey="dia" stroke="#888" tick={{ fontSize: 11 }} />
+              <YAxis stroke="#888" tick={{ fontSize: 11 }} tickFormatter={(v) => formatCurrency(Number(v))} width={90} />
+              <ReferenceLine y={0} stroke="#555" />
+              <RTooltip
+                formatter={(v: any) => formatCurrency(Number(v))}
+                labelFormatter={(l) => `Dia ${l}`}
+                contentStyle={{ background: '#1A1A1A', border: '1px solid #333' }}
+              />
+              <Area type="monotone" dataKey="positivo" stroke="#22C55E" fill="#22C55E" fillOpacity={0.35} isAnimationActive={false} />
+              <Area type="monotone" dataKey="negativo" stroke="#EF4444" fill="#EF4444" fillOpacity={0.35} isAnimationActive={false} />
+            </AreaChart>
+          </ResponsiveContainer>
+        )}
+      </div>
+
+
+
+      <div className="bg-card border border-border rounded-lg p-4">
         <h3 className="font-semibold mb-3 text-foreground">Previsto vs Realizado por Categoria</h3>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
