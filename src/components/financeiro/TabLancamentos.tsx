@@ -222,14 +222,42 @@ export function TabLancamentos() {
               {origens?.map(o => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button
-            type="button"
-            variant={filtroHoje ? 'default' : 'outline'}
-            onClick={() => setFiltroHoje(v => !v)}
-            className={filtroHoje ? 'bg-primary text-primary-foreground' : 'bg-card border-border'}
-          >
-            Hoje
-          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn('w-[140px] justify-start text-left font-normal bg-card border-border', !dataIni && 'text-muted-foreground')}>
+                <CalendarIcon className="w-4 h-4 mr-2" />
+                {dataIni ? format(dataIni, 'dd/MM/yyyy') : 'De'}
+                {dataIni && (
+                  <span role="button" onClick={(e) => { e.stopPropagation(); e.preventDefault(); setDataIni(undefined); }} className="ml-auto p-0.5 hover:text-foreground">
+                    <X className="w-3.5 h-3.5" />
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={dataIni} onSelect={setDataIni} initialFocus
+                defaultMonth={month} fromDate={startOfMonth(month)} toDate={endOfMonth(month)}
+                className={cn('p-3 pointer-events-auto')} />
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn('w-[140px] justify-start text-left font-normal bg-card border-border', !dataFim && 'text-muted-foreground')}>
+                <CalendarIcon className="w-4 h-4 mr-2" />
+                {dataFim ? format(dataFim, 'dd/MM/yyyy') : 'Até'}
+                {dataFim && (
+                  <span role="button" onClick={(e) => { e.stopPropagation(); e.preventDefault(); setDataFim(undefined); }} className="ml-auto p-0.5 hover:text-foreground">
+                    <X className="w-3.5 h-3.5" />
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={dataFim} onSelect={setDataFim} initialFocus
+                defaultMonth={month} fromDate={startOfMonth(month)} toDate={endOfMonth(month)}
+                className={cn('p-3 pointer-events-auto')} />
+            </PopoverContent>
+          </Popover>
           {hasFilters && (
             <Button type="button" variant="ghost" size="sm" onClick={limparFiltros} className="text-muted-foreground hover:text-foreground">
               Limpar filtros
