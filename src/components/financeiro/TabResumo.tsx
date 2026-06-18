@@ -93,7 +93,6 @@ export function TabResumo() {
     const size = lastDayMonth + 1;
     const entradasPorDia = new Array(size).fill(0) as number[];
     const pagasPorDia = new Array(size).fill(0) as number[];
-    const previstoPagoPorDia = new Array(size).fill(0) as number[];
     const inMonth = (d: Date) => d.getMonth() === month.getMonth() && d.getFullYear() === month.getFullYear();
     const dayOf = (s: string) => {
       try { const d = parseISO(s); return inMonth(d) ? getDate(d) : null; } catch { return null; }
@@ -112,15 +111,16 @@ export function TabResumo() {
       entradasPorDia[dia] += liquido;
     }
 
-    // Previsto total do mês — saídas manuais operacionais (exclui Retiradas e custos automáticos)
-    let previstoMesTotal = 0;
+    // Saídas a Compensar (constante do mês): status != 'pago', exclui Retiradas e virtuais
+    let saidasACompensarTotalChart = 0;
     for (const l of saidas) {
       if (l.categoria_id === catRetiradas?.id) continue;
       if ((l as any).__virtual) continue;
-      previstoMesTotal += Number(l.valor_previsto || 0);
+      if (l.status_pagamento === 'pago') continue;
+      saidasACompensarTotalChart += Number(l.valor_realizado) || Number(l.valor_previsto) || 0;
     }
 
-    // Saídas pagas por dia (manuais) + previsto que sai da fila no dia que foi pago
+    // Saídas pagas por dia (manuais operacionais)
     for (const l of saidas) {
       if (l.categoria_id === catRetiradas?.id) continue;
       if ((l as any).__virtual) continue;
@@ -128,9 +128,8 @@ export function TabResumo() {
       const dia = dayOf(l.data);
       if (!dia) continue;
       pagasPorDia[dia] += Number(l.valor_realizado || 0);
-      previstoPagoPorDia[dia] += Number(l.valor_previsto || 0);
     }
-    // Custos de serviço — só como saída paga do dia (não entram no previstoMesTotal)
+    // Custos de serviço — saída paga do dia
     for (const c of (custosDaily as any[]) || []) {
       const dia = dayOf(c.data_compra);
       if (dia) pagasPorDia[dia] += Number(c.valor || 0);
@@ -138,15 +137,12 @@ export function TabResumo() {
 
     let accEntradas = 0;
     let accPagas = 0;
-    let accPrevPago = 0;
     const arr: { dia: number; acumulado: number | null; positivo: number | null; negativo: number | null }[] = [];
     for (let d = 1; d <= lastDayMonth; d++) {
       if (d <= lastDay) {
         accEntradas += entradasPorDia[d];
         accPagas += pagasPorDia[d];
-        accPrevPago += previstoPagoPorDia[d];
-        const previstoRestante = previstoMesTotal - accPrevPago;
-        const valor = accEntradas - previstoRestante - accPagas;
+        const valor = accEntradas - (saidasACompensarTotalChart + accPagas);
         arr.push({
           dia: d,
           acumulado: valor,
