@@ -291,11 +291,20 @@ export function TabLancamentos() {
             <div className="flex items-center gap-2">
               {openSaidas ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
               <span className="font-semibold text-foreground">SAÍDAS</span>
+              {openSaidas && Object.values(openCats).some(v => v === true) && (
+                <span
+                  role="button"
+                  onClick={(e) => { e.stopPropagation(); setOpenCats({}); }}
+                  className="ml-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                >
+                  <ChevronsDownUp className="w-3 h-3" /> Recolher tudo
+                </span>
+              )}
             </div>
             <span className="text-foreground font-semibold">{formatCurrency(totalSaidas)}</span>
           </button>
           {openSaidas && saidasPorCat.map(([key, g]) => {
-            const open = openCats[key] ?? true;
+            const open = openCats[key] ?? false;
             return (
               <div key={key}>
                 <button onClick={() => setOpenCats(s => ({ ...s, [key]: !open }))}
