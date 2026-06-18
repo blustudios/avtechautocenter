@@ -88,10 +88,12 @@ export function TabResumo() {
     const today = new Date();
     const isCurrent = isSameMonth(today, month);
     const lastDay = isCurrent ? Math.min(getDate(today), lastDayMonth) : lastDayMonth;
-    if (lastDay < 1) return [];
+    if (lastDayMonth < 1) return [];
 
-    const entradasPorDia = new Array(lastDayMonth + 1).fill(0) as number[];
-    const efetivadasPorDia = new Array(lastDayMonth + 1).fill(0) as number[];
+    const size = lastDayMonth + 1;
+    const entradasPorDia = new Array(size).fill(0) as number[];
+    const pagasPorDia = new Array(size).fill(0) as number[];
+    const previstoPagoPorDia = new Array(size).fill(0) as number[];
     const inMonth = (d: Date) => d.getMonth() === month.getMonth() && d.getFullYear() === month.getFullYear();
     const dayOf = (s: string) => {
       try { const d = parseISO(s); return inMonth(d) ? getDate(d) : null; } catch { return null; }
@@ -110,37 +112,50 @@ export function TabResumo() {
       entradasPorDia[dia] += liquido;
     }
 
-    // Saídas previstas do mês (constante) — exclui Retiradas
-    let previstoMes = 0;
+    // Previsto total do mês — saídas manuais operacionais (exclui Retiradas e custos automáticos)
+    let previstoMesTotal = 0;
     for (const l of saidas) {
       if (l.categoria_id === catRetiradas?.id) continue;
-      previstoMes += Number(l.valor_previsto || 0);
+      if ((l as any).__virtual) continue;
+      previstoMesTotal += Number(l.valor_previsto || 0);
     }
 
-    // Saídas efetivadas por dia — manuais pagas (exclui Retiradas) + custos por data_compra
+    // Saídas pagas por dia (manuais) + previsto que sai da fila no dia que foi pago
     for (const l of saidas) {
       if (l.categoria_id === catRetiradas?.id) continue;
+      if ((l as any).__virtual) continue;
       if (l.status_pagamento !== 'pago') continue;
-      if ((l as any).__virtual) continue; // auto custos tratados via custosDaily
       const dia = dayOf(l.data);
-      if (dia) efetivadasPorDia[dia] += Number(l.valor_realizado || 0);
+      if (!dia) continue;
+      pagasPorDia[dia] += Number(l.valor_realizado || 0);
+      previstoPagoPorDia[dia] += Number(l.valor_previsto || 0);
     }
+    // Custos de serviço — só como saída paga do dia (não entram no previstoMesTotal)
     for (const c of (custosDaily as any[]) || []) {
       const dia = dayOf(c.data_compra);
-      if (dia) efetivadasPorDia[dia] += Number(c.valor || 0);
+      if (dia) pagasPorDia[dia] += Number(c.valor || 0);
     }
 
     let accEntradas = 0;
-    const arr: { dia: number; acumulado: number; positivo: number; negativo: number }[] = [];
-    for (let d = 1; d <= lastDay; d++) {
-      accEntradas += entradasPorDia[d];
-      const valor = accEntradas - previstoMes - efetivadasPorDia[d];
-      arr.push({
-        dia: d,
-        acumulado: valor,
-        positivo: valor > 0 ? valor : 0,
-        negativo: valor < 0 ? valor : 0,
-      });
+    let accPagas = 0;
+    let accPrevPago = 0;
+    const arr: { dia: number; acumulado: number | null; positivo: number | null; negativo: number | null }[] = [];
+    for (let d = 1; d <= lastDayMonth; d++) {
+      if (d <= lastDay) {
+        accEntradas += entradasPorDia[d];
+        accPagas += pagasPorDia[d];
+        accPrevPago += previstoPagoPorDia[d];
+        const previstoRestante = previstoMesTotal - accPrevPago;
+        const valor = accEntradas - previstoRestante - accPagas;
+        arr.push({
+          dia: d,
+          acumulado: valor,
+          positivo: valor > 0 ? valor : 0,
+          negativo: valor < 0 ? valor : 0,
+        });
+      } else {
+        arr.push({ dia: d, acumulado: null, positivo: null, negativo: null });
+      }
     }
     return arr;
   }, [entradas, saidas, catRetiradas, month, pagDaily, custosDaily]);
