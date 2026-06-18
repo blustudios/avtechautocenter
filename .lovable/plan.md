@@ -1,39 +1,51 @@
-## Melhorias na aba Lançamentos (Financeiro)
+## Ajuste do cálculo do gráfico de área (Lucro Líquido Real diário)
 
-### 1. Substituir filtro "Hoje" por filtro de período (data inicial / data final)
+### O que está diferente hoje
 
-**Remoção:**
-- Remover botão "Hoje" e estado `filtroHoje`.
+No código atual (`serieDiaria` em `TabResumo.tsx`), a fórmula é:
 
-**Adição:**
-- Dois campos de data ("De" e "Até") usando o Shadcn DatePicker (Popover + Calendar com `pointer-events-auto`), seguindo o padrão dark-mode do projeto.
-- Estados: `dataIni: Date | undefined`, `dataFim: Date | undefined`.
-- Lógica de filtro aplicada sobre `l.data` (a data cadastrada da entrada/saída):
-  - Se `dataIni` e `dataFim` preenchidos → intervalo fechado `[dataIni, dataFim]`.
-  - Se só `dataIni` → mostra apenas lançamentos com `l.data === dataIni`.
-  - Se só `dataFim` → mostra apenas lançamentos com `l.data === dataFim` (simétrico, comportamento intuitivo).
-  - Nenhum preenchido → sem filtro de data.
-- Botões "x" pequenos em cada campo para limpar individualmente.
-- `hasFilters` e `limparFiltros` atualizados para considerar `dataIni`/`dataFim`.
-- Os datepickers só permitem selecionar datas dentro do mês ativo (`MonthContext`) — já que `manuais`/`auto` são carregados por mês —, evitando confusão de resultado vazio.
+```
+saldo(D) = accEntradas(D) − previstoRestante(D) − accPagas(D)
+onde previstoRestante(D) = previstoMesTotal − accPrevPago(D)
+```
 
-**Layout:** Os dois campos ficam na mesma linha de filtros, lado a lado, posição onde estava o botão "Hoje". Em mobile, quebram para a próxima linha (`flex-wrap` já existente).
+Ou seja: quando uma saída prevista é paga, ela **sai** do "previsto" e **entra** em `accPagas`. O lado das saídas fica praticamente estável no mês (o previsto vai virando pago).
 
-### 2. Categorias de SAÍDAS colapsadas por padrão + atalho "Recolher tudo"
+**O que você quer:** as saídas **não** devem "trocar de balde". O baseline é a soma de TODAS as saídas com status `a_pagar` ou `agendado` do mês (fixo), e além disso somam-se as saídas pagas conforme o dia em que foram pagas.
 
-**Padrão colapsado:**
-- Mudar default de `openCats[key] ?? true` para `openCats[key] ?? false`. Assim, ao abrir a aba, todas as categorias começam fechadas.
-- A seção mestre "SAÍDAS" (`openSaidas`) continua expandida por padrão (mostra a lista de categorias colapsadas).
+### Nova fórmula
 
-**Atalho "Recolher tudo":**
-- Adicionar pequeno botão/link `Recolher tudo` ao lado do título "SAÍDAS" no header mestre.
-- Visível apenas quando `openSaidas === true` e houver ao menos uma categoria expandida (`Object.values(openCats).some(v => v === true)`).
-- Ao clicar: `setOpenCats({})` — reseta para todas colapsadas. `stopPropagation` no clique para não colapsar a seção mestre.
-- Estilo: `text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline`, com pequeno ícone `ChevronsUpDown` (opcional).
+Para cada dia D do mês:
 
-### Arquivo a editar
-- `src/components/financeiro/TabLancamentos.tsx` (único arquivo afetado).
+```
+saldo(D) = accEntradas(D) − ( saidasACompensarTotal + accPagas(D) )
+```
 
-### Detalhes técnicos
-- Comparação de datas: `l.data` é string ISO `YYYY-MM-DD`. Converter `dataIni`/`dataFim` para o mesmo formato com helper local (sem timezone shift) — usar `format(date, 'yyyy-MM-DD')` do `date-fns` para evitar problemas de fuso.
-- Não há mudança em hooks/queries — somente filtragem client-side já existente em `filtered`.
+- `accEntradas(D)`: soma acumulada (do dia 1 ao dia D) das entradas:
+  - Entradas manuais → `valor_realizado` no `l.data`.
+  - Entradas automáticas → para cada `servicos_pagamentos` com `pago=true` no mês, soma `valor − (valor × taxa_aplicada / 100)` na `data_pagamento`.
+- `saidasACompensarTotal` (constante para o mês, igual ao KPI já exibido):
+  - Soma de TODAS as saídas manuais operacionais do mês com `status_pagamento` **≠** `pago` (ou seja, `a_pagar` ou `agendado`).
+  - Valor usado: `valor_realizado || valor_previsto || 0` (consistente com o KPI).
+  - **Exclui** Retiradas (`categoria_id === catRetiradas.id`) e linhas virtuais (`__virtual`).
+- `accPagas(D)`: soma acumulada das saídas efetivamente pagas até o dia D:
+  - Saídas manuais operacionais com `status_pagamento === 'pago'` → `valor_realizado` no `l.data` (exclui Retiradas e virtuais).
+  - Custos de serviço (`servicos_custos.data_compra`) → tratados como pagos no dia da compra.
+
+### Comportamento esperado
+
+- **Dia 1 (antes de qualquer movimentação):** `accEntradas = 0`, `accPagas = 0`, então `saldo(1) = −saidasACompensarTotal` (negativo, área vermelha).
+- À medida que entradas líquidas entram, a área sobe; à medida que saídas são pagas, desce mais (o "a compensar" não diminui, pois reflete apenas os que ainda não foram pagos no momento da renderização).
+- A curva projeta `null` para os dias após o dia atual (mantém o comportamento já implementado).
+
+### Mudanças técnicas em `TabResumo.tsx`
+
+1. Remover os arrays `previstoPagoPorDia` e o acumulador `accPrevPago`.
+2. Substituir o cálculo do `previstoMesTotal` por `saidasACompensarTotalChart`:
+   - Itera `saidas`, ignora Retiradas e `__virtual`, e soma apenas os com `status_pagamento !== 'pago'`, usando `Number(l.valor_realizado) || Number(l.valor_previsto) || 0`.
+3. O loop diário passa a calcular: `valor = accEntradas − (saidasACompensarTotalChart + accPagas)`.
+4. Mantidos: `pagasPorDia` (manuais pagas + `custosDaily`), `entradasPorDia` (manuais + pagamentos líquidos), corte da curva no dia atual.
+
+### Arquivo afetado
+
+- `src/components/financeiro/TabResumo.tsx` (apenas o `useMemo` `serieDiaria`).
