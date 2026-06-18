@@ -98,8 +98,9 @@ export function TabResumo() {
       try { const d = parseISO(s); return inMonth(d) ? getDate(d) : null; } catch { return null; }
     };
 
-    // Entradas manuais (valor_realizado por data)
+    // Entradas manuais (valor_realizado por data) — pula virtuais (auto agregada é coberta por pagDaily)
     for (const l of entradas) {
+      if ((l as any).__virtual) continue;
       const dia = dayOf(l.data);
       if (dia) entradasPorDia[dia] += Number(l.valor_realizado || 0);
     }
