@@ -44,7 +44,7 @@ export function TabLancamentos() {
   const [filtroStatus, setFiltroStatus] = useState<string>('todos');
   const [filtroOrigem, setFiltroOrigem] = useState<string>('todas');
   const [busca, setBusca] = useState('');
-  const [filtroHoje, setFiltroHoje] = useState(false);
+  
 
   const [dataIni, setDataIni] = useState<Date | undefined>(undefined);
   const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
