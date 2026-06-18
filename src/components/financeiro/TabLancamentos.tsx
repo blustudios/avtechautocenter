@@ -46,10 +46,15 @@ export function TabLancamentos() {
   const [busca, setBusca] = useState('');
   const [filtroHoje, setFiltroHoje] = useState(false);
 
-  const hojeISO = new Date().toISOString().slice(0, 10);
-  const hasFilters = filtroCat !== 'todas' || filtroStatus !== 'todos' || filtroOrigem !== 'todas' || busca !== '' || filtroHoje;
+  const [dataIni, setDataIni] = useState<Date | undefined>(undefined);
+  const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
+
+  const dataIniISO = dataIni ? format(dataIni, 'yyyy-MM-dd') : null;
+  const dataFimISO = dataFim ? format(dataFim, 'yyyy-MM-dd') : null;
+  const hasFilters = filtroCat !== 'todas' || filtroStatus !== 'todos' || filtroOrigem !== 'todas' || busca !== '' || !!dataIniISO || !!dataFimISO;
   const limparFiltros = () => {
-    setFiltroCat('todas'); setFiltroStatus('todos'); setFiltroOrigem('todas'); setBusca(''); setFiltroHoje(false);
+    setFiltroCat('todas'); setFiltroStatus('todos'); setFiltroOrigem('todas'); setBusca('');
+    setDataIni(undefined); setDataFim(undefined);
   };
 
   const [openEntradas, setOpenEntradas] = useState(true);
@@ -67,11 +72,17 @@ export function TabLancamentos() {
       if (filtroCat !== 'todas' && l.categoria_id !== filtroCat) return false;
       if (filtroStatus !== 'todos' && l.status_pagamento !== filtroStatus) return false;
       if (filtroOrigem !== 'todas' && l.origem_id !== filtroOrigem) return false;
-      if (filtroHoje && l.data !== hojeISO) return false;
+      if (dataIniISO && dataFimISO) {
+        if (l.data < dataIniISO || l.data > dataFimISO) return false;
+      } else if (dataIniISO) {
+        if (l.data !== dataIniISO) return false;
+      } else if (dataFimISO) {
+        if (l.data !== dataFimISO) return false;
+      }
       if (busca && !l.descricao.toLowerCase().includes(busca.toLowerCase())) return false;
       return true;
     });
-  }, [all, filtroCat, filtroStatus, filtroOrigem, busca, filtroHoje, hojeISO]);
+  }, [all, filtroCat, filtroStatus, filtroOrigem, busca, dataIniISO, dataFimISO]);
 
   const entradas = filtered.filter(l => l.tipo === 'entrada');
   const saidas = filtered.filter(l => l.tipo === 'saida');
