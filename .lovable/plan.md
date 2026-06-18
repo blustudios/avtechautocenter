@@ -1,93 +1,61 @@
-# Plano de Melhorias
+## Objetivo
 
-## 1) Seleção de Cliente pesquisável (ServiceDialog)
+Corrigir a fórmula do gráfico de área "Lucro Líquido Real" na aba **Resumo** do Financeiro para evitar duplicação de valores e refletir exatamente o comportamento solicitado.
 
-**Problema:** hoje o campo Cliente é um `<Select>` shadcn padrão, que não filtra ao digitar — com muitos clientes fica lento de achar.
+## Fórmula final (por dia D)
 
-**Solução proposta:** trocar o `Select` por um **Combobox** (padrão shadcn) usando `Popover` + `Command` (cmdk), que já existem no projeto (`src/components/ui/command.tsx`, `popover.tsx`). É a abordagem oficial do shadcn para "autocomplete de seleção", suporta teclado (↑/↓/Enter/Esc), busca difusa e fica consistente com o resto do app.
-
-### Comportamento
-
-- Input digitável no trigger mostrando o cliente selecionado (`Nome · CPF`) ou placeholder "Buscar cliente...".
-- Ao focar/clicar abre menu suspenso com `CommandInput` no topo e lista filtrada.
-- Filtro **case-insensitive** por: nome (substring) **e** dígitos do CPF (ignora pontuação). Ex.: digitar "joa" ou "123" funciona.
-- Mostra "Nenhum cliente encontrado" via `CommandEmpty`.
-- Selecionar item → seta `cliente_cpf` e zera `carro_placa` (mesmo comportamento atual).
-- Mantém a mesma largura do campo atual e respeita dark theme.
-- O campo "Carro" continua como `Select` (lista curta por cliente).
-
-### Arquivos afetados
-
-- `src/components/services/ServiceDialog.tsx`: substituir o bloco do `<Select>` Cliente (linhas ~597-605) por um novo subcomponente local `ClientCombobox` (ou inline) usando `Popover` + `Command`. Reaproveitar o `clienteSearch` já existente (linha 522).
-
-### Detalhes técnicos
-
-- Usar `cmdk`'s `Command.Item` com `value={`${nome} ${cpf}`}` para que o filtro nativo do cmdk cubra ambos. Para garantir busca por dígitos puros do CPF, normalizar `value` removendo pontuação: `value={`${nome} ${cpf.replace(/\D/g,'')} ${cpf}`}`.
-- Trigger: `<Button variant="outline" role="combobox" className="w-full justify-between bg-card border-border">` exibindo nome selecionado + ícone `ChevronsUpDown`.
-- Largura do `PopoverContent`: `w-[--radix-popover-trigger-width]` e `p-0`.
-- Sem nova dependência (cmdk e popover já estão no projeto).
-
----
-
-## 2) Gráfico de área: Lucro Líquido Real ao longo do mês (TabResumo)
-
-**Objetivo:** novo card em `TabResumo.tsx` com um gráfico de área mostrando o **lucro líquido real diário acumulado** (ou diário — ver decisão abaixo) ao longo dos dias do mês selecionado, com área verde acima de 0 e vermelha abaixo de 0.
-
-### Definição da métrica (consistente com KPI já existente)
-
-Hoje o card "Lucro Líquido Real" usa: `totalEntradas - (totalSaidas - totalRetiradas)`, somente sobre `valor_realizado`.
-
-Por dia `d` do mês:
-
-- `entradas_d` = soma de `valor_realizado` de lançamentos `tipo='entrada'` cuja data efetiva seja `d`.
-- `saidas_op_d` = soma de `valor_realizado` de `tipo='saida'` **excluindo** categoria "Retiradas", cuja data efetiva seja `d`.
-- `lucro_d = entradas_d - saidas_op_d`
-- **Série exibida:** acumulado mês a dia → `acumulado_d = Σ lucro_i (i ≤ d)`. Isso casa visualmente com o KPI no fim do mês.
-
-"Data efetiva" = mesma regra já aplicada no resumo: usar a `data` do lançamento (campo `data`). Para linhas automáticas (`auto.entrada`/`auto.saida`), elas têm uma `data` única (último dia do mês) — somar tudo nesse dia mantém consistência com os KPIs.
-
-### UI/visual
-
-- Card novo logo abaixo dos KPIs (acima de "Previsto vs Realizado por Categoria").
-- Título: **"Lucro Líquido Real — evolução no mês"**.
-- Recharts `AreaChart` com `ResponsiveContainer` (altura 280).
-- Eixo X: dia (1..N do mês). Eixo Y: R$.
-- **Duas áreas sobrepostas** para colorir + e − (técnica padrão do Recharts):
-  - `dataKey="positivo"` (= `max(acumulado,0)`) → preenchimento verde `#22C55E` com `fillOpacity` 0.35, stroke `#22C55E`.
-  - `dataKey="negativo"` (= `min(acumulado,0)`) → preenchimento vermelho `#EF4444` com `fillOpacity` 0.35, stroke `#EF4444`.
-- Linha de referência `y=0` (`ReferenceLine`) cinza.
-- Tooltip dark (mesmo estilo dos outros gráficos) formatando em `formatCurrency` e mostrando "Dia DD".
-- Estado vazio: "Sem dados no mês".
-
-### Arquivos afetados
-
-- `src/components/financeiro/TabResumo.tsx`:
-  - Importar `AreaChart, Area, ReferenceLine` de `recharts`.
-  - Novo `useMemo` `serieDiaria` que monta `[{ dia: 1, acumulado, positivo, negativo }, ...]` para todos os dias do mês corrente (usar `month` + `date-fns` `endOfMonth`/`getDate`, já usados no projeto).
-  - Render do card antes do bloco "Previsto vs Realizado por Categoria".
-
-### Diagrama da série
-
-```text
-acumulado
-  +R$ ┤      ╱╲___          ← área verde
-   0  ┼─────────────────
-  -R$ ┤            ╲__      ← área vermelha
-       1  5  10  15  20  25  30
+```
+saldo(D) = entradasAcumuladas(D) − previstoRestante(D) − pagasAcumuladas(D)
 ```
 
-### Sem mudanças
+Onde:
 
-- Sem migrações de banco, sem novas dependências, sem alterar hooks de dados.
+- **entradasAcumuladas(D)** = Σ (Faturamento − Taxa) de pagamentos com `data_pagamento ≤ D` + entradas manuais pagas com `data ≤ D`.
+- **previstoRestante(D)** = Σ `valor_previsto` das saídas operacionais do mês **menos** os previstos das saídas que já foram pagas até o dia D (assim, quando uma prevista vira paga, ela some do previsto e aparece como paga — sem duplicar).
+- **pagasAcumuladas(D)** = Σ saídas operacionais pagas com data ≤ D + custos de serviço (`servicos_custos.data_compra`) ≤ D.
+- "Operacionais" exclui a categoria sistema **Retiradas**.
+- Não há herança de saldo do mês anterior. O gráfico só vai até hoje (se mês atual) ou até o último dia do mês (meses passados).
 
----
+## Como cada decisão se aplica
 
-## Confirmações antes de implementar
+- **Entradas:** acumuladas desde o dia 1 (líquidas, já descontando taxa de maquininha).
+- **Previsto vs Pago:** quando o lançamento previsto é pago, seu `valor_previsto` é descontado do bloco de previsto naquele dia em diante — eliminando a duplicação que existe hoje.
+- **Custos de serviço:** entram apenas como "saída paga do dia" (na `data_compra`). Eles **não** somam no previsto do mês. A entrada virtual de saída automática (custos agregados) deixa de ser usada nesse cálculo.
 
-Posso seguir com:
+## Mudanças no código (`src/components/financeiro/TabResumo.tsx`)
 
-- Combobox shadcn (Popover+Command) para o Cliente — busca por nome **e** CPF.
-- Gráfico de área **acumulado** do Lucro Líquido Real (verde/vermelho) no topo da aba Resumo.
+Reescrever apenas o `useMemo` `serieDiaria` (linhas 86–146):
 
-# IMPLEMENTAÇÃO EXTRA  
-- Em Financeiro, na aba Lançamentos, adicione um filtro de "hoje" com os lançamentos do dia em questão a fim de facilitar a conferencia. Exiba um botão de texto "limpar filtros" quando algum filtro estiver ativo para resetar todos os filtros para o padrão.
+1. Construir `entradasPorDia[]` (mesma lógica atual: manuais com `tipo='entrada'` por `l.data` + `pagDaily` líquidos por `data_pagamento`).
+2. Construir `pagasPorDia[]`:
+  - Saídas manuais (não-Retiradas) com `status_pagamento='pago'` por `l.data` usando `valor_realizado`, ignorando a saída automática virtual (`__virtual`).
+  - `custosDaily` por `data_compra` usando `valor`.
+3. Construir `previstoPorDiaPago[]` (novo): para cada saída manual operacional com `status_pagamento='pago'`, somar `valor_previsto` no dia `l.data`. Isso representa quanto do previsto "saiu da fila" naquele dia.
+4. `previstoMesTotal` = Σ `valor_previsto` das saídas manuais operacionais (não inclui custos automáticos).
+5. Loop por dia `d` de 1 até `lastDay`:
+  - `accEntradas += entradasPorDia[d]`
+  - `accPagas    += pagasPorDia[d]`
+  - `accPrevPago += previstoPorDiaPago[d]`
+  - `previstoRestante = previstoMesTotal − accPrevPago`
+  - `valor = accEntradas − previstoRestante − accPagas`
+  - empurrar `{ dia: d, acumulado: valor, positivo: max(valor,0), negativo: min(valor,0) }`
+
+## Detalhes técnicos
+
+- Remover a saída automática virtual do cálculo do gráfico (já filtrada via `__virtual`). Os custos vêm exclusivamente de `custosDaily`.
+- Saídas com `valor_previsto = 0` (ex.: lançamentos ad-hoc) não afetam `previstoMesTotal` nem `previstoPorDiaPago`, mas continuam aparecendo em `pagasPorDia` quando pagas — comportamento desejado.
+- Tooltip/eixos/áreas verde/vermelha permanecem iguais.
+- Nenhuma alteração de schema, hook ou outro arquivo.
+
+## Validação
+
+- Dia 1 sem entradas/pagamentos → `valor = 0 − previstoMesTotal − 0` (negativo, como você descreveu).
+- Ao pagar uma saída prevista de R$ X no dia D: `previstoRestante` cai X e `accPagas` sobe X → impacto líquido **zero** (sem duplicação).
+- Ao pagar uma saída sem previsto (ad-hoc/custo de serviço): só `accPagas` sobe → saldo cai naquele valor.
+- Ao receber entrada líquida no dia D: `accEntradas` sobe → saldo melhora.
+
+&nbsp;
+
+## Design do gráfico
+
+- gráfico não projeto dia atual até o fim do mês, porém mostra todos os dias do mês para dar noção de tempo restante.
