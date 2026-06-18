@@ -111,25 +111,23 @@ export function TabResumo() {
       entradasPorDia[dia] += liquido;
     }
 
-    // Saídas a Compensar (constante do mês): status != 'pago', exclui Retiradas e virtuais
+    // Saídas a Compensar (constante do mês): status != 'pago' (exclui apenas virtuais auto, que sempre são 'pago')
     let saidasACompensarTotalChart = 0;
     for (const l of saidas) {
-      if (l.categoria_id === catRetiradas?.id) continue;
       if ((l as any).__virtual) continue;
       if (l.status_pagamento === 'pago') continue;
       saidasACompensarTotalChart += Number(l.valor_realizado) || Number(l.valor_previsto) || 0;
     }
 
-    // Saídas pagas por dia (manuais operacionais)
+    // Saídas pagas por dia (manuais; inclui Retiradas para casar com card Total Saídas)
     for (const l of saidas) {
-      if (l.categoria_id === catRetiradas?.id) continue;
       if ((l as any).__virtual) continue;
       if (l.status_pagamento !== 'pago') continue;
       const dia = dayOf(l.data);
       if (!dia) continue;
       pagasPorDia[dia] += Number(l.valor_realizado || 0);
     }
-    // Custos de serviço — saída paga do dia
+    // Custos de serviço (automático) — distribuído pela data_compra
     for (const c of (custosDaily as any[]) || []) {
       const dia = dayOf(c.data_compra);
       if (dia) pagasPorDia[dia] += Number(c.valor || 0);
