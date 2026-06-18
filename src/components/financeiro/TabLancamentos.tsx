@@ -13,7 +13,9 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { ChevronDown, ChevronRight, MoreVertical, Plus, Lock, Search, StickyNote } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { ChevronDown, ChevronRight, MoreVertical, Plus, Lock, Search, StickyNote, CalendarIcon, X, ChevronsDownUp } from 'lucide-react';
 import { LancamentoSaidaDialog } from './LancamentoSaidaDialog';
 import { LancamentoEntradaDialog } from './LancamentoEntradaDialog';
 import { DeleteRecurrenceDialog } from './DeleteRecurrenceDialog';
@@ -21,6 +23,8 @@ import { StatusPagamentoBadge } from './StatusBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 export function TabLancamentos() {
   const { month } = useMonth();
