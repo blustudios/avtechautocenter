@@ -1,61 +1,39 @@
-## Objetivo
+## Melhorias na aba Lançamentos (Financeiro)
 
-Corrigir a fórmula do gráfico de área "Lucro Líquido Real" na aba **Resumo** do Financeiro para evitar duplicação de valores e refletir exatamente o comportamento solicitado.
+### 1. Substituir filtro "Hoje" por filtro de período (data inicial / data final)
 
-## Fórmula final (por dia D)
+**Remoção:**
+- Remover botão "Hoje" e estado `filtroHoje`.
 
-```
-saldo(D) = entradasAcumuladas(D) − previstoRestante(D) − pagasAcumuladas(D)
-```
+**Adição:**
+- Dois campos de data ("De" e "Até") usando o Shadcn DatePicker (Popover + Calendar com `pointer-events-auto`), seguindo o padrão dark-mode do projeto.
+- Estados: `dataIni: Date | undefined`, `dataFim: Date | undefined`.
+- Lógica de filtro aplicada sobre `l.data` (a data cadastrada da entrada/saída):
+  - Se `dataIni` e `dataFim` preenchidos → intervalo fechado `[dataIni, dataFim]`.
+  - Se só `dataIni` → mostra apenas lançamentos com `l.data === dataIni`.
+  - Se só `dataFim` → mostra apenas lançamentos com `l.data === dataFim` (simétrico, comportamento intuitivo).
+  - Nenhum preenchido → sem filtro de data.
+- Botões "x" pequenos em cada campo para limpar individualmente.
+- `hasFilters` e `limparFiltros` atualizados para considerar `dataIni`/`dataFim`.
+- Os datepickers só permitem selecionar datas dentro do mês ativo (`MonthContext`) — já que `manuais`/`auto` são carregados por mês —, evitando confusão de resultado vazio.
 
-Onde:
+**Layout:** Os dois campos ficam na mesma linha de filtros, lado a lado, posição onde estava o botão "Hoje". Em mobile, quebram para a próxima linha (`flex-wrap` já existente).
 
-- **entradasAcumuladas(D)** = Σ (Faturamento − Taxa) de pagamentos com `data_pagamento ≤ D` + entradas manuais pagas com `data ≤ D`.
-- **previstoRestante(D)** = Σ `valor_previsto` das saídas operacionais do mês **menos** os previstos das saídas que já foram pagas até o dia D (assim, quando uma prevista vira paga, ela some do previsto e aparece como paga — sem duplicar).
-- **pagasAcumuladas(D)** = Σ saídas operacionais pagas com data ≤ D + custos de serviço (`servicos_custos.data_compra`) ≤ D.
-- "Operacionais" exclui a categoria sistema **Retiradas**.
-- Não há herança de saldo do mês anterior. O gráfico só vai até hoje (se mês atual) ou até o último dia do mês (meses passados).
+### 2. Categorias de SAÍDAS colapsadas por padrão + atalho "Recolher tudo"
 
-## Como cada decisão se aplica
+**Padrão colapsado:**
+- Mudar default de `openCats[key] ?? true` para `openCats[key] ?? false`. Assim, ao abrir a aba, todas as categorias começam fechadas.
+- A seção mestre "SAÍDAS" (`openSaidas`) continua expandida por padrão (mostra a lista de categorias colapsadas).
 
-- **Entradas:** acumuladas desde o dia 1 (líquidas, já descontando taxa de maquininha).
-- **Previsto vs Pago:** quando o lançamento previsto é pago, seu `valor_previsto` é descontado do bloco de previsto naquele dia em diante — eliminando a duplicação que existe hoje.
-- **Custos de serviço:** entram apenas como "saída paga do dia" (na `data_compra`). Eles **não** somam no previsto do mês. A entrada virtual de saída automática (custos agregados) deixa de ser usada nesse cálculo.
+**Atalho "Recolher tudo":**
+- Adicionar pequeno botão/link `Recolher tudo` ao lado do título "SAÍDAS" no header mestre.
+- Visível apenas quando `openSaidas === true` e houver ao menos uma categoria expandida (`Object.values(openCats).some(v => v === true)`).
+- Ao clicar: `setOpenCats({})` — reseta para todas colapsadas. `stopPropagation` no clique para não colapsar a seção mestre.
+- Estilo: `text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline`, com pequeno ícone `ChevronsUpDown` (opcional).
 
-## Mudanças no código (`src/components/financeiro/TabResumo.tsx`)
+### Arquivo a editar
+- `src/components/financeiro/TabLancamentos.tsx` (único arquivo afetado).
 
-Reescrever apenas o `useMemo` `serieDiaria` (linhas 86–146):
-
-1. Construir `entradasPorDia[]` (mesma lógica atual: manuais com `tipo='entrada'` por `l.data` + `pagDaily` líquidos por `data_pagamento`).
-2. Construir `pagasPorDia[]`:
-  - Saídas manuais (não-Retiradas) com `status_pagamento='pago'` por `l.data` usando `valor_realizado`, ignorando a saída automática virtual (`__virtual`).
-  - `custosDaily` por `data_compra` usando `valor`.
-3. Construir `previstoPorDiaPago[]` (novo): para cada saída manual operacional com `status_pagamento='pago'`, somar `valor_previsto` no dia `l.data`. Isso representa quanto do previsto "saiu da fila" naquele dia.
-4. `previstoMesTotal` = Σ `valor_previsto` das saídas manuais operacionais (não inclui custos automáticos).
-5. Loop por dia `d` de 1 até `lastDay`:
-  - `accEntradas += entradasPorDia[d]`
-  - `accPagas    += pagasPorDia[d]`
-  - `accPrevPago += previstoPorDiaPago[d]`
-  - `previstoRestante = previstoMesTotal − accPrevPago`
-  - `valor = accEntradas − previstoRestante − accPagas`
-  - empurrar `{ dia: d, acumulado: valor, positivo: max(valor,0), negativo: min(valor,0) }`
-
-## Detalhes técnicos
-
-- Remover a saída automática virtual do cálculo do gráfico (já filtrada via `__virtual`). Os custos vêm exclusivamente de `custosDaily`.
-- Saídas com `valor_previsto = 0` (ex.: lançamentos ad-hoc) não afetam `previstoMesTotal` nem `previstoPorDiaPago`, mas continuam aparecendo em `pagasPorDia` quando pagas — comportamento desejado.
-- Tooltip/eixos/áreas verde/vermelha permanecem iguais.
-- Nenhuma alteração de schema, hook ou outro arquivo.
-
-## Validação
-
-- Dia 1 sem entradas/pagamentos → `valor = 0 − previstoMesTotal − 0` (negativo, como você descreveu).
-- Ao pagar uma saída prevista de R$ X no dia D: `previstoRestante` cai X e `accPagas` sobe X → impacto líquido **zero** (sem duplicação).
-- Ao pagar uma saída sem previsto (ad-hoc/custo de serviço): só `accPagas` sobe → saldo cai naquele valor.
-- Ao receber entrada líquida no dia D: `accEntradas` sobe → saldo melhora.
-
-&nbsp;
-
-## Design do gráfico
-
-- gráfico não projeto dia atual até o fim do mês, porém mostra todos os dias do mês para dar noção de tempo restante.
+### Detalhes técnicos
+- Comparação de datas: `l.data` é string ISO `YYYY-MM-DD`. Converter `dataIni`/`dataFim` para o mesmo formato com helper local (sem timezone shift) — usar `format(date, 'yyyy-MM-DD')` do `date-fns` para evitar problemas de fuso.
+- Não há mudança em hooks/queries — somente filtragem client-side já existente em `filtered`.

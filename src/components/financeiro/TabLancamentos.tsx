@@ -13,7 +13,9 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
-import { ChevronDown, ChevronRight, MoreVertical, Plus, Lock, Search, StickyNote } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { ChevronDown, ChevronRight, MoreVertical, Plus, Lock, Search, StickyNote, CalendarIcon, X, ChevronsDownUp } from 'lucide-react';
 import { LancamentoSaidaDialog } from './LancamentoSaidaDialog';
 import { LancamentoEntradaDialog } from './LancamentoEntradaDialog';
 import { DeleteRecurrenceDialog } from './DeleteRecurrenceDialog';
@@ -21,6 +23,8 @@ import { StatusPagamentoBadge } from './StatusBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
+import { cn } from '@/lib/utils';
 
 export function TabLancamentos() {
   const { month } = useMonth();
@@ -40,12 +44,17 @@ export function TabLancamentos() {
   const [filtroStatus, setFiltroStatus] = useState<string>('todos');
   const [filtroOrigem, setFiltroOrigem] = useState<string>('todas');
   const [busca, setBusca] = useState('');
-  const [filtroHoje, setFiltroHoje] = useState(false);
+  
 
-  const hojeISO = new Date().toISOString().slice(0, 10);
-  const hasFilters = filtroCat !== 'todas' || filtroStatus !== 'todos' || filtroOrigem !== 'todas' || busca !== '' || filtroHoje;
+  const [dataIni, setDataIni] = useState<Date | undefined>(undefined);
+  const [dataFim, setDataFim] = useState<Date | undefined>(undefined);
+
+  const dataIniISO = dataIni ? format(dataIni, 'yyyy-MM-dd') : null;
+  const dataFimISO = dataFim ? format(dataFim, 'yyyy-MM-dd') : null;
+  const hasFilters = filtroCat !== 'todas' || filtroStatus !== 'todos' || filtroOrigem !== 'todas' || busca !== '' || !!dataIniISO || !!dataFimISO;
   const limparFiltros = () => {
-    setFiltroCat('todas'); setFiltroStatus('todos'); setFiltroOrigem('todas'); setBusca(''); setFiltroHoje(false);
+    setFiltroCat('todas'); setFiltroStatus('todos'); setFiltroOrigem('todas'); setBusca('');
+    setDataIni(undefined); setDataFim(undefined);
   };
 
   const [openEntradas, setOpenEntradas] = useState(true);
@@ -63,11 +72,17 @@ export function TabLancamentos() {
       if (filtroCat !== 'todas' && l.categoria_id !== filtroCat) return false;
       if (filtroStatus !== 'todos' && l.status_pagamento !== filtroStatus) return false;
       if (filtroOrigem !== 'todas' && l.origem_id !== filtroOrigem) return false;
-      if (filtroHoje && l.data !== hojeISO) return false;
+      if (dataIniISO && dataFimISO) {
+        if (l.data < dataIniISO || l.data > dataFimISO) return false;
+      } else if (dataIniISO) {
+        if (l.data !== dataIniISO) return false;
+      } else if (dataFimISO) {
+        if (l.data !== dataFimISO) return false;
+      }
       if (busca && !l.descricao.toLowerCase().includes(busca.toLowerCase())) return false;
       return true;
     });
-  }, [all, filtroCat, filtroStatus, filtroOrigem, busca, filtroHoje, hojeISO]);
+  }, [all, filtroCat, filtroStatus, filtroOrigem, busca, dataIniISO, dataFimISO]);
 
   const entradas = filtered.filter(l => l.tipo === 'entrada');
   const saidas = filtered.filter(l => l.tipo === 'saida');
@@ -207,14 +222,42 @@ export function TabLancamentos() {
               {origens?.map(o => <SelectItem key={o.id} value={o.id}>{o.nome}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button
-            type="button"
-            variant={filtroHoje ? 'default' : 'outline'}
-            onClick={() => setFiltroHoje(v => !v)}
-            className={filtroHoje ? 'bg-primary text-primary-foreground' : 'bg-card border-border'}
-          >
-            Hoje
-          </Button>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn('w-[140px] justify-start text-left font-normal bg-card border-border', !dataIni && 'text-muted-foreground')}>
+                <CalendarIcon className="w-4 h-4 mr-2" />
+                {dataIni ? format(dataIni, 'dd/MM/yyyy') : 'De'}
+                {dataIni && (
+                  <span role="button" onClick={(e) => { e.stopPropagation(); e.preventDefault(); setDataIni(undefined); }} className="ml-auto p-0.5 hover:text-foreground">
+                    <X className="w-3.5 h-3.5" />
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={dataIni} onSelect={setDataIni} initialFocus
+                defaultMonth={month} fromDate={startOfMonth(month)} toDate={endOfMonth(month)}
+                className={cn('p-3 pointer-events-auto')} />
+            </PopoverContent>
+          </Popover>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className={cn('w-[140px] justify-start text-left font-normal bg-card border-border', !dataFim && 'text-muted-foreground')}>
+                <CalendarIcon className="w-4 h-4 mr-2" />
+                {dataFim ? format(dataFim, 'dd/MM/yyyy') : 'Até'}
+                {dataFim && (
+                  <span role="button" onClick={(e) => { e.stopPropagation(); e.preventDefault(); setDataFim(undefined); }} className="ml-auto p-0.5 hover:text-foreground">
+                    <X className="w-3.5 h-3.5" />
+                  </span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={dataFim} onSelect={setDataFim} initialFocus
+                defaultMonth={month} fromDate={startOfMonth(month)} toDate={endOfMonth(month)}
+                className={cn('p-3 pointer-events-auto')} />
+            </PopoverContent>
+          </Popover>
           {hasFilters && (
             <Button type="button" variant="ghost" size="sm" onClick={limparFiltros} className="text-muted-foreground hover:text-foreground">
               Limpar filtros
@@ -248,11 +291,20 @@ export function TabLancamentos() {
             <div className="flex items-center gap-2">
               {openSaidas ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
               <span className="font-semibold text-foreground">SAÍDAS</span>
+              {openSaidas && Object.values(openCats).some(v => v === true) && (
+                <span
+                  role="button"
+                  onClick={(e) => { e.stopPropagation(); setOpenCats({}); }}
+                  className="ml-2 inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                >
+                  <ChevronsDownUp className="w-3 h-3" /> Recolher tudo
+                </span>
+              )}
             </div>
             <span className="text-foreground font-semibold">{formatCurrency(totalSaidas)}</span>
           </button>
           {openSaidas && saidasPorCat.map(([key, g]) => {
-            const open = openCats[key] ?? true;
+            const open = openCats[key] ?? false;
             return (
               <div key={key}>
                 <button onClick={() => setOpenCats(s => ({ ...s, [key]: !open }))}
