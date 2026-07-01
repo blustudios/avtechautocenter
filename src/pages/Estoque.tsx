@@ -78,6 +78,7 @@ export default function Estoque() {
       tipo: r.tipo || 'Remold',
       quantidade: Number(r.quantidade) || 0,
       valor_medio_compra: Number(r.valor_medio_compra) || 0,
+      valor_venda: Number(r.valor_venda) || 0,
     }));
     rows.sort((a, b) => b.quantidade - a.quantidade || a.marca.localeCompare(b.marca));
     setPneus(rows);
