@@ -1,55 +1,42 @@
-# Plano: Aba "Estoque de Pneus" em Financeiro
-
 ## Objetivo
-Adicionar uma quarta aba em `/financeiro` com uma visão executiva do estoque de pneus e das vendas realizadas, respeitando o seletor de mês já existente.
+No card **"Pneus vendidos no mês"** (aba Estoque de Pneus em Financeiro), exibir, além do total, um breakdown por **tipo de pneu** (Remold, Importado, 1ª Linha). Tipos sem vendas no mês são ocultados.
 
-## 1. Nova aba na página Financeiro
-Em `src/pages/Financeiro.tsx`, incluir `<TabsTrigger value="estoque-pneus">Estoque de Pneus</TabsTrigger>` e o `<TabsContent>` correspondente, renderizando um novo componente `TabEstoquePneus`.
+## 1. Hook `useVendasPneusMes` (`src/hooks/financeiro/useEstoquePneusData.ts`)
+- Ampliar o `select` para incluir o `tipo` do pneu vendido:  
+  `.select('quantidade, estoque_pneus!inner(tipo), servicos!inner(status, data_entrada, data_encerramento)')`
+- Durante a agregação já existente, acumular também `porTipo: Record<string, number>` (chaves: `Remold`, `Importado`, `1ª Linha`).
+- Retornar `{ totalMes, porDia, porTipo }`.
 
-## 2. Componente `src/components/financeiro/TabEstoquePneus.tsx`
-Layout em grid responsivo (mobile: 1 coluna; md: 2; xl: 4), usando os mesmos `Card` do restante do módulo Financeiro para manter consistência visual.
+## 2. Card KPI (`src/components/financeiro/TabEstoquePneus.tsx`)
+Substituir o `Kpi` simples de "Pneus vendidos no mês" por uma variante que aceita `breakdown`:
 
-### KPIs (cards)
-Três cards no topo com ícone à esquerda, label pequena e valor grande:
+```
+┌─────────────────────────────────────┐
+│ [↘]  PNEUS VENDIDOS NO MÊS          │
+│      42                             │
+│      ─────────────────────────      │
+│      Remold 20 · Importado 15 · 1ª Linha 7 │
+└─────────────────────────────────────┘
+```
 
-1. **Valor médio em Estoque** — ícone `Wallet`, cor primária.  
-   Fórmula: `SUM(quantidade * valor_medio_compra)` em `estoque_pneus`. Formatado como BRL.
-2. **Pneus em Estoque** — ícone `Package`.  
-   Fórmula: `SUM(quantidade)` em `estoque_pneus`.
-3. **Pneus vendidos no mês** — ícone `TrendingDown`.  
-   Fórmula: `SUM(sp.quantidade)` em `servicos_pneus sp` JOIN `servicos s` onde `sp.baixa_estoque = true`, `s.status IN ('em_progresso','finalizado')` e a data de referência cai no mês selecionado.
+- Cada tipo aparece como uma "pílula" (`Badge` variant `secondary` ou div com `bg-muted`), com rótulo pequeno e número em destaque.
+- Ocultar a pílula quando a quantidade for `0`/ausente.
+- Se `totalMes === 0`, não renderizar a linha de breakdown (mantém só o `0` grande).
+- Layout responsivo: pílulas em `flex flex-wrap gap-1.5 mt-2`, tipografia `text-xs`, quantidade em `font-semibold text-foreground` e rótulo em `text-muted-foreground`.
+- Cor sutil de acento por tipo (opcional, usando tokens):
+  - Remold → `text-amber-400`
+  - Importado → `text-sky-400`
+  - 1ª Linha → `text-emerald-400`
 
-Os dois primeiros usam `staleTime: 0` + `refetchOnWindowFocus` (ou invalidação a partir de mutações existentes) para refletir "tempo real"; o terceiro fica atrelado ao `useMonth()`.
+## 3. Detalhes técnicos
+- Nenhuma migração necessária — `estoque_pneus.tipo` já existe.
+- Ordenação fixa: Remold, Importado, 1ª Linha (mesma ordem do cadastro).
+- Manter skeleton loader quando `vendas.isLoading`.
 
-### Gráfico "Pneus vendidos por dia"
-Card ocupando a largura total abaixo dos KPIs. `ResponsiveContainer` + `BarChart` do Recharts (via `ChartContainer` existente) com:
-- Eixo X: dia do mês (1..último dia); no mês corrente, corta no dia atual.
-- Eixo Y: quantidade de pneus (inteiro).
-- Barras na cor primária (`hsl(var(--primary))`), tooltip com data completa e quantidade.
-- Estado vazio: mensagem "Sem vendas registradas neste mês".
-
-## 3. Data hook `src/hooks/financeiro/useEstoquePneusData.ts`
-Três `useQuery` distintas para permitir invalidação independente:
-
-- `['fin','estoque-pneus','totais']` → `select quantidade, valor_medio_compra from estoque_pneus`, agrega no cliente.
-- `['fin','estoque-pneus','vendas', mesRef]` → `select quantidade, servicos!inner(status, data_encerramento, data_entrada) from servicos_pneus where baixa_estoque = true and servicos.status in ('em_progresso','finalizado')` filtrado pelo intervalo do mês via `monthRange()`.
-- A partir do resultado das vendas, calcula:
-  - `totalMes`: soma das quantidades.
-  - `porDia`: agrupamento por dia (chave `yyyy-MM-dd`), preenchendo dias faltantes com 0 para o gráfico ficar contínuo.
-
-**Regra de data de venda:** usar `data_encerramento` quando existir; senão `data_entrada`. Isso alinha com a lógica de "vendido de fato" já usada em relatórios do sistema.
-
-## 4. Detalhes técnicos
-- Seguir o padrão `MonthProvider` já existente (a aba lê `useMonth()` para reagir ao seletor global de mês).
-- Reaproveitar `formatCurrency` de `src/lib/format.ts` e `monthRange`/`toMesRef` de `src/lib/financeiro/dates.ts`.
-- Skeleton loaders enquanto `isLoading` (padrão do projeto).
-- Nenhuma alteração de schema, RLS ou migração é necessária — todos os dados já existem.
-
-## Arquivos a criar/editar
-- `src/pages/Financeiro.tsx` — adicionar aba.
-- `src/components/financeiro/TabEstoquePneus.tsx` — novo.
-- `src/hooks/financeiro/useEstoquePneusData.ts` — novo.
+## Arquivos a editar
+- `src/hooks/financeiro/useEstoquePneusData.ts`
+- `src/components/financeiro/TabEstoquePneus.tsx`
 
 ## Fora do escopo
-- Registro histórico de estoque (snapshots). A "atualização em tempo real" usa o estado atual da tabela `estoque_pneus`; não guardamos histórico do valor médio.
-- Filtros adicionais (por marca/aro) — podem entrar em iteração futura.
+- Filtros por tipo no gráfico diário.
+- Novos KPIs de valor por tipo.
