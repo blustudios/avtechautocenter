@@ -293,7 +293,7 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
                 {pneus.map((p, idx) =>
                   <div key={idx} className="flex justify-between text-sm text-foreground border-b border-border py-1.5 last:border-0">
                     <span>
-                      {p.quantidade}x {p.estoque_pneus ? `${p.estoque_pneus.marca} ${p.estoque_pneus.medida_01}/${p.estoque_pneus.medida_02} ${p.estoque_pneus.aro}` : 'Pneu'}
+                      {p.quantidade}x {(p.estoque_pneus?.marca ?? p.marca) ? `${p.estoque_pneus?.marca ?? p.marca} ${p.estoque_pneus?.medida_01 ?? p.medida_01}/${p.estoque_pneus?.medida_02 ?? p.medida_02} ${p.estoque_pneus?.aro ?? p.aro}` : 'Pneu'}
                     </span>
                     <span>{formatCurrency(Number(p.valor_unitario) * Number(p.quantidade))}</span>
                   </div>
