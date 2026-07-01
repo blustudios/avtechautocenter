@@ -236,11 +236,12 @@ export default function Estoque() {
 
 /* ---------------- Pneu Card ---------------- */
 
-function PneuCard({ pneu, onAddStock, onEdit, onHistory }: {
+function PneuCard({ pneu, onAddStock, onEdit, onHistory, onDelete }: {
   pneu: Pneu;
   onAddStock: () => void;
   onEdit: () => void;
   onHistory: () => void;
+  onDelete: () => void;
 }) {
   const qty = pneu.quantidade;
   const badge = qty === 0
@@ -269,6 +270,10 @@ function PneuCard({ pneu, onAddStock, onEdit, onHistory }: {
         </Button>
         <Button variant="ghost" size="icon" title="Editar" onClick={onEdit}>
           <Pencil className="w-4 h-4" />
+        </Button>
+        <Button variant="ghost" size="icon" title="Excluir pneu" onClick={onDelete}
+          className="text-destructive hover:text-destructive hover:bg-destructive/10">
+          <Trash2 className="w-4 h-4" />
         </Button>
         <Button
           size="sm"
