@@ -75,7 +75,7 @@ export function useVendasPneusMes(month: Date) {
         porDia.push({ dia: d, data: iso, quantidade: porDiaMap.get(iso) || 0 });
       }
 
-      return { totalMes, porDia };
+      return { totalMes, porDia, porTipo };
     },
   });
 }
