@@ -406,7 +406,7 @@ export function ServiceViewDialog({ serviceId, open, onClose, onEdit }: Props) {
           <div style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 14, color: '#B0B0B0', marginBottom: 4 }}>Pneus</div>
             {pneus.map((p, i) => <div key={i} style={{ fontSize: 14 }}>
-              {p.quantidade}x {p.estoque_pneus ? `${p.estoque_pneus.marca} ${p.estoque_pneus.medida_01}/${p.estoque_pneus.medida_02} ${p.estoque_pneus.aro}` : 'Pneu'} — {formatCurrency(Number(p.valor_unitario) * Number(p.quantidade))}
+              {p.quantidade}x {(p.estoque_pneus?.marca ?? p.marca) ? `${p.estoque_pneus?.marca ?? p.marca} ${p.estoque_pneus?.medida_01 ?? p.medida_01}/${p.estoque_pneus?.medida_02 ?? p.medida_02} ${p.estoque_pneus?.aro ?? p.aro}` : 'Pneu'} — {formatCurrency(Number(p.valor_unitario) * Number(p.quantidade))}
             </div>)}
           </div>
         </>}
