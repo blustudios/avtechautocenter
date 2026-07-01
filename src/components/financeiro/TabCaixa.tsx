@@ -11,6 +11,7 @@ import { formatCurrency } from '@/lib/format';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
+import { CalculatorPopover } from './CalculatorPopover';
 
 export function TabCaixa() {
   const qc = useQueryClient();
@@ -77,11 +78,23 @@ export function TabCaixa() {
           </div>
           <div>
             <Label>Dinheiro</Label>
-            <CurrencyInput value={dinheiro} onChange={setDinheiro} />
+            <div className="flex items-center gap-2">
+              <CurrencyInput value={dinheiro} onChange={setDinheiro} />
+              <CalculatorPopover
+                ariaLabel="Calculadora para Dinheiro"
+                onApply={(n) => setDinheiro(n.toFixed(2))}
+              />
+            </div>
           </div>
           <div>
             <Label>Stone (Maquininha)</Label>
-            <CurrencyInput value={stone} onChange={setStone} />
+            <div className="flex items-center gap-2">
+              <CurrencyInput value={stone} onChange={setStone} />
+              <CalculatorPopover
+                ariaLabel="Calculadora para Stone"
+                onApply={(n) => setStone(n.toFixed(2))}
+              />
+            </div>
           </div>
         </div>
         <Button onClick={save} disabled={saving} className="w-full bg-primary text-primary-foreground">

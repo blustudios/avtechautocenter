@@ -1,18 +1,37 @@
+
 ## Objetivo
-Ao filtrar por status **"Em Progresso"** na página **Entradas de Serviço**, ignorar o filtro de período (preset/personalizado) para que TODOS os serviços em progresso apareçam, inclusive os iniciados em meses anteriores.
+Na aba **Financeiro → Caixa**, adicionar um ícone de calculadora ao lado dos campos **Dinheiro** e **Stone (Maquininha)**. Ao clicar, abre um mini módulo de calculadora em popover, e o resultado pode ser aplicado ao campo por um botão "Usar valor".
 
-## Comportamento proposto
-- Quando `statusFilter === 'em_progresso'`:
-  - A query ignora `dateFrom`/`dateTo` (e o preset de período) sobre `data_entrada`/`data_encerramento`/`data_orcamento`.
-  - Os filtros de **data de pagamento** e **tipo de pagamento** continuam funcionando normalmente (caso o usuário queira refinar).
-  - Na UI, os seletores de "Período" ficam **desabilitados** com um pequeno aviso: *"Período ignorado ao filtrar por Em Progresso"*, para deixar claro por que o filtro não está sendo aplicado.
-- Para os demais status (`all`, `orcamento`, `finalizado`, `cancelado`), o filtro de período segue como está hoje.
+## Escopo (o que muda)
+- Apenas UI da aba Caixa (`src/components/financeiro/TabCaixa.tsx`).
+- Novo componente reutilizável: `src/components/financeiro/CalculatorPopover.tsx`.
+- Sem mudanças em banco, hooks ou lógica de conciliação.
 
-## Alterações técnicas
-Arquivo único: `src/pages/Servicos.tsx`
-1. No bloco de montagem da query (após a linha 116), envolver a aplicação do filtro de data com `if (statusFilter !== 'em_progresso') { ... }`.
-2. Passar essa condição também ao `getDateRange` para não usar `datePreset` quando em progresso.
-3. Na UI (área dos selects de período, ~linha 269+), aplicar `disabled` nos controles de período quando `statusFilter === 'em_progresso'` e exibir texto auxiliar.
+## Comportamento
+- Ícone `Calculator` (lucide-react) em botão `variant="ghost" size="icon"` posicionado à direita do `CurrencyInput` (usando um wrapper `flex gap-2 items-center`).
+- Ao clicar, abre `Popover` (Radix, já disponível) com:
+  - **Display** do valor atual/expressão (read-only, alinhado à direita, fonte maior).
+  - **Grid de botões** 4 colunas: `C`, `⌫`, `÷`, `×`, `7 8 9 −`, `4 5 6 +`, `1 2 3 =`, `0 . = `.
+  - Suporte a entrada por teclado quando o popover está aberto (dígitos, `.`/`,`, operadores, `Enter`=`=`, `Backspace`, `Esc` fecha).
+  - Botão primário laranja **"Usar valor"** que:
+    - Se houver expressão pendente, avalia primeiro.
+    - Chama `onApply(resultadoNumérico)` → o `TabCaixa` seta o `state` do campo correspondente com `.toFixed(2)` (mesmo formato usado hoje pelo `CurrencyInput`).
+    - Fecha o popover.
+  - Botão secundário **"Fechar"**.
+- Estado interno independente por popover (não persiste ao fechar).
+
+## Motor de cálculo
+- Parser seguro próprio (evitar `eval`): tokenizador + shunting-yard para `+ − × ÷` com precedência, ou avaliação sequencial simples esquerda-direita respeitando precedência de `× ÷`. Trabalhar em número, arredondar para 2 casas ao aplicar.
+- Aceitar vírgula como separador decimal na exibição (converter para ponto internamente).
+- Tratar divisão por zero → mostrar "Erro" e desabilitar "Usar valor".
+
+## Arquivos
+- **Criar** `src/components/financeiro/CalculatorPopover.tsx`
+  - Props: `{ value?: string; onApply: (n: number) => void; ariaLabel?: string }`.
+  - Usa `Popover`, `PopoverTrigger`, `PopoverContent`, `Button`.
+- **Editar** `src/components/financeiro/TabCaixa.tsx`
+  - Envolver cada input (Dinheiro e Stone) num `flex` com `<CalculatorPopover onApply={(n)=>setDinheiro(n.toFixed(2))} />` e equivalente para Stone.
+  - Não adicionar no campo PJ (não foi pedido).
 
 ## Justificativa
-É a solução mais simples e alinhada ao caso de uso descrito: serviços "Em Progresso" são, por definição, pendências abertas — não faz sentido escondê-los por corte de data. Manter os demais filtros ativos preserva flexibilidade sem esconder informação crítica.
+Solução leve, isolada e reutilizável, sem tocar em lógica financeira. Usa componentes já presentes (Popover, Button) e mantém o padrão visual/dark do app. Deixa o campo PJ intocado conforme requisito.
