@@ -71,12 +71,10 @@ export function TabEstoquePneus() {
           loading={totais.isLoading}
           accent="bg-blue-500/10 text-blue-400"
         />
-        <Kpi
-          icon={TrendingDown}
-          label="Pneus vendidos no mês"
-          value={String(vendas.data?.totalMes ?? 0)}
+        <VendidosCard
+          total={vendas.data?.totalMes ?? 0}
+          porTipo={vendas.data?.porTipo || {}}
           loading={vendas.isLoading}
-          accent="bg-emerald-500/10 text-emerald-400"
         />
       </div>
 
