@@ -392,6 +392,7 @@ function CadastroPneuDialog({ open, onClose, marcas, setMarcas, fornecedores, ex
   const [aro, setAro] = useState('');
   const [quantidade, setQuantidade] = useState(1);
   const [valorUnit, setValorUnit] = useState('0');
+  const [valorVenda, setValorVenda] = useState('0');
   const [fornecedorId, setFornecedorId] = useState<string | null>(null);
   const [duplicate, setDuplicate] = useState<Pneu | null>(null);
   const [saving, setSaving] = useState(false);
