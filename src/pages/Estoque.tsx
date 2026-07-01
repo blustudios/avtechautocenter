@@ -436,7 +436,7 @@ function CadastroPneuDialog({ open, onClose, marcas, setMarcas, fornecedores, ex
       tipo,
       quantidade,
       valor_medio_compra: parseFloat(valorUnit) || 0,
-      valor_venda: 0,
+      valor_venda: parseFloat(valorVenda) || 0,
     } as any).select().single();
     if (error || !data) { setSaving(false); toast.error('Erro ao cadastrar pneu'); return; }
     await supabase.from('estoque_pneus_compras').insert({
