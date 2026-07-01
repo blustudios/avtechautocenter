@@ -704,6 +704,11 @@ function EditPneuDialog({ open, onClose, pneu, marcas, setMarcas, onSaved }: {
             <Label>Estoque atual</Label>
             <QuantityStepper value={quantidade} onChange={setQuantidade} allowZero />
           </div>
+          <div>
+            <Label>Preço sugerido de venda</Label>
+            <CurrencyInput value={valorVenda} onChange={setValorVenda} className="bg-card border-border" />
+            <p className="text-xs text-muted-foreground mt-1">Valor pré-preenchido ao incluir este pneu em um serviço.</p>
+          </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-border">
             <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>
             <Button onClick={salvar} disabled={saving}>{saving ? 'Salvando...' : 'Salvar'}</Button>
