@@ -274,6 +274,10 @@ export default function Estoque() {
           </AlertDialogContent>
         </AlertDialog>
       )}
+    </div>
+  );
+}
+
 
 /* ---------------- Pneu Card ---------------- */
 
