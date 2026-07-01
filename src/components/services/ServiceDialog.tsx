@@ -154,7 +154,13 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
             setPneusServico(pn.map((p: any) => ({
               pneu_id: p.pneu_id, quantidade: p.quantidade,
               valor_unitario: Number(p.valor_unitario),
-              nome_display: p.estoque_pneus ? `${p.estoque_pneus.marca} ${p.estoque_pneus.medida_01}/${p.estoque_pneus.medida_02} ${p.estoque_pneus.aro}` : 'Pneu',
+              nome_display: (() => {
+                const marca = p.estoque_pneus?.marca ?? p.marca;
+                const m1 = p.estoque_pneus?.medida_01 ?? p.medida_01;
+                const m2 = p.estoque_pneus?.medida_02 ?? p.medida_02;
+                const aro = p.estoque_pneus?.aro ?? p.aro;
+                return marca ? `${marca} ${m1}/${m2} ${aro}` : 'Pneu';
+              })(),
               baixa_estoque: p.baixa_estoque,
             })));
           }
