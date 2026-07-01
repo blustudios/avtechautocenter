@@ -6,6 +6,7 @@ import { NotificationsBell } from '@/components/financeiro/NotificationsBell';
 import { TabLancamentos } from '@/components/financeiro/TabLancamentos';
 import { TabResumo } from '@/components/financeiro/TabResumo';
 import { TabCaixa } from '@/components/financeiro/TabCaixa';
+import { TabEstoquePneus } from '@/components/financeiro/TabEstoquePneus';
 
 export default function Financeiro() {
   return (
@@ -27,10 +28,12 @@ export default function Financeiro() {
             <TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
             <TabsTrigger value="resumo">Resumo</TabsTrigger>
             <TabsTrigger value="caixa">Caixa</TabsTrigger>
+            <TabsTrigger value="estoque-pneus">Estoque de Pneus</TabsTrigger>
           </TabsList>
           <TabsContent value="lancamentos" className="mt-4"><TabLancamentos /></TabsContent>
           <TabsContent value="resumo" className="mt-4"><TabResumo /></TabsContent>
           <TabsContent value="caixa" className="mt-4"><TabCaixa /></TabsContent>
+          <TabsContent value="estoque-pneus" className="mt-4"><TabEstoquePneus /></TabsContent>
         </Tabs>
       </div>
     </MonthProvider>
