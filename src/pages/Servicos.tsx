@@ -127,10 +127,12 @@ export default function Servicos() {
                    .lte('servicos_pagamentos.data_pagamento', pToStr);
     }
 
-    // Date range filter on data_entrada (server-side)
-    const { from, to } = getDateRange();
-    if (from) query = query.gte('data_entrada', format(startOfDay(from), 'yyyy-MM-dd'));
-    if (to) query = query.lte('data_entrada', format(startOfDay(to), 'yyyy-MM-dd'));
+    // Date range filter on data_entrada (server-side) — ignorado quando filtrando por "Em Progresso"
+    if (statusFilter !== 'em_progresso') {
+      const { from, to } = getDateRange();
+      if (from) query = query.gte('data_entrada', format(startOfDay(from), 'yyyy-MM-dd'));
+      if (to) query = query.lte('data_entrada', format(startOfDay(to), 'yyyy-MM-dd'));
+    }
 
     // Search filter (server-side for id)
     if (debouncedSearch) {
@@ -294,11 +296,15 @@ export default function Servicos() {
             <div className="flex gap-1.5 overflow-x-auto pb-1">
               {datePresets.map(preset => (
                 <Button key={preset.value} variant={datePreset === preset.value ? 'default' : 'outline'} size="sm" className="shrink-0 text-xs sm:text-sm"
+                  disabled={statusFilter === 'em_progresso'}
                   onClick={() => { setDatePreset(preset.value); if (preset.value !== 'custom') { setDateFrom(undefined); setDateTo(undefined); } }}>
                   {preset.label}
                 </Button>
               ))}
             </div>
+            {statusFilter === 'em_progresso' && (
+              <span className="text-xs text-muted-foreground italic">Período ignorado ao filtrar por Em Progresso</span>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Select value={sortField} onValueChange={(v) => setSortField(v as SortField)}>
@@ -316,7 +322,7 @@ export default function Servicos() {
             </Button>
           </div>
         </div>
-        {datePreset === 'custom' && (
+        {datePreset === 'custom' && statusFilter !== 'em_progresso' && (
           <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
             <Popover>
               <PopoverTrigger asChild>
