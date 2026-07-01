@@ -127,10 +127,12 @@ export default function Servicos() {
                    .lte('servicos_pagamentos.data_pagamento', pToStr);
     }
 
-    // Date range filter on data_entrada (server-side)
-    const { from, to } = getDateRange();
-    if (from) query = query.gte('data_entrada', format(startOfDay(from), 'yyyy-MM-dd'));
-    if (to) query = query.lte('data_entrada', format(startOfDay(to), 'yyyy-MM-dd'));
+    // Date range filter on data_entrada (server-side) — ignorado quando filtrando por "Em Progresso"
+    if (statusFilter !== 'em_progresso') {
+      const { from, to } = getDateRange();
+      if (from) query = query.gte('data_entrada', format(startOfDay(from), 'yyyy-MM-dd'));
+      if (to) query = query.lte('data_entrada', format(startOfDay(to), 'yyyy-MM-dd'));
+    }
 
     // Search filter (server-side for id)
     if (debouncedSearch) {
