@@ -655,6 +655,7 @@ function EditPneuDialog({ open, onClose, pneu, marcas, setMarcas, onSaved }: {
       medida_02: medida02,
       aro,
       quantidade,
+      valor_venda: parseFloat(valorVenda) || 0,
     } as any).eq('id', pneu.id);
     setSaving(false);
     if (error) { toast.error('Erro ao salvar'); return; }
