@@ -55,6 +55,7 @@ export default function Estoque() {
   const [addStockPneu, setAddStockPneu] = useState<Pneu | null>(null);
   const [editPneu, setEditPneu] = useState<Pneu | null>(null);
   const [historyPneu, setHistoryPneu] = useState<Pneu | null>(null);
+  const [deletePneu, setDeletePneu] = useState<{ pneu: Pneu; historyCount: number | null } | null>(null);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
