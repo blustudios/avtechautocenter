@@ -77,7 +77,8 @@ export function PneuSelectorDialog({ open, onClose, onSelect }: Props) {
   const openSelection = (p: any) => {
     setSelectedPneu(p);
     setQuantidade('1');
-    setValorUnit(String(Number(p.valor_medio_compra) || 0));
+    const sugerido = Number(p.valor_venda) || 0;
+    setValorUnit(String(sugerido > 0 ? sugerido : (Number(p.valor_medio_compra) || 0)));
   };
 
   const handleConfirm = () => {
