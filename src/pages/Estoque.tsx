@@ -230,9 +230,50 @@ export default function Estoque() {
       {historyPneu && (
         <HistoryDialog open={!!historyPneu} onClose={() => setHistoryPneu(null)} pneu={historyPneu} />
       )}
-    </div>
-  );
-}
+      {deletePneu && (
+        <AlertDialog open={!!deletePneu} onOpenChange={(o) => { if (!o) setDeletePneu(null); }}>
+          <AlertDialogContent className="bg-popover border-border">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir pneu?</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <div className="text-foreground font-medium">
+                    {deletePneu.pneu.marca} — {deletePneu.pneu.medida_01}/{deletePneu.pneu.medida_02} {deletePneu.pneu.aro}
+                  </div>
+                  {(deletePneu.historyCount ?? 0) > 0 ? (
+                    <>
+                      <div className="rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-400 text-xs px-3 py-2">
+                        Este pneu possui histórico em <b>{deletePneu.historyCount}</b> serviço(s).
+                      </div>
+                      <p>
+                        Ele será removido do estoque e do catálogo de pneus, mas o histórico
+                        nos serviços será <b>preservado</b> (marca, medidas e valores continuam visíveis).
+                      </p>
+                    </>
+                  ) : (
+                    <p>Esta ação removerá o pneu e todo o seu histórico de compras. Não pode ser desfeita.</p>
+                  )}
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                className={buttonVariants({ variant: 'destructive' })}
+                onClick={async () => {
+                  const { error } = await supabase.from('estoque_pneus').delete().eq('id', deletePneu.pneu.id);
+                  if (error) { toast.error('Erro ao excluir pneu'); return; }
+                  toast.success('Pneu excluído!');
+                  setDeletePneu(null);
+                  fetchAll();
+                }}
+              >
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
 
 /* ---------------- Pneu Card ---------------- */
 
