@@ -48,6 +48,59 @@ function Kpi({
   );
 }
 
+const TIPO_ORDER = ['Remold', 'Importado', '1ª Linha'] as const;
+const TIPO_COLOR: Record<string, string> = {
+  'Remold': 'text-amber-400',
+  'Importado': 'text-sky-400',
+  '1ª Linha': 'text-emerald-400',
+};
+
+function VendidosCard({
+  total,
+  porTipo,
+  loading,
+}: {
+  total: number;
+  porTipo: Record<string, number>;
+  loading?: boolean;
+}) {
+  const tipos = TIPO_ORDER.filter(t => (porTipo[t] || 0) > 0);
+  return (
+    <Card>
+      <CardContent className="p-5 flex items-start gap-4">
+        <div className="w-11 h-11 rounded-lg flex items-center justify-center bg-emerald-500/10 text-emerald-400 shrink-0">
+          <TrendingDown className="w-5 h-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground">Pneus vendidos no mês</p>
+          {loading ? (
+            <Skeleton className="h-7 w-32 mt-1" />
+          ) : (
+            <>
+              <p className="text-2xl font-bold text-foreground truncate">{total}</p>
+              {total > 0 && tipos.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {tipos.map(t => (
+                    <div
+                      key={t}
+                      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-muted text-xs"
+                    >
+                      <span className="text-muted-foreground">{t}</span>
+                      <span className={`font-semibold ${TIPO_COLOR[t] || 'text-foreground'}`}>
+                        {porTipo[t]}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 export function TabEstoquePneus() {
   const { month } = useMonth();
   const totais = useEstoqueTotais();
@@ -71,12 +124,10 @@ export function TabEstoquePneus() {
           loading={totais.isLoading}
           accent="bg-blue-500/10 text-blue-400"
         />
-        <Kpi
-          icon={TrendingDown}
-          label="Pneus vendidos no mês"
-          value={String(vendas.data?.totalMes ?? 0)}
+        <VendidosCard
+          total={vendas.data?.totalMes ?? 0}
+          porTipo={vendas.data?.porTipo || {}}
           loading={vendas.isLoading}
-          accent="bg-emerald-500/10 text-emerald-400"
         />
       </div>
 

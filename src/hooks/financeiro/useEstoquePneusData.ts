@@ -41,12 +41,13 @@ export function useVendasPneusMes(month: Date) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('servicos_pneus')
-        .select('quantidade, servicos!inner(status, data_entrada, data_encerramento)')
+        .select('quantidade, estoque_pneus!inner(tipo), servicos!inner(status, data_entrada, data_encerramento)')
         .eq('baixa_estoque', true)
         .in('servicos.status', ['em_progresso', 'finalizado']);
       if (error) throw error;
 
       const porDiaMap = new Map<string, number>();
+      const porTipo: Record<string, number> = {};
       let totalMes = 0;
 
       (data || []).forEach((r: any) => {
@@ -57,6 +58,8 @@ export function useVendasPneusMes(month: Date) {
         const qtd = Number(r.quantidade || 0);
         totalMes += qtd;
         porDiaMap.set(dataRef, (porDiaMap.get(dataRef) || 0) + qtd);
+        const tipo = r.estoque_pneus?.tipo;
+        if (tipo) porTipo[tipo] = (porTipo[tipo] || 0) + qtd;
       });
 
       // Build continuous daily series
@@ -72,7 +75,7 @@ export function useVendasPneusMes(month: Date) {
         porDia.push({ dia: d, data: iso, quantidade: porDiaMap.get(iso) || 0 });
       }
 
-      return { totalMes, porDia };
+      return { totalMes, porDia, porTipo };
     },
   });
 }
