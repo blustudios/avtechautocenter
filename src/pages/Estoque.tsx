@@ -640,6 +640,7 @@ function EditPneuDialog({ open, onClose, pneu, marcas, setMarcas, onSaved }: {
   const [medida02, setMedida02] = useState(pneu.medida_02);
   const [aro, setAro] = useState(pneu.aro);
   const [quantidade, setQuantidade] = useState(pneu.quantidade);
+  const [valorVenda, setValorVenda] = useState(String(pneu.valor_venda || 0));
   const [saving, setSaving] = useState(false);
 
   const salvar = async () => {
