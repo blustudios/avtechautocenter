@@ -322,7 +322,7 @@ export default function Servicos() {
             </Button>
           </div>
         </div>
-        {datePreset === 'custom' && (
+        {datePreset === 'custom' && statusFilter !== 'em_progresso' && (
           <div className="flex flex-col sm:flex-row gap-2 items-start sm:items-center">
             <Popover>
               <PopoverTrigger asChild>
