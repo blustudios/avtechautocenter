@@ -19,6 +19,7 @@ import Configuracoes from "@/pages/Configuracoes";
 import ConfigGeral from "@/pages/configuracoes/Geral";
 import ConfigMaquininhas from "@/pages/configuracoes/Maquininhas";
 import ConfigMarcasModelos from "@/pages/configuracoes/MarcasModelos";
+import ConfigMarcasPneus from "@/pages/configuracoes/MarcasPneus";
 import ConfigFinanceiro from "@/pages/configuracoes/Financeiro";
 import Financeiro from "@/pages/Financeiro";
 
@@ -53,6 +54,7 @@ function ProtectedRoutes() {
         <Route path="/configuracoes/geral" element={<ConfigGeral />} />
         <Route path="/configuracoes/maquininhas" element={<ConfigMaquininhas />} />
         <Route path="/configuracoes/marcas-modelos" element={<ConfigMarcasModelos />} />
+        <Route path="/configuracoes/marcas-pneus" element={<ConfigMarcasPneus />} />
         <Route path="/configuracoes/financeiro" element={<ConfigFinanceiro />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -126,6 +126,7 @@ export type Database = {
           created_at: string
           id: string
           marca: string
+          marca_id: string | null
           medida_01: string
           medida_02: string
           quantidade: number
@@ -138,6 +139,7 @@ export type Database = {
           created_at?: string
           id?: string
           marca: string
+          marca_id?: string | null
           medida_01: string
           medida_02: string
           quantidade?: number
@@ -150,6 +152,7 @@ export type Database = {
           created_at?: string
           id?: string
           marca?: string
+          marca_id?: string | null
           medida_01?: string
           medida_02?: string
           quantidade?: number
@@ -157,7 +160,60 @@ export type Database = {
           valor_medio_compra?: number
           valor_venda?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "estoque_pneus_marca_id_fkey"
+            columns: ["marca_id"]
+            isOneToOne: false
+            referencedRelation: "marcas_pneus"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estoque_pneus_compras: {
+        Row: {
+          created_at: string
+          data_compra: string
+          fornecedor_id: string | null
+          id: string
+          pneu_id: string
+          quantidade: number
+          valor_unitario: number
+        }
+        Insert: {
+          created_at?: string
+          data_compra?: string
+          fornecedor_id?: string | null
+          id?: string
+          pneu_id: string
+          quantidade: number
+          valor_unitario?: number
+        }
+        Update: {
+          created_at?: string
+          data_compra?: string
+          fornecedor_id?: string | null
+          id?: string
+          pneu_id?: string
+          quantidade?: number
+          valor_unitario?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estoque_pneus_compras_fornecedor_id_fkey"
+            columns: ["fornecedor_id"]
+            isOneToOne: false
+            referencedRelation: "fornecedores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "estoque_pneus_compras_pneu_id_fkey"
+            columns: ["pneu_id"]
+            isOneToOne: false
+            referencedRelation: "estoque_pneus"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       financeiro_caixa: {
         Row: {
@@ -407,6 +463,24 @@ export type Database = {
           nome: string
         }
         Update: {
+          id?: string
+          nome?: string
+        }
+        Relationships: []
+      }
+      marcas_pneus: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome: string
+        }
+        Update: {
+          created_at?: string
           id?: string
           nome?: string
         }

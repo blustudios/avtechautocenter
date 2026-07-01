@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { Settings, CreditCard, Car, ChevronRight, Bell, DollarSign } from 'lucide-react';
+import { Settings, CreditCard, Car, ChevronRight, Bell, DollarSign, Circle } from 'lucide-react';
 
 const items = [
   {
@@ -19,6 +19,12 @@ const items = [
     description: 'Gerencie o catálogo de marcas e modelos de veículos usado no autocomplete.',
     icon: Car,
     path: '/configuracoes/marcas-modelos',
+  },
+  {
+    title: 'Marcas de Pneus',
+    description: 'Cadastre e edite as marcas usadas no estoque de pneus.',
+    icon: Circle,
+    path: '/configuracoes/marcas-pneus',
   },
   {
     title: 'Financeiro',

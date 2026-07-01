@@ -1,14 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { CurrencyInput } from '@/components/ui/currency-input';
-import { Search, Plus } from 'lucide-react';
+import { Search, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/format';
-import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface PneuSelection {
   pneu_id: string;
@@ -23,178 +27,183 @@ interface Props {
   onSelect: (pneu: PneuSelection) => void;
 }
 
+const TIPOS = ['Remold', 'Importado', '1ª Linha'];
+const AROS = ['R13', 'R14', 'R15', 'R16', 'R17', 'R18', 'R19', 'R20', 'R21', 'R22', 'R23', 'R24'];
+
 export function PneuSelectorDialog({ open, onClose, onSelect }: Props) {
   const [pneus, setPneus] = useState<any[]>([]);
+  const [marcas, setMarcas] = useState<{ id: string; nome: string }[]>([]);
   const [search, setSearch] = useState('');
   const [filterMarca, setFilterMarca] = useState('all');
   const [filterAro, setFilterAro] = useState('all');
   const [filterTipo, setFilterTipo] = useState('all');
   const [selectedPneu, setSelectedPneu] = useState<any>(null);
   const [quantidade, setQuantidade] = useState('1');
-  const [showCadastro, setShowCadastro] = useState(false);
-  const [cadastroForm, setCadastroForm] = useState({ marca: '', medida_01: '', medida_02: '', aro: '', tipo: 'Remold', quantidade: '', valor_medio_compra: '', valor_venda: '' });
+  const [valorUnit, setValorUnit] = useState('0');
+  const [overbookWarn, setOverbookWarn] = useState<{ requested: number; available: number } | null>(null);
 
-  const tipos = ['Remold', 'Importado', '1ª Linha'];
+  useEffect(() => {
+    if (!open) return;
+    (async () => {
+      const [pRes, mRes] = await Promise.all([
+        supabase.from('estoque_pneus').select('*').gt('quantidade', 0),
+        supabase.from('marcas_pneus').select('id, nome').order('nome'),
+      ]);
+      const marcasList = (mRes.data || []) as any[];
+      setMarcas(marcasList);
+      const nameById = new Map(marcasList.map(m => [m.id, m.nome]));
+      const rows = (pRes.data || []).map((p: any) => ({
+        ...p,
+        marca_nome: p.marca_id ? (nameById.get(p.marca_id) || p.marca || '—') : (p.marca || '—'),
+      }));
+      rows.sort((a, b) => (b.quantidade || 0) - (a.quantidade || 0));
+      setPneus(rows);
+    })();
+  }, [open]);
 
-  const fetchPneus = async () => {
-    const { data } = await supabase.from('estoque_pneus').select('*').order('marca');
-    setPneus(data || []);
-  };
-
-  useEffect(() => { if (open) fetchPneus(); }, [open]);
-
-  const marcas = [...new Set(pneus.map(p => p.marca))];
-  const aros = ['R13', 'R14', 'R15', 'R16', 'R17', 'R18', 'R19'];
-
-  const filtered = pneus.filter(p => {
+  const filtered = useMemo(() => {
     const s = search.toLowerCase();
-    const matchSearch = !s || p.marca?.toLowerCase().includes(s) || `${p.medida_01}/${p.medida_02}`.includes(s);
-    const matchMarca = filterMarca === 'all' || p.marca === filterMarca;
-    const matchAro = filterAro === 'all' || p.aro === filterAro;
-    const matchTipo = filterTipo === 'all' || p.tipo === filterTipo;
-    return matchSearch && matchMarca && matchAro && matchTipo;
-  });
+    return pneus.filter(p => {
+      const matchSearch = !s
+        || p.marca_nome?.toLowerCase().includes(s)
+        || `${p.medida_01}/${p.medida_02}`.includes(s);
+      const matchMarca = filterMarca === 'all' || p.marca_id === filterMarca;
+      const matchAro = filterAro === 'all' || p.aro === filterAro;
+      const matchTipo = filterTipo === 'all' || p.tipo === filterTipo;
+      return matchSearch && matchMarca && matchAro && matchTipo;
+    });
+  }, [pneus, search, filterMarca, filterAro, filterTipo]);
+
+  const openSelection = (p: any) => {
+    setSelectedPneu(p);
+    setQuantidade('1');
+    setValorUnit(String(Number(p.valor_medio_compra) || 0));
+  };
 
   const handleConfirm = () => {
     if (!selectedPneu) return;
-    const qty = parseInt(quantidade) || 1;
+    const qty = parseInt(quantidade) || 0;
+    if (qty < 1) return;
     if (qty > selectedPneu.quantidade) {
-      toast.error(`Estoque insuficiente. Disponível: ${selectedPneu.quantidade}`);
+      setOverbookWarn({ requested: qty, available: selectedPneu.quantidade });
       return;
     }
     onSelect({
       pneu_id: selectedPneu.id,
       quantidade: qty,
-      valor_unitario: Number(selectedPneu.valor_venda),
-      nome_display: `${selectedPneu.marca} ${selectedPneu.medida_01}/${selectedPneu.medida_02} ${selectedPneu.aro}`,
+      valor_unitario: parseFloat(valorUnit) || 0,
+      nome_display: `${selectedPneu.marca_nome} ${selectedPneu.medida_01}/${selectedPneu.medida_02} ${selectedPneu.aro}`,
     });
     setSelectedPneu(null);
-    setQuantidade('1');
     onClose();
   };
 
-  const saveCadastro = async () => {
-    if (!cadastroForm.marca.trim()) { toast.error('Marca obrigatória'); return; }
-    await supabase.from('estoque_pneus').insert({
-      marca: cadastroForm.marca,
-      medida_01: cadastroForm.medida_01,
-      medida_02: cadastroForm.medida_02,
-      aro: cadastroForm.aro,
-      tipo: cadastroForm.tipo,
-      quantidade: parseInt(cadastroForm.quantidade) || 0,
-      valor_medio_compra: parseFloat(cadastroForm.valor_medio_compra) || 0,
-      valor_venda: parseFloat(cadastroForm.valor_venda) || 0,
-    } as any);
-    toast.success('Pneu cadastrado!');
-    setShowCadastro(false);
-    setCadastroForm({ marca: '', medida_01: '', medida_02: '', aro: '', tipo: 'Remold', quantidade: '', valor_medio_compra: '', valor_venda: '' });
-    fetchPneus();
-  };
+  const closeAll = () => { setSelectedPneu(null); onClose(); };
 
   return (
-    <Dialog open={open} onOpenChange={() => { setSelectedPneu(null); onClose(); }}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-popover border-border">
-        <DialogHeader><DialogTitle>Selecionar Pneu</DialogTitle></DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={closeAll}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto bg-popover border-border">
+          <DialogHeader><DialogTitle>Selecionar Pneu</DialogTitle></DialogHeader>
 
-        <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row gap-2 flex-wrap">
-            <div className="relative flex-1 min-w-[160px]">
+          <div className="space-y-4">
+            <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input placeholder="Buscar por marca ou medida..." value={search} onChange={e => setSearch(e.target.value)} className="pl-9 bg-card border-border" />
+              <Input placeholder="Buscar por marca ou medida..." value={search}
+                onChange={e => setSearch(e.target.value)} className="pl-9 bg-card border-border" />
             </div>
-            <Select value={filterMarca} onValueChange={setFilterMarca}>
-              <SelectTrigger className="w-full sm:w-36 bg-card border-border"><SelectValue placeholder="Marca" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas</SelectItem>
-                {marcas.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={filterAro} onValueChange={setFilterAro}>
-              <SelectTrigger className="w-full sm:w-28 bg-card border-border"><SelectValue placeholder="Aro" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {aros.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            <Select value={filterTipo} onValueChange={setFilterTipo}>
-              <SelectTrigger className="w-full sm:w-32 bg-card border-border"><SelectValue placeholder="Tipo" /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos</SelectItem>
-                {tipos.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
 
-          {selectedPneu ? (
-            <div className="border border-primary/40 rounded-lg p-4 space-y-3">
-              <p className="font-semibold text-foreground">{selectedPneu.marca} {selectedPneu.medida_01}/{selectedPneu.medida_02} {selectedPneu.aro}</p>
-              <p className="text-sm text-muted-foreground">Estoque: {selectedPneu.quantidade} un. · Valor: {formatCurrency(Number(selectedPneu.valor_venda))} · {selectedPneu.tipo || 'Remold'}</p>
-              <div className="flex items-end gap-3">
-                <div>
-                  <Label className="text-xs">Quantidade</Label>
-                  <Input type="number" min="1" max={selectedPneu.quantidade} value={quantidade} onChange={e => setQuantidade(e.target.value)} className="w-24 bg-card border-border" />
-                </div>
-                <Button onClick={handleConfirm}>Confirmar</Button>
-                <Button variant="outline" onClick={() => setSelectedPneu(null)}>Voltar</Button>
-              </div>
+            <div className="grid grid-cols-3 gap-2">
+              <Select value={filterAro} onValueChange={setFilterAro}>
+                <SelectTrigger className="bg-card border-border"><SelectValue placeholder="Aro" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos Aros</SelectItem>
+                  {AROS.map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filterTipo} onValueChange={setFilterTipo}>
+                <SelectTrigger className="bg-card border-border"><SelectValue placeholder="Tipo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos Tipos</SelectItem>
+                  {TIPOS.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              <Select value={filterMarca} onValueChange={setFilterMarca}>
+                <SelectTrigger className="bg-card border-border"><SelectValue placeholder="Marca" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todas Marcas</SelectItem>
+                  {marcas.map(m => <SelectItem key={m.id} value={m.id}>{m.nome}</SelectItem>)}
+                </SelectContent>
+              </Select>
             </div>
-          ) : (
-            <>
-              <div className="space-y-1.5 max-h-[40vh] overflow-y-auto">
-                {filtered.map(p => (
-                  <div key={p.id} onClick={() => { setSelectedPneu(p); setQuantidade('1'); }}
-                    className="bg-card border border-border rounded-lg p-3 flex items-center justify-between cursor-pointer hover:border-primary/40 transition-colors">
-                    <div>
-                      <p className="font-medium text-foreground">{p.medida_01}/{p.medida_02} {p.aro}</p>
-                      <p className="text-sm text-muted-foreground">{p.marca} · <span className="text-xs">{p.tipo || 'Remold'}</span></p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-foreground">{formatCurrency(Number(p.valor_venda))}</p>
-                      <p className={`text-xs ${p.quantidade <= 2 ? 'text-primary' : 'text-muted-foreground'}`}>{p.quantidade} un.</p>
-                    </div>
+
+            {selectedPneu ? (
+              <div className="border border-primary/40 rounded-lg p-4 space-y-3">
+                <p className="font-semibold text-foreground">
+                  {selectedPneu.marca_nome} {selectedPneu.medida_01}/{selectedPneu.medida_02} {selectedPneu.aro}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Estoque: {selectedPneu.quantidade} un. · {selectedPneu.tipo || 'Remold'}
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label className="text-xs">Quantidade</Label>
+                    <Input type="number" min="1" value={quantidade}
+                      onChange={e => setQuantidade(e.target.value)} className="bg-card border-border" />
                   </div>
-                ))}
-                {filtered.length === 0 && <p className="text-center text-muted-foreground py-8">Nenhum pneu encontrado.</p>}
+                  <div>
+                    <Label className="text-xs">Valor unitário</Label>
+                    <CurrencyInput value={valorUnit} onChange={setValorUnit} className="bg-card border-border" />
+                  </div>
+                </div>
+                <div className="flex justify-end gap-2 pt-1">
+                  <Button variant="outline" onClick={() => setSelectedPneu(null)}>Voltar</Button>
+                  <Button onClick={handleConfirm}>Confirmar</Button>
+                </div>
               </div>
-              <Button variant="outline" size="sm" onClick={() => setShowCadastro(true)}>
-                <Plus className="w-4 h-4 mr-1" /> Cadastrar Novo Pneu
-              </Button>
-            </>
-          )}
+            ) : (
+              <div className="space-y-1.5 max-h-[45vh] overflow-y-auto">
+                {filtered.map(p => {
+                  const q = p.quantidade;
+                  const badge = q <= 3 ? 'bg-orange-500/20 text-orange-500' : 'bg-emerald-500/20 text-emerald-500';
+                  return (
+                    <div key={p.id} onClick={() => openSelection(p)}
+                      className="bg-card border border-border rounded-lg p-3 flex items-center justify-between cursor-pointer hover:border-primary/40 transition-colors">
+                      <div>
+                        <p className="font-medium text-foreground">{p.medida_01}/{p.medida_02} {p.aro}</p>
+                        <p className="text-sm text-muted-foreground">{p.marca_nome} · <span className="text-xs">{p.tipo || 'Remold'}</span></p>
+                      </div>
+                      <span className={cn('text-sm font-bold px-2 py-1 rounded', badge)}>{q} un.</span>
+                    </div>
+                  );
+                })}
+                {filtered.length === 0 && <p className="text-center text-muted-foreground py-8">Nenhum pneu disponível em estoque.</p>}
+              </div>
+            )}
 
-          {showCadastro && (
-            <div className="border border-border rounded-lg p-4 space-y-3">
-              <h4 className="font-semibold text-sm text-foreground">Cadastrar Novo Pneu</h4>
-              <div><Label className="text-xs">Marca</Label><Input value={cadastroForm.marca} onChange={e => setCadastroForm({ ...cadastroForm, marca: e.target.value })} className="bg-card border-border" /></div>
-              <div>
-                <Label className="text-xs">Tipo</Label>
-                <Select value={cadastroForm.tipo} onValueChange={v => setCadastroForm({ ...cadastroForm, tipo: v })}>
-                  <SelectTrigger className="bg-card border-border"><SelectValue /></SelectTrigger>
-                  <SelectContent>{tipos.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div><Label className="text-xs">Medida 01</Label><Input value={cadastroForm.medida_01} onChange={e => setCadastroForm({ ...cadastroForm, medida_01: e.target.value })} placeholder="205" className="bg-card border-border" /></div>
-                <div><Label className="text-xs">Medida 02</Label><Input value={cadastroForm.medida_02} onChange={e => setCadastroForm({ ...cadastroForm, medida_02: e.target.value })} placeholder="55" className="bg-card border-border" /></div>
-                <div><Label className="text-xs">Aro</Label><Input value={cadastroForm.aro} onChange={e => setCadastroForm({ ...cadastroForm, aro: e.target.value })} placeholder="R16" className="bg-card border-border" /></div>
-              </div>
-              <div><Label className="text-xs">Quantidade</Label><Input type="number" value={cadastroForm.quantidade} onChange={e => setCadastroForm({ ...cadastroForm, quantidade: e.target.value })} className="bg-card border-border" /></div>
-              <div className="grid grid-cols-2 gap-2">
-                <div><Label className="text-xs">Valor Compra (R$)</Label><CurrencyInput value={cadastroForm.valor_medio_compra} onChange={v => setCadastroForm({ ...cadastroForm, valor_medio_compra: v })} className="bg-card border-border" /></div>
-                <div><Label className="text-xs">Valor Venda (R$)</Label><CurrencyInput value={cadastroForm.valor_venda} onChange={v => setCadastroForm({ ...cadastroForm, valor_venda: v })} className="bg-card border-border" /></div>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="outline" size="sm" onClick={() => setShowCadastro(false)}>Cancelar</Button>
-                <Button size="sm" onClick={saveCadastro}>Salvar Pneu</Button>
-              </div>
+            <div className="flex justify-end pt-2 border-t border-border">
+              <Button variant="outline" onClick={closeAll}>Cancelar</Button>
             </div>
-          )}
-
-          <div className="flex justify-end pt-2 border-t border-border">
-            <Button variant="outline" onClick={onClose}>Cancelar</Button>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <AlertDialog open={!!overbookWarn} onOpenChange={(o) => !o && setOverbookWarn(null)}>
+        <AlertDialogContent className="bg-popover border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="w-5 h-5 text-orange-500" /> Estoque insuficiente
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Você tentou inserir <b>{overbookWarn?.requested}</b> unidade(s), mas há apenas{' '}
+              <b>{overbookWarn?.available}</b> em estoque para este pneu. Ajuste a quantidade antes de confirmar.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setOverbookWarn(null)}>Entendi</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
