@@ -1,37 +1,55 @@
+# Plano: Aba "Estoque de Pneus" em Financeiro
 
 ## Objetivo
-Na aba **Financeiro → Caixa**, adicionar um ícone de calculadora ao lado dos campos **Dinheiro** e **Stone (Maquininha)**. Ao clicar, abre um mini módulo de calculadora em popover, e o resultado pode ser aplicado ao campo por um botão "Usar valor".
+Adicionar uma quarta aba em `/financeiro` com uma visão executiva do estoque de pneus e das vendas realizadas, respeitando o seletor de mês já existente.
 
-## Escopo (o que muda)
-- Apenas UI da aba Caixa (`src/components/financeiro/TabCaixa.tsx`).
-- Novo componente reutilizável: `src/components/financeiro/CalculatorPopover.tsx`.
-- Sem mudanças em banco, hooks ou lógica de conciliação.
+## 1. Nova aba na página Financeiro
+Em `src/pages/Financeiro.tsx`, incluir `<TabsTrigger value="estoque-pneus">Estoque de Pneus</TabsTrigger>` e o `<TabsContent>` correspondente, renderizando um novo componente `TabEstoquePneus`.
 
-## Comportamento
-- Ícone `Calculator` (lucide-react) em botão `variant="ghost" size="icon"` posicionado à direita do `CurrencyInput` (usando um wrapper `flex gap-2 items-center`).
-- Ao clicar, abre `Popover` (Radix, já disponível) com:
-  - **Display** do valor atual/expressão (read-only, alinhado à direita, fonte maior).
-  - **Grid de botões** 4 colunas: `C`, `⌫`, `÷`, `×`, `7 8 9 −`, `4 5 6 +`, `1 2 3 =`, `0 . = `.
-  - Suporte a entrada por teclado quando o popover está aberto (dígitos, `.`/`,`, operadores, `Enter`=`=`, `Backspace`, `Esc` fecha).
-  - Botão primário laranja **"Usar valor"** que:
-    - Se houver expressão pendente, avalia primeiro.
-    - Chama `onApply(resultadoNumérico)` → o `TabCaixa` seta o `state` do campo correspondente com `.toFixed(2)` (mesmo formato usado hoje pelo `CurrencyInput`).
-    - Fecha o popover.
-  - Botão secundário **"Fechar"**.
-- Estado interno independente por popover (não persiste ao fechar).
+## 2. Componente `src/components/financeiro/TabEstoquePneus.tsx`
+Layout em grid responsivo (mobile: 1 coluna; md: 2; xl: 4), usando os mesmos `Card` do restante do módulo Financeiro para manter consistência visual.
 
-## Motor de cálculo
-- Parser seguro próprio (evitar `eval`): tokenizador + shunting-yard para `+ − × ÷` com precedência, ou avaliação sequencial simples esquerda-direita respeitando precedência de `× ÷`. Trabalhar em número, arredondar para 2 casas ao aplicar.
-- Aceitar vírgula como separador decimal na exibição (converter para ponto internamente).
-- Tratar divisão por zero → mostrar "Erro" e desabilitar "Usar valor".
+### KPIs (cards)
+Três cards no topo com ícone à esquerda, label pequena e valor grande:
 
-## Arquivos
-- **Criar** `src/components/financeiro/CalculatorPopover.tsx`
-  - Props: `{ value?: string; onApply: (n: number) => void; ariaLabel?: string }`.
-  - Usa `Popover`, `PopoverTrigger`, `PopoverContent`, `Button`.
-- **Editar** `src/components/financeiro/TabCaixa.tsx`
-  - Envolver cada input (Dinheiro e Stone) num `flex` com `<CalculatorPopover onApply={(n)=>setDinheiro(n.toFixed(2))} />` e equivalente para Stone.
-  - Não adicionar no campo PJ (não foi pedido).
+1. **Valor médio em Estoque** — ícone `Wallet`, cor primária.  
+   Fórmula: `SUM(quantidade * valor_medio_compra)` em `estoque_pneus`. Formatado como BRL.
+2. **Pneus em Estoque** — ícone `Package`.  
+   Fórmula: `SUM(quantidade)` em `estoque_pneus`.
+3. **Pneus vendidos no mês** — ícone `TrendingDown`.  
+   Fórmula: `SUM(sp.quantidade)` em `servicos_pneus sp` JOIN `servicos s` onde `sp.baixa_estoque = true`, `s.status IN ('em_progresso','finalizado')` e a data de referência cai no mês selecionado.
 
-## Justificativa
-Solução leve, isolada e reutilizável, sem tocar em lógica financeira. Usa componentes já presentes (Popover, Button) e mantém o padrão visual/dark do app. Deixa o campo PJ intocado conforme requisito.
+Os dois primeiros usam `staleTime: 0` + `refetchOnWindowFocus` (ou invalidação a partir de mutações existentes) para refletir "tempo real"; o terceiro fica atrelado ao `useMonth()`.
+
+### Gráfico "Pneus vendidos por dia"
+Card ocupando a largura total abaixo dos KPIs. `ResponsiveContainer` + `BarChart` do Recharts (via `ChartContainer` existente) com:
+- Eixo X: dia do mês (1..último dia); no mês corrente, corta no dia atual.
+- Eixo Y: quantidade de pneus (inteiro).
+- Barras na cor primária (`hsl(var(--primary))`), tooltip com data completa e quantidade.
+- Estado vazio: mensagem "Sem vendas registradas neste mês".
+
+## 3. Data hook `src/hooks/financeiro/useEstoquePneusData.ts`
+Três `useQuery` distintas para permitir invalidação independente:
+
+- `['fin','estoque-pneus','totais']` → `select quantidade, valor_medio_compra from estoque_pneus`, agrega no cliente.
+- `['fin','estoque-pneus','vendas', mesRef]` → `select quantidade, servicos!inner(status, data_encerramento, data_entrada) from servicos_pneus where baixa_estoque = true and servicos.status in ('em_progresso','finalizado')` filtrado pelo intervalo do mês via `monthRange()`.
+- A partir do resultado das vendas, calcula:
+  - `totalMes`: soma das quantidades.
+  - `porDia`: agrupamento por dia (chave `yyyy-MM-dd`), preenchendo dias faltantes com 0 para o gráfico ficar contínuo.
+
+**Regra de data de venda:** usar `data_encerramento` quando existir; senão `data_entrada`. Isso alinha com a lógica de "vendido de fato" já usada em relatórios do sistema.
+
+## 4. Detalhes técnicos
+- Seguir o padrão `MonthProvider` já existente (a aba lê `useMonth()` para reagir ao seletor global de mês).
+- Reaproveitar `formatCurrency` de `src/lib/format.ts` e `monthRange`/`toMesRef` de `src/lib/financeiro/dates.ts`.
+- Skeleton loaders enquanto `isLoading` (padrão do projeto).
+- Nenhuma alteração de schema, RLS ou migração é necessária — todos os dados já existem.
+
+## Arquivos a criar/editar
+- `src/pages/Financeiro.tsx` — adicionar aba.
+- `src/components/financeiro/TabEstoquePneus.tsx` — novo.
+- `src/hooks/financeiro/useEstoquePneusData.ts` — novo.
+
+## Fora do escopo
+- Registro histórico de estoque (snapshots). A "atualização em tempo real" usa o estado atual da tabela `estoque_pneus`; não guardamos histórico do valor médio.
+- Filtros adicionais (por marca/aro) — podem entrar em iteração futura.
