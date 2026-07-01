@@ -526,6 +526,11 @@ function CadastroPneuDialog({ open, onClose, marcas, setMarcas, fornecedores, ex
               </div>
             </div>
             <div>
+              <Label>Preço sugerido de venda</Label>
+              <CurrencyInput value={valorVenda} onChange={setValorVenda} className="bg-card border-border" />
+              <p className="text-xs text-muted-foreground mt-1">Usado como valor inicial ao incluir este pneu em um serviço.</p>
+            </div>
+            <div>
               <Label>Fornecedor</Label>
               <FornecedorCombobox fornecedores={fornecedores} value={fornecedorId} onChange={setFornecedorId} />
             </div>
