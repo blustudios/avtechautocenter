@@ -298,7 +298,7 @@ function PneuCard({ pneu, onAddStock, onEdit, onHistory, onDelete }: {
       : 'bg-emerald-500/20 text-emerald-500';
 
   return (
-    <div className="bg-card border border-border rounded-lg p-3 sm:p-4 flex items-center gap-3">
+    <div className="bg-card border border-border rounded-lg p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-3">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-base font-bold text-foreground">
@@ -311,7 +311,13 @@ function PneuCard({ pneu, onAddStock, onEdit, onHistory, onDelete }: {
         </div>
         <p className="text-sm text-muted-foreground mt-0.5">{pneu.marca}</p>
       </div>
-      <div className="flex items-center gap-1 shrink-0">
+
+      <PneuFinanceIndicators
+        compra={pneu.valor_medio_compra}
+        venda={pneu.valor_venda}
+      />
+
+      <div className="flex items-center gap-1 shrink-0 sm:border-l sm:border-border sm:pl-2">
         <Button variant="ghost" size="icon" title="Histórico de compras" onClick={onHistory}>
           <History className="w-4 h-4" />
         </Button>
@@ -329,6 +335,39 @@ function PneuCard({ pneu, onAddStock, onEdit, onHistory, onDelete }: {
         >
           <Plus className="w-4 h-4 mr-1" /> Adicionar
         </Button>
+      </div>
+    </div>
+  );
+}
+
+function PneuFinanceIndicators({ compra, venda }: { compra: number; venda: number }) {
+  const hasVenda = venda > 0;
+  const lucro = venda - compra;
+  const lucroColor = !hasVenda
+    ? 'text-muted-foreground'
+    : lucro > 0
+      ? 'text-emerald-500'
+      : lucro < 0
+        ? 'text-destructive'
+        : 'text-muted-foreground';
+  const lucroPrefix = !hasVenda ? '' : lucro > 0 ? '+' : lucro < 0 ? '−' : '';
+  const lucroValue = !hasVenda ? '—' : `${lucroPrefix}${formatCurrency(Math.abs(lucro))}`;
+
+  return (
+    <div className="grid grid-cols-3 gap-3 sm:gap-4 shrink-0 text-right">
+      <div>
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Compra méd.</p>
+        <p className="text-sm font-semibold text-muted-foreground">{formatCurrency(compra)}</p>
+      </div>
+      <div>
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Venda sug.</p>
+        <p className={cn('text-sm font-semibold', hasVenda ? 'text-foreground' : 'text-muted-foreground')}>
+          {hasVenda ? formatCurrency(venda) : '—'}
+        </p>
+      </div>
+      <div>
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Lucro</p>
+        <p className={cn('text-sm font-semibold', lucroColor)}>{lucroValue}</p>
       </div>
     </div>
   );
