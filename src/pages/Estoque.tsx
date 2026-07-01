@@ -160,7 +160,14 @@ export default function Estoque() {
               <PneuCard key={p.id} pneu={p}
                 onAddStock={() => setAddStockPneu(p)}
                 onEdit={() => setEditPneu(p)}
-                onHistory={() => setHistoryPneu(p)} />
+                onHistory={() => setHistoryPneu(p)}
+                onDelete={async () => {
+                  const { count } = await supabase
+                    .from('servicos_pneus')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('pneu_id', p.id);
+                  setDeletePneu({ pneu: p, historyCount: count ?? 0 });
+                }} />
             ))}
             {!loading && filtered.length === 0 && (
               <p className="text-center text-muted-foreground py-12">Nenhum pneu encontrado.</p>
