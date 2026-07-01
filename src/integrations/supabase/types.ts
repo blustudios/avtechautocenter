@@ -768,27 +768,42 @@ export type Database = {
       }
       servicos_pneus: {
         Row: {
+          aro: string | null
           baixa_estoque: boolean
           id: string
-          pneu_id: string
+          marca: string | null
+          medida_01: string | null
+          medida_02: string | null
+          pneu_id: string | null
           quantidade: number
           servico_id: string
+          tipo: string | null
           valor_unitario: number
         }
         Insert: {
+          aro?: string | null
           baixa_estoque?: boolean
           id?: string
-          pneu_id: string
+          marca?: string | null
+          medida_01?: string | null
+          medida_02?: string | null
+          pneu_id?: string | null
           quantidade?: number
           servico_id: string
+          tipo?: string | null
           valor_unitario?: number
         }
         Update: {
+          aro?: string | null
           baixa_estoque?: boolean
           id?: string
-          pneu_id?: string
+          marca?: string | null
+          medida_01?: string | null
+          medida_02?: string | null
+          pneu_id?: string | null
           quantidade?: number
           servico_id?: string
+          tipo?: string | null
           valor_unitario?: number
         }
         Relationships: [

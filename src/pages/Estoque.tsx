@@ -12,7 +12,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { CurrencyInput } from '@/components/ui/currency-input';
-import { Plus, Search, Pencil, History, Minus, Package } from 'lucide-react';
+import { Plus, Search, Pencil, History, Minus, Package, Trash2 } from 'lucide-react';
+import { buttonVariants } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/format';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -54,6 +55,7 @@ export default function Estoque() {
   const [addStockPneu, setAddStockPneu] = useState<Pneu | null>(null);
   const [editPneu, setEditPneu] = useState<Pneu | null>(null);
   const [historyPneu, setHistoryPneu] = useState<Pneu | null>(null);
+  const [deletePneu, setDeletePneu] = useState<{ pneu: Pneu; historyCount: number | null } | null>(null);
 
   const fetchAll = useCallback(async () => {
     setLoading(true);
@@ -158,7 +160,14 @@ export default function Estoque() {
               <PneuCard key={p.id} pneu={p}
                 onAddStock={() => setAddStockPneu(p)}
                 onEdit={() => setEditPneu(p)}
-                onHistory={() => setHistoryPneu(p)} />
+                onHistory={() => setHistoryPneu(p)}
+                onDelete={async () => {
+                  const { count } = await supabase
+                    .from('servicos_pneus')
+                    .select('id', { count: 'exact', head: true })
+                    .eq('pneu_id', p.id);
+                  setDeletePneu({ pneu: p, historyCount: count ?? 0 });
+                }} />
             ))}
             {!loading && filtered.length === 0 && (
               <p className="text-center text-muted-foreground py-12">Nenhum pneu encontrado.</p>
@@ -221,17 +230,63 @@ export default function Estoque() {
       {historyPneu && (
         <HistoryDialog open={!!historyPneu} onClose={() => setHistoryPneu(null)} pneu={historyPneu} />
       )}
+      {deletePneu && (
+        <AlertDialog open={!!deletePneu} onOpenChange={(o) => { if (!o) setDeletePneu(null); }}>
+          <AlertDialogContent className="bg-popover border-border">
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir pneu?</AlertDialogTitle>
+              <AlertDialogDescription asChild>
+                <div className="space-y-2 text-sm text-muted-foreground">
+                  <div className="text-foreground font-medium">
+                    {deletePneu.pneu.marca} — {deletePneu.pneu.medida_01}/{deletePneu.pneu.medida_02} {deletePneu.pneu.aro}
+                  </div>
+                  {(deletePneu.historyCount ?? 0) > 0 ? (
+                    <>
+                      <div className="rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-400 text-xs px-3 py-2">
+                        Este pneu possui histórico em <b>{deletePneu.historyCount}</b> serviço(s).
+                      </div>
+                      <p>
+                        Ele será removido do estoque e do catálogo de pneus, mas o histórico
+                        nos serviços será <b>preservado</b> (marca, medidas e valores continuam visíveis).
+                      </p>
+                    </>
+                  ) : (
+                    <p>Esta ação removerá o pneu e todo o seu histórico de compras. Não pode ser desfeita.</p>
+                  )}
+                </div>
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                className={buttonVariants({ variant: 'destructive' })}
+                onClick={async () => {
+                  const { error } = await supabase.from('estoque_pneus').delete().eq('id', deletePneu.pneu.id);
+                  if (error) { toast.error('Erro ao excluir pneu'); return; }
+                  toast.success('Pneu excluído!');
+                  setDeletePneu(null);
+                  fetchAll();
+                }}
+              >
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   );
 }
 
+
 /* ---------------- Pneu Card ---------------- */
 
-function PneuCard({ pneu, onAddStock, onEdit, onHistory }: {
+function PneuCard({ pneu, onAddStock, onEdit, onHistory, onDelete }: {
   pneu: Pneu;
   onAddStock: () => void;
   onEdit: () => void;
   onHistory: () => void;
+  onDelete: () => void;
 }) {
   const qty = pneu.quantidade;
   const badge = qty === 0
@@ -260,6 +315,10 @@ function PneuCard({ pneu, onAddStock, onEdit, onHistory }: {
         </Button>
         <Button variant="ghost" size="icon" title="Editar" onClick={onEdit}>
           <Pencil className="w-4 h-4" />
+        </Button>
+        <Button variant="ghost" size="icon" title="Excluir pneu" onClick={onDelete}
+          className="text-destructive hover:text-destructive hover:bg-destructive/10">
+          <Trash2 className="w-4 h-4" />
         </Button>
         <Button
           size="sm"

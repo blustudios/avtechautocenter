@@ -154,7 +154,13 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
             setPneusServico(pn.map((p: any) => ({
               pneu_id: p.pneu_id, quantidade: p.quantidade,
               valor_unitario: Number(p.valor_unitario),
-              nome_display: p.estoque_pneus ? `${p.estoque_pneus.marca} ${p.estoque_pneus.medida_01}/${p.estoque_pneus.medida_02} ${p.estoque_pneus.aro}` : 'Pneu',
+              nome_display: (() => {
+                const marca = p.estoque_pneus?.marca ?? p.marca;
+                const m1 = p.estoque_pneus?.medida_01 ?? p.medida_01;
+                const m2 = p.estoque_pneus?.medida_02 ?? p.medida_02;
+                const aro = p.estoque_pneus?.aro ?? p.aro;
+                return marca ? `${marca} ${m1}/${m2} ${aro}` : 'Pneu';
+              })(),
               baixa_estoque: p.baixa_estoque,
             })));
           }
@@ -378,10 +384,23 @@ export function ServiceDialog({ open, serviceId, defaultClienteCpf, initialStatu
         }))).select());
       }
       if (pneusServico.length) {
-        insertOps.push(supabase.from('servicos_pneus').insert(pneusServico.map(p => ({
-          servico_id: id, pneu_id: p.pneu_id, quantidade: p.quantidade,
-          valor_unitario: p.valor_unitario, baixa_estoque: shouldDeduct,
-        }))).select());
+        // Snapshot: preserva marca/medidas mesmo se o pneu for excluído do estoque depois
+        const { data: snapRows } = await supabase.from('estoque_pneus')
+          .select('id, marca, medida_01, medida_02, aro, tipo, marca_id, marcas_pneus(nome)')
+          .in('id', pneusServico.map(p => p.pneu_id));
+        const snapById = new Map((snapRows || []).map((r: any) => [r.id, r]));
+        insertOps.push(supabase.from('servicos_pneus').insert(pneusServico.map(p => {
+          const s: any = snapById.get(p.pneu_id) || {};
+          return {
+            servico_id: id, pneu_id: p.pneu_id, quantidade: p.quantidade,
+            valor_unitario: p.valor_unitario, baixa_estoque: shouldDeduct,
+            marca: s.marcas_pneus?.nome || s.marca || null,
+            medida_01: s.medida_01 || null,
+            medida_02: s.medida_02 || null,
+            aro: s.aro || null,
+            tipo: s.tipo || null,
+          };
+        })).select());
       }
       await Promise.all(insertOps);
 
