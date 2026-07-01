@@ -12,7 +12,8 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Pagination, PaginationContent, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from '@/components/ui/pagination';
 import { CurrencyInput } from '@/components/ui/currency-input';
-import { Plus, Search, Pencil, History, Minus, Package } from 'lucide-react';
+import { Plus, Search, Pencil, History, Minus, Package, Trash2 } from 'lucide-react';
+import { buttonVariants } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/format';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
