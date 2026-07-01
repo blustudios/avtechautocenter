@@ -35,6 +35,7 @@ interface Pneu {
   tipo: string | null;
   quantidade: number;
   valor_medio_compra: number;
+  valor_venda: number;
 }
 
 const todayISO = () => format(new Date(), 'yyyy-MM-dd');
@@ -77,6 +78,7 @@ export default function Estoque() {
       tipo: r.tipo || 'Remold',
       quantidade: Number(r.quantidade) || 0,
       valor_medio_compra: Number(r.valor_medio_compra) || 0,
+      valor_venda: Number(r.valor_venda) || 0,
     }));
     rows.sort((a, b) => b.quantidade - a.quantidade || a.marca.localeCompare(b.marca));
     setPneus(rows);
@@ -296,7 +298,7 @@ function PneuCard({ pneu, onAddStock, onEdit, onHistory, onDelete }: {
       : 'bg-emerald-500/20 text-emerald-500';
 
   return (
-    <div className="bg-card border border-border rounded-lg p-3 sm:p-4 flex items-center gap-3">
+    <div className="bg-card border border-border rounded-lg p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center gap-3">
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-base font-bold text-foreground">
@@ -309,7 +311,13 @@ function PneuCard({ pneu, onAddStock, onEdit, onHistory, onDelete }: {
         </div>
         <p className="text-sm text-muted-foreground mt-0.5">{pneu.marca}</p>
       </div>
-      <div className="flex items-center gap-1 shrink-0">
+
+      <PneuFinanceIndicators
+        compra={pneu.valor_medio_compra}
+        venda={pneu.valor_venda}
+      />
+
+      <div className="flex items-center gap-1 shrink-0 sm:border-l sm:border-border sm:pl-2">
         <Button variant="ghost" size="icon" title="Histórico de compras" onClick={onHistory}>
           <History className="w-4 h-4" />
         </Button>
@@ -327,6 +335,39 @@ function PneuCard({ pneu, onAddStock, onEdit, onHistory, onDelete }: {
         >
           <Plus className="w-4 h-4 mr-1" /> Adicionar
         </Button>
+      </div>
+    </div>
+  );
+}
+
+function PneuFinanceIndicators({ compra, venda }: { compra: number; venda: number }) {
+  const hasVenda = venda > 0;
+  const lucro = venda - compra;
+  const lucroColor = !hasVenda
+    ? 'text-muted-foreground'
+    : lucro > 0
+      ? 'text-emerald-500'
+      : lucro < 0
+        ? 'text-destructive'
+        : 'text-muted-foreground';
+  const lucroPrefix = !hasVenda ? '' : lucro > 0 ? '+' : lucro < 0 ? '−' : '';
+  const lucroValue = !hasVenda ? '—' : `${lucroPrefix}${formatCurrency(Math.abs(lucro))}`;
+
+  return (
+    <div className="grid grid-cols-3 gap-3 sm:gap-4 shrink-0 text-right">
+      <div>
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Compra méd.</p>
+        <p className="text-sm font-semibold text-muted-foreground">{formatCurrency(compra)}</p>
+      </div>
+      <div>
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Venda sug.</p>
+        <p className={cn('text-sm font-semibold', hasVenda ? 'text-foreground' : 'text-muted-foreground')}>
+          {hasVenda ? formatCurrency(venda) : '—'}
+        </p>
+      </div>
+      <div>
+        <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Lucro</p>
+        <p className={cn('text-sm font-semibold', lucroColor)}>{lucroValue}</p>
       </div>
     </div>
   );
@@ -351,6 +392,7 @@ function CadastroPneuDialog({ open, onClose, marcas, setMarcas, fornecedores, ex
   const [aro, setAro] = useState('');
   const [quantidade, setQuantidade] = useState(1);
   const [valorUnit, setValorUnit] = useState('0');
+  const [valorVenda, setValorVenda] = useState('0');
   const [fornecedorId, setFornecedorId] = useState<string | null>(null);
   const [duplicate, setDuplicate] = useState<Pneu | null>(null);
   const [saving, setSaving] = useState(false);
@@ -394,7 +436,7 @@ function CadastroPneuDialog({ open, onClose, marcas, setMarcas, fornecedores, ex
       tipo,
       quantidade,
       valor_medio_compra: parseFloat(valorUnit) || 0,
-      valor_venda: 0,
+      valor_venda: parseFloat(valorVenda) || 0,
     } as any).select().single();
     if (error || !data) { setSaving(false); toast.error('Erro ao cadastrar pneu'); return; }
     await supabase.from('estoque_pneus_compras').insert({
@@ -482,6 +524,11 @@ function CadastroPneuDialog({ open, onClose, marcas, setMarcas, fornecedores, ex
                 <Label>Valor Unitário de Compra</Label>
                 <CurrencyInput value={valorUnit} onChange={setValorUnit} className="bg-card border-border" />
               </div>
+            </div>
+            <div>
+              <Label>Preço sugerido de venda</Label>
+              <CurrencyInput value={valorVenda} onChange={setValorVenda} className="bg-card border-border" />
+              <p className="text-xs text-muted-foreground mt-1">Usado como valor inicial ao incluir este pneu em um serviço.</p>
             </div>
             <div>
               <Label>Fornecedor</Label>
@@ -593,6 +640,7 @@ function EditPneuDialog({ open, onClose, pneu, marcas, setMarcas, onSaved }: {
   const [medida02, setMedida02] = useState(pneu.medida_02);
   const [aro, setAro] = useState(pneu.aro);
   const [quantidade, setQuantidade] = useState(pneu.quantidade);
+  const [valorVenda, setValorVenda] = useState(String(pneu.valor_venda || 0));
   const [saving, setSaving] = useState(false);
 
   const salvar = async () => {
@@ -607,6 +655,7 @@ function EditPneuDialog({ open, onClose, pneu, marcas, setMarcas, onSaved }: {
       medida_02: medida02,
       aro,
       quantidade,
+      valor_venda: parseFloat(valorVenda) || 0,
     } as any).eq('id', pneu.id);
     setSaving(false);
     if (error) { toast.error('Erro ao salvar'); return; }
@@ -654,6 +703,11 @@ function EditPneuDialog({ open, onClose, pneu, marcas, setMarcas, onSaved }: {
           <div>
             <Label>Estoque atual</Label>
             <QuantityStepper value={quantidade} onChange={setQuantidade} allowZero />
+          </div>
+          <div>
+            <Label>Preço sugerido de venda</Label>
+            <CurrencyInput value={valorVenda} onChange={setValorVenda} className="bg-card border-border" />
+            <p className="text-xs text-muted-foreground mt-1">Valor pré-preenchido ao incluir este pneu em um serviço.</p>
           </div>
           <div className="flex justify-end gap-2 pt-2 border-t border-border">
             <Button variant="outline" onClick={onClose} disabled={saving}>Cancelar</Button>

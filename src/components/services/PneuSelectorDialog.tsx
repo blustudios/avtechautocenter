@@ -77,7 +77,8 @@ export function PneuSelectorDialog({ open, onClose, onSelect }: Props) {
   const openSelection = (p: any) => {
     setSelectedPneu(p);
     setQuantidade('1');
-    setValorUnit(String(Number(p.valor_medio_compra) || 0));
+    const sugerido = Number(p.valor_venda) || 0;
+    setValorUnit(String(sugerido > 0 ? sugerido : (Number(p.valor_medio_compra) || 0)));
   };
 
   const handleConfirm = () => {
@@ -154,6 +155,12 @@ export function PneuSelectorDialog({ open, onClose, onSelect }: Props) {
                   <div>
                     <Label className="text-xs">Valor unitário</Label>
                     <CurrencyInput value={valorUnit} onChange={setValorUnit} className="bg-card border-border" />
+                    {Number(selectedPneu.valor_venda) > 0 && (
+                      <button type="button" onClick={() => setValorUnit(String(Number(selectedPneu.valor_venda)))}
+                        className="text-[11px] text-muted-foreground hover:text-primary mt-1">
+                        Sugerido: {formatCurrency(Number(selectedPneu.valor_venda))}
+                      </button>
+                    )}
                   </div>
                 </div>
                 <div className="flex justify-end gap-2 pt-1">
