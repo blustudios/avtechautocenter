@@ -35,6 +35,7 @@ interface Pneu {
   tipo: string | null;
   quantidade: number;
   valor_medio_compra: number;
+  valor_venda: number;
 }
 
 const todayISO = () => format(new Date(), 'yyyy-MM-dd');
