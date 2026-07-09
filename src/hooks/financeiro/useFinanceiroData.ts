@@ -152,7 +152,7 @@ export function useAutoLines(month: Date, categorias: Categoria[] | undefined, o
         mes_referencia: mesRef,
         __virtual: true,
       };
-      return { entrada, saida };
+      return { entrada, saida, custosFuturos };
     },
   });
 }
