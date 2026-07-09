@@ -117,6 +117,11 @@ export function TabCaixa() {
           <span className="text-muted-foreground">Saldo Calculado</span>
           <span className="text-foreground">{formatCurrency(saldoCalculado)}</span>
         </div>
+        {custosFuturos > 0 && (
+          <p className="text-xs text-muted-foreground -mt-2">
+            Não inclui {formatCurrency(custosFuturos)} em custos com data futura.
+          </p>
+        )}
         <div className="border-t border-border pt-3 flex items-center justify-between">
           <span className="text-foreground">Diferença de Caixa</span>
           <span className={`text-lg font-bold ${Math.abs(diferenca) < 0.01 ? 'text-green-400' : 'text-red-400'}`}>
