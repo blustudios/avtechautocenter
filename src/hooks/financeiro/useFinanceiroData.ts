@@ -112,7 +112,12 @@ export function useAutoLines(month: Date, categorias: Categoria[] | undefined, o
         .lte('data_compra', to)
         .in('servicos.status', ['em_progresso', 'finalizado']);
 
+      const today = format(new Date(), 'yyyy-MM-dd');
       const totalCustos = (custos || []).reduce((sum: number, c: any) => sum + Number(c.valor || 0), 0);
+      const custosFuturos = (custos || []).reduce(
+        (sum: number, c: any) => (c.data_compra > today ? sum + Number(c.valor || 0) : sum),
+        0
+      );
 
       const catCustos = categorias?.find(c => c.is_system && c.nome === 'Custos de Serviço');
       const origServicos = origens?.find(o => o.is_system && o.nome === 'Entrada de Serviços');
@@ -147,7 +152,7 @@ export function useAutoLines(month: Date, categorias: Categoria[] | undefined, o
         mes_referencia: mesRef,
         __virtual: true,
       };
-      return { entrada, saida };
+      return { entrada, saida, custosFuturos };
     },
   });
 }
