@@ -40,9 +40,10 @@ export function TabCaixa() {
     : 0;
 
   const allLancs = [...(manuais || []), ...(auto ? [auto.entrada, auto.saida] : [])];
+  const custosFuturos = auto?.custosFuturos || 0;
   const totalEntradas = allLancs.filter(l => l.tipo === 'entrada').reduce((s, l) => s + Number(l.valor_realizado || 0), 0);
   const totalSaidasPagas = allLancs.filter(l => l.tipo === 'saida' && l.status_pagamento === 'pago').reduce((s, l) => s + Number(l.valor_realizado || 0), 0);
-  const saldoCalculado = prev + totalEntradas - totalSaidasPagas;
+  const saldoCalculado = prev + totalEntradas - (totalSaidasPagas - custosFuturos);
   const diferenca = total - saldoCalculado;
 
   const save = async () => {
