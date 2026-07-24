@@ -23,6 +23,7 @@ import ConfigMarcasPneus from "@/pages/configuracoes/MarcasPneus";
 import ConfigFinanceiro from "@/pages/configuracoes/Financeiro";
 import Financeiro from "@/pages/Financeiro";
 import FinanceiroRecorrencias from "@/pages/financeiro/Recorrencias";
+import { MonthProvider } from "@/contexts/MonthContext";
 
 const queryClient = new QueryClient();
 
@@ -47,7 +48,7 @@ function ProtectedRoutes() {
         <Route path="/fornecedores" element={<Fornecedores />} />
         <Route path="/estoque" element={<Estoque />} />
         <Route path="/financeiro" element={<Financeiro />} />
-        <Route path="/financeiro/recorrencias" element={<FinanceiroRecorrencias />} />
+        <Route path="/financeiro/recorrencias" element={<MonthProvider><FinanceiroRecorrencias /></MonthProvider>} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/relatorios" element={<Relatorios />} />
         <Route path="/relatorios/custos" element={<RelatorioCustos />} />
