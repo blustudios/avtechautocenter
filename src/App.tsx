@@ -48,7 +48,7 @@ function ProtectedRoutes() {
         <Route path="/fornecedores" element={<Fornecedores />} />
         <Route path="/estoque" element={<Estoque />} />
         <Route path="/financeiro" element={<Financeiro />} />
-        <Route path="/financeiro/recorrencias" element={<FinanceiroRecorrencias />} />
+        <Route path="/financeiro/recorrencias" element={<MonthProvider><FinanceiroRecorrencias /></MonthProvider>} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/relatorios" element={<Relatorios />} />
         <Route path="/relatorios/custos" element={<RelatorioCustos />} />
