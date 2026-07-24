@@ -15,7 +15,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { ChevronDown, ChevronRight, MoreVertical, Plus, Lock, Search, StickyNote, CalendarIcon, X, ChevronsDownUp } from 'lucide-react';
+import { ChevronDown, ChevronRight, MoreVertical, Plus, Lock, Search, StickyNote, CalendarIcon, X, ChevronsDownUp, Repeat } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { LancamentoSaidaDialog } from './LancamentoSaidaDialog';
 import { LancamentoEntradaDialog } from './LancamentoEntradaDialog';
 import { DeleteRecurrenceDialog } from './DeleteRecurrenceDialog';
@@ -28,6 +29,7 @@ import { cn } from '@/lib/utils';
 
 export function TabLancamentos() {
   const { month } = useMonth();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: categorias } = useCategorias();
   const { data: origens } = useOrigens();
@@ -324,6 +326,12 @@ export function TabLancamentos() {
           )}
         </div>
       )}
+
+      <div className="flex">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/financeiro/recorrencias')} className="text-muted-foreground hover:text-foreground">
+          <Repeat className="w-4 h-4 mr-1" /> Gerenciar recorrências
+        </Button>
+      </div>
 
       <LancamentoSaidaDialog
         open={openSaida}
