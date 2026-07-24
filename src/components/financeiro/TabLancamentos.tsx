@@ -15,7 +15,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { ChevronDown, ChevronRight, MoreVertical, Plus, Lock, Search, StickyNote, CalendarIcon, X, ChevronsDownUp } from 'lucide-react';
+import { ChevronDown, ChevronRight, MoreVertical, Plus, Lock, Search, StickyNote, CalendarIcon, X, ChevronsDownUp, Repeat } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { LancamentoSaidaDialog } from './LancamentoSaidaDialog';
 import { LancamentoEntradaDialog } from './LancamentoEntradaDialog';
 import { DeleteRecurrenceDialog } from './DeleteRecurrenceDialog';
