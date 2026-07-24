@@ -1,66 +1,53 @@
 
 ## Objetivo
-Permitir gerenciar todas as recorrências existentes em uma tela dedicada, com edição opcionalmente propagada para os lançamentos futuros da mesma recorrência.
+Criar uma tela dedicada de gestão de recorrências de saídas, acessível via botão em Financeiro > Lançamentos, permitindo editar e excluir recorrências em dois escopos: **somente esta ocorrência** ou **esta e todas as futuras**.
 
-## 1. Ponto de acesso
-- Em `TabLancamentos.tsx`, adicionar um botão `variant="ghost"` **"Gerenciar recorrências"** (ícone `Repeat`) logo abaixo da seção SAÍDAS, alinhado à esquerda.
-- Ao clicar, navegar para a nova rota `/financeiro/recorrencias` (registrada em `App.tsx`).
+## 1. Ponto de entrada
+- Em `src/components/financeiro/TabLancamentos.tsx`, adicionar um botão discreto **"Gerenciar recorrências"** logo abaixo do bloco de SAÍDAS (alinhado à esquerda, `variant="ghost"` com ícone `Repeat`).
+- Ao clicar, navegar para nova rota `/financeiro/recorrencias` (registrada em `src/App.tsx`).
 
 ## 2. Nova página `src/pages/financeiro/Recorrencias.tsx`
-Layout: header com botão "Voltar" para `/financeiro` + lista/tabela de recorrências.
-
-Cada linha exibe: Título · Frequência · Valor previsto · Próximo vencimento · Data fim · Categoria · Origem · Nº de ocorrências futuras · botão "Editar".
 
 ### Fonte de dados
-Query nova em `useFinanceiroData.ts` — `useRecorrencias()`:
-1. Buscar `financeiro_recorrencias` (id, frequencia, data_inicio, data_fim).
-2. Buscar `financeiro_lancamentos` onde `recorrencia_id IN (...)` e `parcela_grupo_id IS NULL` (exclui faturados/parcelados — o campo `parcela_grupo_id` distingue esses grupos).
-3. Para cada recorrência, agrupar: usar o lançamento mais recente como "representativo" para exibir título/valor/categoria/origem/observações; contar quantos são futuros (`data >= hoje`).
-4. Ignorar recorrências sem lançamentos vinculados (órfãs).
+Uma única consulta agregando as recorrências ativas:
+- `financeiro_lancamentos` com `recorrencia_id IS NOT NULL`, `tipo = 'saida'`, e cuja categoria não seja "Faturados" (filtro por `categoria.nome ILIKE 'faturad%'` OU `is_system` correspondente).
+- Junção com `financeiro_recorrencias` (para `frequencia` e `data_fim`) e `financeiro_categorias` / `financeiro_origens` (para exibição).
 
-**Nota:** faturados são identificados por `parcela_grupo_id NOT NULL` combinado com `recorrencia_id IS NULL` (grupos de fatura não usam `recorrencia_id`), então a filtragem por `recorrencia_id NOT NULL` já garante que não apareçam. Confirmar no `LancamentoSaidaDialog` durante a implementação.
+Cada linha da UI representa **uma recorrência única** (agrupada por `recorrencia_id`), exibindo os dados da **próxima ocorrência a vencer** como "instância representativa". Guarda-se também a instância específica clicada, pois o escopo "somente esta" opera sobre uma ocorrência individual.
 
-## 3. Diálogo de edição `EditRecorrenciaDialog.tsx`
-Campos editáveis, pré-preenchidos a partir do lançamento representativo:
+### Seções
+- **Mês Atual** — recorrências que possuem ao menos uma ocorrência dentro do mês selecionado (usa `MonthContext` já existente).
+- **Outras recorrências** — recorrências que só têm ocorrências em meses futuros (sem instância no mês atual).
+- Ocorrências passadas não entram (nada retroativo).
+
+### Card/linha
+Exibe: título, valor previsto, frequência, próxima data, categoria, origem, badge de "encerra em DD/MM/AAAA" (se `data_fim` definido). Ações: **Editar** (abre dialog) e **Lixeira vermelha**.
+
+## 3. Diálogo de edição `EditRecorrenciaDialog`
+Reaproveitando estilo do `LancamentoSaidaDialog`. Campos editáveis:
 - Título (`descricao`)
-- Frequência (`diaria` | `semanal` | `mensal` | `anual`) — **adiciona nova opção "diária"**
-- Valor previsto (`CurrencyInput`)
-- Data fim da recorrência (`Input type=date`)
-- Categoria (`Select`)
-- Origem (`Select`)
-- Observações padrão (`Textarea`)
+- Frequência: **Mensal** ou **Anual** apenas (Select restrito)
+- Valor previsto
+- Data de encerramento (`financeiro_recorrencias.data_fim`)
+- Categoria
+- Origem
+- Observações
 
-Ao clicar em **Salvar** → abre `AlertDialog` com escolha de escopo:
-- **Somente este mês** — atualiza apenas o lançamento do mês atual (identificado pelo `MonthContext` ativo, ou o próximo futuro se não houver no mês).
-- **Este e todos os futuros** — atualiza todos os lançamentos com `recorrencia_id = X` e `data >= data_do_lancamento_pivô`.
+Ao clicar em **Salvar**, abre um segundo AlertDialog perguntando o escopo:
+- **Somente esta ocorrência** — atualiza apenas o `financeiro_lancamentos` da instância clicada. Não toca em `financeiro_recorrencias`.
+- **Esta e todas as futuras** — atualiza todos os `financeiro_lancamentos` com o mesmo `recorrencia_id` E `data >= data_da_instancia`; atualiza `financeiro_recorrencias` (frequência/data_fim). Alteração de frequência exige recomputar as datas das ocorrências futuras: apagar as futuras existentes (>= data atual da instância) e recriá-las via `expandRecurrence` (`src/lib/financeiro/recurrence.ts`) usando novo `data_fim`.
 
-Mudanças de **frequência** e **data fim** afetam a estrutura da recorrência e forçam automaticamente o escopo "futuros":
-- Se `data_fim` mudou ou `frequencia` mudou → deletar lançamentos futuros existentes dessa recorrência (data > hoje ou data > pivô) e regenerar via `expandRecurrence` com os novos parâmetros, preservando o `recorrencia_id` e usando o título/valor/categoria/origem/observações novos.
-- Atualizar a linha em `financeiro_recorrencias` (frequencia, data_fim).
+## 4. Exclusão
+Clique na lixeira dispara um AlertDialog com as duas opções:
+- **Somente esta ocorrência** — `DELETE` do único `financeiro_lancamentos`.
+- **Esta e todas as futuras** — `DELETE` de todas as instâncias com mesmo `recorrencia_id` e `data >= instância`; se não sobrar nenhuma futura E nenhuma passada foi preservada (opcional), remover também a linha em `financeiro_recorrencias`. Alinhar com o comportamento já usado em `DeleteRecurrenceDialog.tsx` para manter consistência.
 
-Mudanças apenas em título/valor/categoria/origem/observações → simples `UPDATE` em `financeiro_lancamentos` conforme escopo escolhido.
+## 5. Invalidations
+Após qualquer mutação, invalidar `['fin']` (React Query) para atualizar Lançamentos, Resumo e Caixa.
 
-Lançamentos com `status_pagamento = 'pago'` são preservados mesmo no escopo "futuros" (não sobrescreve pagos).
-
-## 4. Suporte a frequência diária
-- `src/lib/financeiro/recurrence.ts`: adicionar `'diaria'` ao tipo `Frequencia` e o ramo `cursor = addDays(start, i)` no `expandRecurrence`. Aumentar o limite de segurança de 600 para 4000.
-- `LancamentoSaidaDialog.tsx`: adicionar opção "Diária" no `Select` de frequência.
-
-## 5. Alterações no banco
-Nenhuma migração de schema necessária — o schema atual comporta tudo. Apenas escrita via `supabase--insert` para updates/deletes durante a edição.
-
-## Considerações técnicas
-- Excluir recorrências cujo único vínculo seja com lançamentos faturados (não deve ocorrer no fluxo atual, mas filtro por `parcela_grupo_id IS NULL` garante).
-- Se a recorrência não tem mais lançamentos futuros após edição, permanece no banco mas some da lista (filtro por `count > 0`).
-- Invalidar `['fin']` no react-query após salvar.
-
-## Arquivos afetados
-```text
-src/pages/financeiro/Recorrencias.tsx          (novo)
-src/components/financeiro/EditRecorrenciaDialog.tsx (novo)
-src/components/financeiro/TabLancamentos.tsx   (botão)
-src/hooks/financeiro/useFinanceiroData.ts      (useRecorrencias)
-src/lib/financeiro/recurrence.ts               (freq diária)
-src/components/financeiro/LancamentoSaidaDialog.tsx (opção diária no select)
-src/App.tsx                                    (rota)
-```
+## Detalhes técnicos
+- Novos arquivos: `src/pages/financeiro/Recorrencias.tsx`, `src/components/financeiro/EditRecorrenciaDialog.tsx`.
+- Ajustes: `src/App.tsx` (rota), `src/components/financeiro/TabLancamentos.tsx` (botão + `useNavigate`).
+- A lógica de expansão de datas usa a função existente `expandRecurrence`. Frequência **diária/semanal** fica fora da UI conforme solicitado; se um registro legado tiver `semanal`, exibimos read-only "Semanal" e forçamos escolha entre Mensal/Anual ao salvar em escopo futuro.
+- Filtro "Faturados": faturas usam `parcela_grupo_id`, mas o pedido é excluir a **categoria** Faturados — filtrar por `categoria.nome` (case-insensitive `faturad%`). Ajustável se a categoria tiver outro nome exato.
+- Nenhuma alteração de schema é necessária.
