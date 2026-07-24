@@ -23,6 +23,7 @@ import ConfigMarcasPneus from "@/pages/configuracoes/MarcasPneus";
 import ConfigFinanceiro from "@/pages/configuracoes/Financeiro";
 import Financeiro from "@/pages/Financeiro";
 import FinanceiroRecorrencias from "@/pages/financeiro/Recorrencias";
+import { MonthProvider } from "@/contexts/MonthContext";
 
 const queryClient = new QueryClient();
 
