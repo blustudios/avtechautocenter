@@ -29,6 +29,7 @@ import { cn } from '@/lib/utils';
 
 export function TabLancamentos() {
   const { month } = useMonth();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const { data: categorias } = useCategorias();
   const { data: origens } = useOrigens();
@@ -325,6 +326,12 @@ export function TabLancamentos() {
           )}
         </div>
       )}
+
+      <div className="flex">
+        <Button variant="ghost" size="sm" onClick={() => navigate('/financeiro/recorrencias')} className="text-muted-foreground hover:text-foreground">
+          <Repeat className="w-4 h-4 mr-1" /> Gerenciar recorrências
+        </Button>
+      </div>
 
       <LancamentoSaidaDialog
         open={openSaida}
