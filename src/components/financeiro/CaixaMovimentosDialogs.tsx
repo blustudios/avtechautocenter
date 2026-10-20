@@ -112,6 +112,7 @@ export function DepositarDialog({ open, onOpenChange, mesRef }: BaseProps) {
           <Input placeholder="Descrição (obrigatória)" value={desc} onChange={(e) => setDesc(e.target.value)} />
           <Button className="w-full" disabled={busy} onClick={depositarAvulso}>Registrar entrada avulsa</Button>
         </div>
+        <Button variant="outline" className="w-full" onClick={() => onOpenChange(false)}>Fechar</Button>
       </DialogContent>
     </Dialog>
   );
@@ -140,7 +141,10 @@ export function SacarDialog({ open, onOpenChange, mesRef }: BaseProps) {
         <div className="space-y-3">
           <div><Label>Valor</Label><CurrencyInput value={valor} onChange={setValor} /></div>
           <div><Label>Descrição *</Label><Input value={desc} onChange={(e) => setDesc(e.target.value)} /></div>
-          <Button className="w-full" disabled={busy} onClick={sacar}>Confirmar saque</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>Cancelar</Button>
+            <Button className="flex-1" disabled={busy} onClick={sacar}>Confirmar saque</Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
@@ -193,8 +197,9 @@ export function HistoricoCaixaDialog({ open, onOpenChange, mesRef, saldoAnterior
               </div>
             </div>
           ))}
-          {!rows.length && <p className="text-sm text-muted-foreground py-3">Nenhuma movimentação neste mês.</p>}
+        {!rows.length && <p className="text-sm text-muted-foreground py-3">Nenhuma movimentação neste mês.</p>}
         </div>
+        <Button variant="outline" className="w-full" onClick={() => onOpenChange(false)}>Fechar</Button>
         <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
           <AlertDialogContent>
             <AlertDialogHeader>
