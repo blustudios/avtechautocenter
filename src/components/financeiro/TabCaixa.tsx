@@ -12,6 +12,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useQueryClient } from '@tanstack/react-query';
 import { CalculatorPopover } from './CalculatorPopover';
+import { DepositarDialog, SacarDialog, HistoricoCaixaDialog } from './CaixaMovimentosDialogs';
+import { usaMovimentos, recalcSaldoDinheiro } from '@/lib/financeiro/caixaMovimentos';
 
 export function TabCaixa() {
   const qc = useQueryClient();
@@ -26,6 +28,8 @@ export function TabCaixa() {
   const [dinheiro, setDinheiro] = useState('0');
   const [stone, setStone] = useState('0');
   const [saving, setSaving] = useState(false);
+  const [dlg, setDlg] = useState<'dep' | 'saq' | 'hist' | null>(null);
+  const novoModo = !!caixa?.mesRef && usaMovimentos(caixa.mesRef);
 
   useEffect(() => {
     setPj(String(caixa?.current?.saldo_conta_pj ?? 0));
@@ -56,6 +60,7 @@ export function TabCaixa() {
         saldo_stone: parseFloat(stone) || 0,
       };
       const { error } = await supabase.from('financeiro_caixa').upsert(payload, { onConflict: 'mes_referencia' });
+      if (!error && novoModo) await recalcSaldoDinheiro(caixa!.mesRef);
       if (error) throw error;
       qc.invalidateQueries({ queryKey: ['fin'] });
       toast.success('Caixa atualizado');
@@ -79,13 +84,11 @@ export function TabCaixa() {
           </div>
           <div>
             <Label>Dinheiro</Label>
-            <div className="flex items-center gap-2">
+            {novoModo ? (
+              <CurrencyInput value={dinheiro} onChange={() => {}} readOnly className="opacity-80 cursor-not-allowed" />
+            ) : (
               <CurrencyInput value={dinheiro} onChange={setDinheiro} />
-              <CalculatorPopover
-                ariaLabel="Calculadora para Dinheiro"
-                onApply={(n) => setDinheiro(n.toFixed(2))}
-              />
-            </div>
+            )}
           </div>
           <div>
             <Label>Stone (Maquininha)</Label>
@@ -98,9 +101,24 @@ export function TabCaixa() {
             </div>
           </div>
         </div>
+        {novoModo && (
+          <div className="grid grid-cols-3 gap-2">
+            <Button variant="outline" onClick={() => setDlg('dep')}>Depositar</Button>
+            <Button variant="outline" onClick={() => setDlg('saq')}>Sacar</Button>
+            <Button variant="outline" onClick={() => setDlg('hist')}>Histórico</Button>
+          </div>
+        )}
         <Button onClick={save} disabled={saving} className="w-full bg-primary text-primary-foreground">
           {saving ? 'Salvando...' : 'Salvar Caixa'}
         </Button>
+        {caixa?.mesRef && (
+          <>
+            <DepositarDialog open={dlg === 'dep'} onOpenChange={(o) => setDlg(o ? 'dep' : null)} mesRef={caixa.mesRef} />
+            <SacarDialog open={dlg === 'saq'} onOpenChange={(o) => setDlg(o ? 'saq' : null)} mesRef={caixa.mesRef} />
+            <HistoricoCaixaDialog open={dlg === 'hist'} onOpenChange={(o) => setDlg(o ? 'hist' : null)} mesRef={caixa.mesRef}
+              saldoAnterior={Number(caixa?.previous?.saldo_dinheiro || 0)} />
+          </>
+        )}
       </div>
 
       <div className="bg-card border border-border rounded-lg p-5 space-y-4">

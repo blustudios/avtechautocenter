@@ -242,6 +242,50 @@ export type Database = {
         }
         Relationships: []
       }
+      financeiro_caixa_movimentos: {
+        Row: {
+          created_at: string
+          data: string
+          descricao: string
+          id: string
+          mes_referencia: string
+          servico_id: string | null
+          servico_pagamento_id: string | null
+          tipo: string
+          valor: number
+        }
+        Insert: {
+          created_at?: string
+          data?: string
+          descricao?: string
+          id?: string
+          mes_referencia: string
+          servico_id?: string | null
+          servico_pagamento_id?: string | null
+          tipo: string
+          valor?: number
+        }
+        Update: {
+          created_at?: string
+          data?: string
+          descricao?: string
+          id?: string
+          mes_referencia?: string
+          servico_id?: string | null
+          servico_pagamento_id?: string | null
+          tipo?: string
+          valor?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "financeiro_caixa_movimentos_servico_pagamento_id_fkey"
+            columns: ["servico_pagamento_id"]
+            isOneToOne: true
+            referencedRelation: "servicos_pagamentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       financeiro_categorias: {
         Row: {
           created_at: string

@@ -1,0 +1,1 @@
+- Cash (Dinheiro) balance from Oct/2026 is derived from financeiro_caixa_movimentos (previous month + deposits − withdrawals) and written to financeiro_caixa; older months stay manual. Why: auditable cash history without breaking past data.
