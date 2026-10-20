@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { format } from 'date-fns';
+import { addMonths, format } from 'date-fns';
 import { Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -42,13 +42,15 @@ export function DepositarDialog({ open, onOpenChange, mesRef }: BaseProps) {
   const [busy, setBusy] = useState(false);
 
   const { data: pendentes, isLoading } = useQuery({
-    queryKey: ['fin', 'caixa-pend'],
+    queryKey: ['fin', 'caixa-pend', mesRef],
     enabled: open,
     queryFn: async () => {
+      const inicio = `${mesRef.slice(0, 7)}-01`;
+      const fim = format(addMonths(new Date(`${inicio}T00:00:00`), 1), 'yyyy-MM-dd');
       const { data: pags, error } = await supabase.from('servicos_pagamentos')
         .select('id, valor, data_pagamento, servico_id, servicos!inner(status, cliente_cpf, carro_placa, carro_placa_livre, clientes(nome))')
         .eq('tipo', 'Dinheiro').eq('pago', true)
-        .in('servicos.status', ['em_progresso', 'finalizado'])
+        .gte('data_pagamento', inicio).lt('data_pagamento', fim)
         .order('data_pagamento', { ascending: false });
       if (error) throw error;
       const { data: usados } = await db.from('financeiro_caixa_movimentos').select('servico_pagamento_id').not('servico_pagamento_id', 'is', null);
