@@ -83,14 +83,6 @@ export function TabCaixa() {
             <CurrencyInput value={pj} onChange={setPj} />
           </div>
           <div>
-            <Label>Dinheiro</Label>
-            {novoModo ? (
-              <CurrencyInput value={dinheiro} onChange={() => {}} readOnly className="opacity-80 cursor-not-allowed" />
-            ) : (
-              <CurrencyInput value={dinheiro} onChange={setDinheiro} />
-            )}
-          </div>
-          <div>
             <Label>Stone (Maquininha)</Label>
             <div className="flex items-center gap-2">
               <CurrencyInput value={stone} onChange={setStone} />
@@ -99,6 +91,14 @@ export function TabCaixa() {
                 onApply={(n) => setStone(n.toFixed(2))}
               />
             </div>
+          </div>
+          <div>
+            <Label>Dinheiro</Label>
+            {novoModo ? (
+              <CurrencyInput value={dinheiro} onChange={() => {}} readOnly className="opacity-80 cursor-not-allowed" />
+            ) : (
+              <CurrencyInput value={dinheiro} onChange={setDinheiro} />
+            )}
           </div>
         </div>
         {novoModo && (
