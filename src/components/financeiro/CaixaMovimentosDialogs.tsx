@@ -93,7 +93,7 @@ export function DepositarDialog({ open, onOpenChange, mesRef }: BaseProps) {
           <Label>Pagamentos em dinheiro de serviços</Label>
           <div className="max-h-64 overflow-y-auto space-y-1.5 border border-border rounded-md p-2">
             {isLoading && <p className="text-sm text-muted-foreground">Carregando...</p>}
-            {!isLoading && !pendentes?.length && <p className="text-sm text-muted-foreground">Nenhum pagamento em dinheiro pendente de depósito.</p>}
+            {!isLoading && !pendentes?.length && <p className="text-sm text-muted-foreground">Nenhum pagamento em dinheiro pago e pendente de depósito neste mês.</p>}
             {pendentes?.map((p: any) => (
               <div key={p.id} className="flex items-center justify-between gap-2 bg-background rounded px-2 py-1.5">
                 <div className="text-sm min-w-0">
